@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Shield, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
-import { DecorativeBackground } from '@/app/components/DecorativeBackground';
+import { DecorativeBackground } from '@/Pages/DecorativeBackground';
 
 export function LoginPage({ onLogin, onSwitchToSignup }) {
   const [email, setEmail] = useState('');

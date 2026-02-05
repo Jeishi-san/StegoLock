@@ -15,10 +15,12 @@
 7. composer require inertiajs/inertia-laravel
 
 8. npm install @inertiajs/react
+9. npm install lucide-react
 
+10. php artisan migrate
+11. php artisan key:generate
+12. php artisan serve
 
-5. php artisan migrate
-6. php artisan key:generate
-7. php artisan serve
+13. npm run dev
 
 
