@@ -12,13 +12,16 @@
         "axios": "^1.11.0",
         "concurrently": "^9.0.1",
         "laravel-vite-plugin": "^2.0.0",
+<<<<<<< HEAD
+=======
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4",
+>>>>>>> 2d9de8bfaeb4fdae07af4084804c804ad7e2a0d1
         "tailwindcss": "^4.1.18",
         "vite": "^7.0.7"
     },
     "dependencies": {
         "@inertiajs/react": "^2.3.13",
-        "lucide-react": "^0.563.0",
-        "react": "^19.2.4",
-        "react-dom": "^19.2.4"
+        "lucide-react": "^0.563.0"
     }
 }

@@ -16,11 +16,12 @@
 
 8. npm install @inertiajs/react
 9. npm install lucide-react
+10. npm install tailwindcss @tailwindcss/vite
 
-10. php artisan migrate
-11. php artisan key:generate
-12. php artisan serve
+11. php artisan migrate
+12. php artisan key:generate
+13. php artisan serve
 
-13. npm run dev
+14. npm run dev
 
 
