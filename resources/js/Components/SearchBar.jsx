@@ -40,16 +40,16 @@ export function SearchBar({ searchQuery, onSearchChange, filters, onFiltersChang
     </div>
   );
 
-  const FilterOption = ({ 
-    label, 
-    active, 
-    onClick 
+  const FilterOption = ({
+    label,
+    active,
+    onClick
   }) => (
     <button
       onClick={onClick}
       className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-        active 
-          ? 'bg-indigo-50 text-indigo-700 font-medium' 
+        active
+          ? 'bg-indigo-50 text-indigo-700 font-medium'
           : 'text-gray-700 hover:bg-gray-50'
       }`}
     >
@@ -90,7 +90,7 @@ export function SearchBar({ searchQuery, onSearchChange, filters, onFiltersChang
         </button>
 
         {showFilters && (
-          <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-[150] max-h-[calc(90vh-100px)] flex flex-col">
+          <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 max-h-[calc(90vh-100px)] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h3 className="font-semibold text-gray-900">Filters & Sort</h3>
               {activeFiltersCount > 0 && (
@@ -107,33 +107,33 @@ export function SearchBar({ searchQuery, onSearchChange, filters, onFiltersChang
             <div className="overflow-y-auto p-4">
               <FilterSection title="Sort By">
                 <div className="space-y-1">
-                  <FilterOption 
-                    label="Name (A-Z)" 
+                  <FilterOption
+                    label="Name (A-Z)"
                     active={filters.sort === 'name-asc'}
                     onClick={() => onFiltersChange({ ...filters, sort: 'name-asc' })}
                   />
-                  <FilterOption 
-                    label="Name (Z-A)" 
+                  <FilterOption
+                    label="Name (Z-A)"
                     active={filters.sort === 'name-desc'}
                     onClick={() => onFiltersChange({ ...filters, sort: 'name-desc' })}
                   />
-                  <FilterOption 
-                    label="Date (Newest First)" 
+                  <FilterOption
+                    label="Date (Newest First)"
                     active={filters.sort === 'date-newest'}
                     onClick={() => onFiltersChange({ ...filters, sort: 'date-newest' })}
                   />
-                  <FilterOption 
-                    label="Date (Oldest First)" 
+                  <FilterOption
+                    label="Date (Oldest First)"
                     active={filters.sort === 'date-oldest'}
                     onClick={() => onFiltersChange({ ...filters, sort: 'date-oldest' })}
                   />
-                  <FilterOption 
-                    label="Size (Largest First)" 
+                  <FilterOption
+                    label="Size (Largest First)"
                     active={filters.sort === 'size-largest'}
                     onClick={() => onFiltersChange({ ...filters, sort: 'size-largest' })}
                   />
-                  <FilterOption 
-                    label="Size (Smallest First)" 
+                  <FilterOption
+                    label="Size (Smallest First)"
                     active={filters.sort === 'size-smallest'}
                     onClick={() => onFiltersChange({ ...filters, sort: 'size-smallest' })}
                   />
@@ -144,28 +144,28 @@ export function SearchBar({ searchQuery, onSearchChange, filters, onFiltersChang
 
               <FilterSection title="File Format">
                 <div className="space-y-1">
-                  <FilterOption 
-                    label="All Formats" 
+                  <FilterOption
+                    label="All Formats"
                     active={filters.fileFormat === 'all'}
                     onClick={() => onFiltersChange({ ...filters, fileFormat: 'all' })}
                   />
-                  <FilterOption 
-                    label="PDF Files" 
+                  <FilterOption
+                    label="PDF Files"
                     active={filters.fileFormat === 'pdf'}
                     onClick={() => onFiltersChange({ ...filters, fileFormat: 'pdf' })}
                   />
-                  <FilterOption 
-                    label="DOC Files" 
+                  <FilterOption
+                    label="DOC Files"
                     active={filters.fileFormat === 'doc'}
                     onClick={() => onFiltersChange({ ...filters, fileFormat: 'doc' })}
                   />
-                  <FilterOption 
-                    label="DOCX Files" 
+                  <FilterOption
+                    label="DOCX Files"
                     active={filters.fileFormat === 'docx'}
                     onClick={() => onFiltersChange({ ...filters, fileFormat: 'docx' })}
                   />
-                  <FilterOption 
-                    label="TXT Files" 
+                  <FilterOption
+                    label="TXT Files"
                     active={filters.fileFormat === 'txt'}
                     onClick={() => onFiltersChange({ ...filters, fileFormat: 'txt' })}
                   />
@@ -176,18 +176,18 @@ export function SearchBar({ searchQuery, onSearchChange, filters, onFiltersChang
 
               <FilterSection title="Status">
                 <div className="space-y-1">
-                  <FilterOption 
-                    label="All Files" 
+                  <FilterOption
+                    label="All Files"
                     active={filters.status === 'all'}
                     onClick={() => onFiltersChange({ ...filters, status: 'all' })}
                   />
-                  <FilterOption 
-                    label="Secured Files" 
+                  <FilterOption
+                    label="Secured Files"
                     active={filters.status === 'secured'}
                     onClick={() => onFiltersChange({ ...filters, status: 'secured' })}
                   />
-                  <FilterOption 
-                    label="Original Files" 
+                  <FilterOption
+                    label="Original Files"
                     active={filters.status === 'original'}
                     onClick={() => onFiltersChange({ ...filters, status: 'original' })}
                   />
@@ -198,18 +198,18 @@ export function SearchBar({ searchQuery, onSearchChange, filters, onFiltersChang
 
               <FilterSection title="Owner">
                 <div className="space-y-1">
-                  <FilterOption 
-                    label="All Owners" 
+                  <FilterOption
+                    label="All Owners"
                     active={filters.owner === 'all'}
                     onClick={() => onFiltersChange({ ...filters, owner: 'all' })}
                   />
-                  <FilterOption 
-                    label="My Files" 
+                  <FilterOption
+                    label="My Files"
                     active={filters.owner === 'me'}
                     onClick={() => onFiltersChange({ ...filters, owner: 'me' })}
                   />
-                  <FilterOption 
-                    label="Shared With Me" 
+                  <FilterOption
+                    label="Shared With Me"
                     active={filters.owner === 'others'}
                     onClick={() => onFiltersChange({ ...filters, owner: 'others' })}
                   />

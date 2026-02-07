@@ -74,7 +74,7 @@ export function DocumentGrid({
     const isMenuOpen = openMenuId === doc.id;
 
     return (
-      <div className={`group relative bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 hover:shadow-xl hover:border-indigo-200 transition-all ${isMenuOpen ? 'z-[50]' : 'z-0'}`}>
+      <div className={`group relative bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 hover:shadow-xl hover:border-indigo-200 transition-all ${isMenuOpen ? 'z-1' : 'z-0'}`}>
         <div className="flex items-start justify-between mb-4">
           <div className={`p-3 rounded-xl ${colorClass}`}>
             <Icon className="size-8" />
