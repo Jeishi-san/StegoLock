@@ -17,4 +17,6 @@ Route::inertia('/', 'Page', ['parameter' => 'value']);
 Route::inertia('/', 'Login');
 Route::inertia('/signup', 'Signup');
 
+Route::inertia('/userview', 'MyDocuments');
+
 
