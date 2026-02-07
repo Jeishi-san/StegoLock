@@ -338,7 +338,7 @@ export default function Sidebar({
   );
 
   return (
-  <aside className="w-64 h-full min-h-screen flex flex-col bg-white/70 backdrop-blur-xl border-r border-gray-200/50 shadow-lg">
+  <aside className="w-full h-full min-h-screen flex flex-col bg-white/70 backdrop-blur-xl border-r border-gray-200/50 shadow-lg">
 
     {/* Logo */}
     <div className="p-6 border-b border-gray-200/50">
@@ -386,7 +386,7 @@ export default function Sidebar({
     </div>
 
     {/* Navigation */}
-    <div className="flex-1">
+    <div className="flex-1 overflow-y-auto pr-2 scroll-smooth">
         <nav className="flex flex-col gap-2">
             {NAV_ITEMS.map((folder, index) => {
                 if (folder === 'separator') {
