@@ -1,10 +1,12 @@
 import './bootstrap';
 import '../css/app.css';
 import '../css/style.css';
+import '../css/tailwind.css';
+import '../css/theme.css';
 
 import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
-import Layout from "@/Layouts/Layout";
+//import Layout from "@/Layouts/Layout";
 
 createInertiaApp({
     resolve: name => {

@@ -19,4 +19,6 @@ Route::inertia('/signup', 'Signup');
 
 Route::inertia('/userview', 'MyDocuments');
 
+Route::inertia('/main', 'Main');
+
 
