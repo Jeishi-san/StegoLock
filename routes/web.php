@@ -14,11 +14,11 @@ Route::get('/', function () {
 Route::inertia('/', 'Page', ['parameter' => 'value']);
 */
 
-Route::inertia('/', 'Login');
-Route::inertia('/signup', 'Signup');
+//Route::inertia('/', 'Login');
+//Route::inertia('/signup', 'Signup');
 
-Route::inertia('/userview', 'MyDocuments');
+//Route::inertia('/userview', 'MyDocuments');
 
-Route::inertia('/main', 'Main');
+Route::inertia('/', 'Main');
 
-
+Route::inertia('/test', 'FileEncryptor');
