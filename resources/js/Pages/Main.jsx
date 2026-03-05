@@ -539,7 +539,7 @@ export default function App() {
   }
 
   return (
-    <div className="size-full flex bg-gradient-to-br from-gray-50 via-white to-gray-100">
+    <div className="h-screen w-full flex overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <Toaster position="top-right" expand={false} richColors />
       {/* Sidebar */}
       <Sidebar
@@ -554,7 +554,7 @@ export default function App() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="bg-white/70 backdrop-blur-xl border-b border-gray-200/50 px-8 py-5 shadow-sm z-50">
           <div className="flex items-center justify-between mb-5">
@@ -599,7 +599,7 @@ export default function App() {
         </div>
 
         {/* Document Area */}
-        <div className="flex-1 overflow-auto">
+        <div id="document-area" className="flex-1 overflow-y-auto overflow-x-hidden relative">
           {showUpload ? (
             <div className="p-6">
               <UploadArea

@@ -159,7 +159,7 @@ export function DocumentGrid({
         </div>
       ) : (
         <div className="p-6">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 overflow-hidden relative z-10">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 overflow-visible relative z-10">
             <table className="w-full">
               <thead className="bg-gray-50/50 border-b border-gray-200">
                 <tr>

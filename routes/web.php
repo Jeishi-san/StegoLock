@@ -21,4 +21,10 @@ Route::inertia('/', 'Page', ['parameter' => 'value']);
 
 Route::inertia('/', 'Main');
 
-Route::inertia('/test', 'FileEncryptor');
+Route::inertia('/test_encrypt', 'FileEncryptor');
+
+Route::inertia('/test_decrypt', 'FileDecryptor');
+
+Route::inertia('/test_uploadencrypted', 'FileUploadEncrypted');
+
+Route::inertia('/test_upload', 'FileUpload');
