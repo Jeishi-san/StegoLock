@@ -22,8 +22,10 @@ class User extends Authenticatable
         'email',
         'password_hash',
         'auth_salt',
+        'ek_salt',
         'master_key_enc',
-        'mk_salt',
+        'nonce',
+        'tag'
     ];
 
     /**
@@ -32,7 +34,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $hidden = [
-        'password',
+        'password_hash',
         'remember_token',
     ];
 

@@ -18,8 +18,10 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->text('password_hash');
             $table->string('auth_salt', 255);
+            $table->string('ek_salt', 255);
             $table->text('master_key_enc');
-            $table->string('mk_salt', 255);
+            $table->text('nonce');
+            $table->text('tag');
             $table->rememberToken();
             $table->timestamps();
         });

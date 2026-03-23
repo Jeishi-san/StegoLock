@@ -37,6 +37,7 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
+        //PBKDF2 on password
         $auth_salt = random_bytes(16);
 
         $password_derivedKey = hash_pbkdf2(
@@ -48,15 +49,31 @@ class RegisteredUserController extends Controller
             true
         );
 
-        //Master Key
-        $mk_salt = random_bytes(16);
-        $master_key = hash_pbkdf2(
+        //Master Key Generation
+        $master_key = random_bytes(32);
+
+        //Encryption Key Derivation
+        $ek_salt = random_bytes(16);
+        $encryption_key = hash_pbkdf2(
             'sha256',
-            $password_derivedKey, //raw bytes
-            $mk_salt,
+            $password_derivedKey,
+            $ek_salt,
             100000,
             32,
             true
+        );
+
+        //Master Key Encryption
+        $nonce = random_bytes(12); // Generate a nonce for AES-GCM
+        $tag = ''; // Will hold authentication tag
+
+        $master_key_enc = openssl_encrypt(
+            $master_key,
+            'aes-256-gcm',
+            $encryption_key,
+            OPENSSL_RAW_DATA,
+            $nonce,
+            $tag
         );
 
         $user = User::create([
@@ -64,8 +81,10 @@ class RegisteredUserController extends Controller
             'email' => $request->email,
             'password_hash' => base64_encode($password_derivedKey),
             'auth_salt' => base64_encode($auth_salt),
-            'master_key_enc' => base64_encode($master_key),
-            'mk_salt' => base64_encode($mk_salt),
+            'ek_salt' => base64_encode($ek_salt),
+            'master_key_enc' => base64_encode($master_key_enc),
+            'nonce' => base64_encode($nonce),
+            'tag' => base64_encode($tag),
         ]);
 
         event(new Registered($user));
