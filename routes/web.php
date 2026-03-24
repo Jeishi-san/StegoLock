@@ -15,10 +15,6 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/old', function () {
-    return Inertia::render('SignUpPage');
-});
-
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -32,5 +28,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/documents/upload', [DocumentController::class, 'upload'])
         ->name('documents.upload');
 });
+
+use App\Http\Controllers\WikiFeedController;
+Route::get('/wiki/random/{p}', [WikiFeedController::class, 'fetchRandomWiki']);
+Route::get('/wiki/export', [WikiFeedController::class, 'exportToTxt']);
+Route::post('/covers/text/generate', [WikiFeedController::class, 'exportToTxt']);
 
 require __DIR__.'/auth.php';
