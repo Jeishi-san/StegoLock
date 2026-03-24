@@ -1,12 +1,15 @@
-import ApplicationLogo from '@/Components/ApplicationLogo';
+import { Shield, Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2,} from "lucide-react";
+import { DecorativeBackground } from "@/Components/DecorativeBackground";
 import { Link } from '@inertiajs/react';
 
 export default function GuestLayout({ children }) {
     return (
-        <div className="flex min-h-screen flex-col items-center bg-gray-100 pt-6 sm:justify-center sm:pt-0">
+        <div className="flex min-h-screen flex-col items-center pt-6 sm:justify-center sm:pt-0">
+            <DecorativeBackground/>
             <div>
                 <Link href="/">
-                    <ApplicationLogo className="h-20 w-20 fill-current text-gray-500" />
+                    <Shield className="size-12 text-black" />
+                    <div className=" ">Welcome to Stegolock</div>
                 </Link>
             </div>
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Config\Constant;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,7 +39,7 @@ class RegisteredUserController extends Controller
         ]);
 
         //PBKDF2 on password
-        $auth_salt = random_bytes(16);
+        $auth_salt = random_bytes(Constant::AUTH_SALT_LEN);
 
         $password_derivedKey = hash_pbkdf2(
             'sha256',
@@ -50,10 +51,10 @@ class RegisteredUserController extends Controller
         );
 
         //Master Key Generation
-        $master_key = random_bytes(32);
+        $master_key = random_bytes(Constant::MK_LEN);
 
         //Encryption Key Derivation
-        $ek_salt = random_bytes(16);
+        $ek_salt = random_bytes(Constant::EK_SALT_LEN);
         $encryption_key = hash_pbkdf2(
             'sha256',
             $password_derivedKey,
@@ -64,7 +65,7 @@ class RegisteredUserController extends Controller
         );
 
         //Master Key Encryption
-        $nonce = random_bytes(12); // Generate a nonce for AES-GCM
+        $nonce = random_bytes(Constant::NONCE_LEN); // Generate a nonce for AES-GCM
         $tag = ''; // Will hold authentication tag
 
         $master_key_enc = openssl_encrypt(
@@ -76,6 +77,7 @@ class RegisteredUserController extends Controller
             $tag
         );
 
+        //Create user in DB
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -89,8 +91,8 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        Auth::login($user);
-
-        return redirect(route('dashboard', absolute: false));
-    }
+        return redirect()
+            ->route('login')
+            ->with('success', 'Registration successful. Please log in to continue.');
+        }
 }
