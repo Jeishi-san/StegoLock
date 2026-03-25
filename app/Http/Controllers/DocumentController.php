@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Models\Document;
 use App\Jobs\EncryptDocumentJob;
+use App\Jobs\ExtractFragmentJob;
 
 class DocumentController extends Controller
 {
@@ -67,5 +68,10 @@ class DocumentController extends Controller
             'message' => 'File uploaded successfully',
             'document_id' => $document->document_id
         ]);
+    }
+
+    public function unlock(Request $request)
+    {
+        ExtractFragmentJob::dispatchSync();
     }
 }

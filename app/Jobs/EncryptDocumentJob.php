@@ -78,7 +78,7 @@ class EncryptDocumentJob implements ShouldQueue
             ]);
 
             // Safe to delete uploaded file
-            //Storage::delete($this->filePath);
+            Storage::delete($this->filePath);
 
             // Segmentation
             SegmentDocumentJob::dispatchSync($document->document_id, $encPath, base64_encode($masterKey));

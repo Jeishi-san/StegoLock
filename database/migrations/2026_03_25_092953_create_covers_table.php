@@ -4,11 +4,15 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
         Schema::create('covers', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('cover_id')->primary();
             $table->string('filename');
             $table->string('path');
             $table->enum('type', ['image', 'audio', 'text']);
@@ -19,6 +23,9 @@ return new class extends Migration {
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
         Schema::dropIfExists('covers');

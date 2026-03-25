@@ -100,7 +100,15 @@ class SegmentDocumentJob implements ShouldQueue
         Storage::delete($this->filePath);
 
         //test
-        AssembleFragmentsJob::dispatchSync($document->document_id, $this->masterKey);
+        //AssembleFragmentsJob::dispatchSync($document->document_id, $this->masterKey);
+
+        //test
+        //$samp_Fragment = Fragment::find('2d52491d-286d-47ad-9c75-a2f67f0eb85f');
+        EmbedFragmentJob::dispatchSync();//$samp_Fragment
+
+        //test
+        //$samp_Fragment = Fragment::find('2d52491d-286d-47ad-9c75-a2f67f0eb85f');
+        //ExtractFragmentJob::dispatchSync();//$samp_Fragment
 
         //Dispatch cover file generation and mapping
         //Job::dispatchSync($document->document_id, $encPath);

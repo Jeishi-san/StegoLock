@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Cover;
+use Illuminate\Support\Str;
 
 class CoverTextSeeder extends Seeder
 {
@@ -25,6 +26,7 @@ class CoverTextSeeder extends Seeder
             ];
 
             Cover::create([
+                'cover_id' => (string) Str::uuid(),      // generate UUID for PK
                 'type' => 'text',
                 'filename' => basename($filePath),
                 'path' => 'cover_texts/' . basename($filePath), // storage path

@@ -16,6 +16,13 @@ export default function Dashboard() {
         Inertia.post('/covers/text/generate', { count: 8 });
     };
 
+    const handleExtract = (e) => {
+        e.preventDefault();
+        //const formData = new FormData(e.target);
+        //Inertia.post('/documents/unlock', formData);
+        Inertia.post('/documents/unlock');
+    };
+
     return (
         <AuthenticatedLayout
             header={
@@ -30,7 +37,6 @@ export default function Dashboard() {
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                         <div className="p-6 text-gray-900">
-                            You're logged in!
                             <form onSubmit={handleUpload} encType="multipart/form-data">
                                 <input type="file" name="file" required />
                                 <button type="submit">Upload</button>
@@ -39,6 +45,12 @@ export default function Dashboard() {
                         <div className="p-6 text-gray-900">
                             <form onSubmit={handleGenerate} encType="multipart/form-data">
                                 <button type="submit">Generate Text</button>
+                            </form>
+                        </div>
+                        <div className="p-6 text-gray-900">
+                            <form onSubmit={handleExtract} encType="multipart/form-data">
+                                {/* <input type="number" name="documentid" placeholder="documentid" required /> */}
+                                <button type="submit">Extract</button>
                             </form>
                         </div>
                     </div>

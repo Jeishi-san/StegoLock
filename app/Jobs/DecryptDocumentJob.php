@@ -73,13 +73,15 @@ class DecryptDocumentJob implements ShouldQueue
 
             // 5. Save decrypted file
             $outputPath = 'uploads/decrypted/' . $document->filename;
-
             Storage::put($outputPath, $plaintext);
 
             // 6. Update document
             $document->update([
                 'status' => 'decrypted'
             ]);
+
+            // Safe to delete decrypted file
+            Storage::delete($encPath);
 
             //return to user for download
             //delete after download / retain files, this leads to new securing process

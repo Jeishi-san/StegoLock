@@ -27,6 +27,9 @@ Route::middleware('auth')->group(function () {
     // Document upload route
     Route::post('/documents/upload', [DocumentController::class, 'upload'])
         ->name('documents.upload');
+
+    Route::post('/documents/unlock', [DocumentController::class, 'unlock'])
+        ->name('documents.unlock');
 });
 
 use App\Http\Controllers\WikiFeedController;
