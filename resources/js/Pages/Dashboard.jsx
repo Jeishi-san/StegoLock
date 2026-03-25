@@ -13,7 +13,7 @@ export default function Dashboard() {
     const handleGenerate = (e) => {
         e.preventDefault();
 
-        Inertia.post('/covers/text/generate', { count: 30 });
+        Inertia.post('/covers/text/generate', { count: 8 });
     };
 
     return (

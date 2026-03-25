@@ -16,7 +16,6 @@ return new class extends Migration
             $table->bigInteger('pageid')->unique();
             $table->string('title');
             $table->text('feed');
-            $table->integer('char_size');
             $table->timestamps();
         });
     }
