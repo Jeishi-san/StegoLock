@@ -77,10 +77,11 @@ class EncryptDocumentJob implements ShouldQueue
                 'status' => 'encrypted'
             ]);
 
+            // Safe to delete uploaded file
+            //Storage::delete($this->filePath);
 
-
-            // Segmentation / embedding will be separate
-            // SegmentDocumentJob::dispatchNow($document->document_id, $encPath);
+            // Segmentation
+            SegmentDocumentJob::dispatchSync($document->document_id, $encPath, base64_encode($masterKey));
 
         } catch (\Throwable $e) {
             // Update document with failure info

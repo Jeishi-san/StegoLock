@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
 
             $table->string('filename');
+            $table->string('file_type');
             $table->string('file_hash')->unique(); // SHA-256
             $table->unsignedBigInteger('original_size');
 
@@ -29,6 +30,10 @@ return new class extends Migration
                 'fragmented',
                 'embedded',
                 'stored',
+                'extracted',
+                'reconstructed',
+                'decrypted',
+                'retrieved',
                 'failed'
             ])->default('uploaded');
 

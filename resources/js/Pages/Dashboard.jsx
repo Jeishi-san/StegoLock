@@ -37,12 +37,6 @@ export default function Dashboard() {
                             </form>
                         </div>
                         <div className="p-6 text-gray-900">
-                            <form method="POST" action={`/documents/decrypt`}>
-                                <input type="number" name="document_id" placeholder="Document ID" required />
-                                <button type="submit">Decrypt</button>
-                            </form>
-                        </div>
-                        <div className="p-6 text-gray-900">
                             <form onSubmit={handleGenerate} encType="multipart/form-data">
                                 <button type="submit">Generate Text</button>
                             </form>

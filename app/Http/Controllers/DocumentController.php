@@ -35,6 +35,7 @@ class DocumentController extends Controller
         $document = Document::create([
             'user_id' => Auth::id(),
             'filename' => $file->getClientOriginalName(),
+            'file_type' => $file->getClientOriginalExtension(),
             'file_hash' => $fileHash,
             'original_size' => $file->getSize(),
             'status' => 'uploaded'
