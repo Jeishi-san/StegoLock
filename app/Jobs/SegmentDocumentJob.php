@@ -34,12 +34,12 @@ class SegmentDocumentJob implements ShouldQueue
 
         $ciphertextLength = strlen($ciphertext);
 
-        if ($ciphertextLength > 262144) {
-            // > 256 KB → random fragment size between 64 KB and 256 KB
+        if ($ciphertextLength > 512000) {
+            // > 500 KB → random fragment size between 64 KB and 256 KB
             $fragmentSize = random_int(65536, 262144);
             $fragments = str_split($ciphertext, $fragmentSize);
-        } elseif ($ciphertextLength > 65536) {
-            // 64 KB < length ≤ 256 KB → split into 5 equal-ish fragments
+        } elseif ($ciphertextLength > 102400) {
+            // 100 KB < length ≤ 500 KB → split into 5 equal-ish fragments
             $numFragments = 5;
             $fragments = [];
             $partSize = intdiv($ciphertextLength, $numFragments);
@@ -52,7 +52,7 @@ class SegmentDocumentJob implements ShouldQueue
                 $offset += $size;
             }
         } else {
-            // ≤ 64 KB → split into 3 equal-ish fragments
+            // ≤ 100 KB → split into 3 equal-ish fragments
             $numFragments = 3;
             $fragments = [];
             $partSize = intdiv($ciphertextLength, $numFragments);
@@ -92,25 +92,26 @@ class SegmentDocumentJob implements ShouldQueue
         if (!$document) return;
 
         $document->update([
-            'fragments' => count($fragments),
+            'fragment_count' => count($fragments),
             'status' => 'fragmented'
         ]);
 
         // Safe to delete encrypted file
         Storage::delete($this->filePath);
 
+        //Dispatch cover file generation and mapping
+        dd('YOU\'RE ABOUT TO MAP FRAGMENTS FOR DOCUMENT: '.$this->documentId);
+        //MapFragmentsToCoversJob::dispatch($this->documentId);
+
         //test
         //AssembleFragmentsJob::dispatchSync($document->document_id, $this->masterKey);
 
         //test
         //$samp_Fragment = Fragment::find('2d52491d-286d-47ad-9c75-a2f67f0eb85f');
-        EmbedFragmentJob::dispatchSync();//$samp_Fragment
+        //EmbedFragmentJob::dispatchSync();//$samp_Fragment
 
         //test
         //$samp_Fragment = Fragment::find('2d52491d-286d-47ad-9c75-a2f67f0eb85f');
         //ExtractFragmentJob::dispatchSync();//$samp_Fragment
-
-        //Dispatch cover file generation and mapping
-        //Job::dispatchSync($document->document_id, $encPath);
     }
 }

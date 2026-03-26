@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\DocumentController;
-use App\Http\Controllers\ProfileController;
+namespace App\Http\Controllers;
+
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -36,5 +36,6 @@ use App\Http\Controllers\WikiFeedController;
 Route::get('/wiki/random/{p}', [WikiFeedController::class, 'fetchRandomWiki']);
 Route::get('/wiki/export', [WikiFeedController::class, 'exportToTxt']);
 Route::post('/covers/text/generate', [WikiFeedController::class, 'exportToTxt']);
+Route::post('/covers/scan', [CoverController::class, 'scan_cover']);
 
 require __DIR__.'/auth.php';

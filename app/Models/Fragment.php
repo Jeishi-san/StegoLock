@@ -30,7 +30,6 @@ class Fragment extends Model
     // Optional: cast the status as enum
     protected $casts = [
         'status' => 'string', // could also be custom Enum class if needed
-        'blob' => 'integer',
     ];
 
     // Relationship: Fragment belongs to a Document

@@ -20,18 +20,23 @@ class Document extends Model
         'encrypted_size',
         'dk_salt',
         'status',
-        'fragments',
+        'fragment_count',
         'error_message'
     ];
 
     protected $casts = [
         'original_size' => 'integer',
         'encrypted_size' => 'integer',
-        'fragments' => 'integer',
+        'fragment_count' => 'integer',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function fragments()
+    {
+        return $this->hasMany(Fragment::class, 'document_id', 'document_id');
     }
 }

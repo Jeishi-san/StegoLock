@@ -27,7 +27,7 @@ class EmbedFragmentJob implements ShouldQueue
     {
         //$this->lsb_on_txt();
         //$this->lsb_on_img();
-        $this->lsb_on_audio();
+        //$this->lsb_on_audio();
     }
 
     private function lsb_on_txt(): void

@@ -28,6 +28,7 @@ return new class extends Migration
                 'uploaded',
                 'encrypted',
                 'fragmented',
+                'mapped',
                 'embedded',
                 'stored',
                 'extracted',
@@ -37,7 +38,7 @@ return new class extends Migration
                 'failed'
             ])->default('uploaded');
 
-            $table->integer('fragments')->nullable();
+            $table->integer('fragment_count')->nullable();
             $table->text('error_message')->nullable();
 
             $table->timestamps();
