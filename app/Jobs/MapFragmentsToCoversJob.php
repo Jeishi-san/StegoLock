@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Models\Document;
 use App\Models\Cover;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Models\FragmentMap;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -23,155 +25,242 @@ class MapFragmentsToCoversJob implements ShouldQueue
 
     public function handle()
     {
-        // PHASE 1: Allocation of fragments to cover types
-        $document = Document::with('fragments')->find($this->documentId);
-
-        if (!$document) {
-            throw new \Exception('Document not found');
-        }
-
-        if ($document->status !== 'fragmented') {
-            throw new \Exception('Document not ready for mapping');
-        }
-
-        $fragments = $document->fragments;
-        $expectedCount = $document->fragment_count;
-
-        if ($fragments->count() !== $expectedCount) {
-            throw new \Exception('Fragment count mismatch. Possible corruption or incomplete segmentation.');
-        }
-
-        $total = $fragments->count();
-        // safety guard
-        if ($total < 1) {
-            throw new \Exception('No fragments available for mapping.');
-        }
-
-        if ($total <= 5) {
-            // deterministic allocation for small fragment sets
-            $textCount  = 1;
-            $audioCount = 1;
-            $imageCount = $total - 2; // remaining fragments are images
-        } else {
-            // percentage-based allocation for larger fragment sets
-            $textCount  = max(1, ceil($total * 0.1));
-            $audioCount = max(1, ceil($total * 0.2));
-            $imageCount = $total - $textCount - $audioCount;
-        }
-
-        dd($textCount, $audioCount, $imageCount);
-
-/*
-PHASE 1: Precompute Cover Pools
-$textCovers  = Cover::where('type', 'text')
-    ->get()
-    ->sortBy(fn ($c) => $c->metadata['capacity']);
-
-$audioCovers = Cover::where('type', 'audio')
-    ->get()
-    ->sortBy(fn ($c) => $c->metadata['capacity']);
-
-$imageCovers = Cover::where('type', 'image')
-    ->get()
-    ->sortBy(fn ($c) => $c->metadata['capacity']);
-
-PHASE 2: Precompute Fragment Groups
-$fragments = $fragments->sortBy('size_bytes');
-$textFragments  = $fragments->take($textCount);
-$audioFragments = $fragments->slice($textCount, $audioCount);
-$imageFragments = $fragments->slice($textCount + $audioCount);
-
-Build a reusable selection function
-function pickCover($fragmentSize, $pool)
-{
-    // filter valid covers
-    $candidates = $pool->filter(function ($cover) use ($fragmentSize) {
-        return ($cover->metadata['capacity'] ?? 0) > $fragmentSize;
-    });
-    if ($candidates->isEmpty()) {
-        return null;
-    }
-    // optional improvement: weighted random instead of full random
-    return $candidates->random();
-}
-
-PHASE 3: MATCHING STRATEGY
-Use a "first-fit randomized bounded search"
-For each fragment:
-foreach ($fragments as $frag) {
-
-    $cover = pickCover($frag->size_bytes, $textPool);
-
-    if (!$cover) {
-        // fallback generation
-        $cover = $this->generateTextCover($frag);
-        $textPool->push($cover); // add to pool for reuse
+        $this->mapFragmentsToCovers();
     }
 
-    $mappingArray[] = [
-        'fragment_id' => $frag->fragment_id,
-        'cover_id'    => $cover->cover_id,
-        'offset'      => 0,
-    ];
-}
-*/
+    public function mapFragmentsToCovers()
+    {
+        //print or display "mapping ongoing..."
 
-/* TO BE CHECKED
-        // fetch valid covers per type
-        $textCovers = Cover::where('type', 'text')->get();
-        $audioCovers = Cover::where('type', 'audio')->get();
-        $imageCovers = Cover::where('type', 'image')->get();
+        try {
+            // PHASE 1: Allocation of fragments to cover types
 
-        //$fragment->size <= cover_capacity
+                //print or display "allocating covers"
 
-        // simple validation: size enough? metadata present? skip for now or add checks
-        $mappingArray = [];
+                $document = Document::with('fragments')->find($this->documentId);
 
-        // Assign text fragments
-        $textFragments = $fragments->take($textCount);
-        foreach ($textFragments as $frag) {
-            $cover = $textCovers->random();
-            $mappingArray[] = [
-                'fragment_id' => $frag->fragment_id,
-                'cover_id' => $cover->cover_id,
-                'offset' => 0,
-            ];
+                if (!$document) {
+                    throw new \Exception('Document not found');
+                }
+
+                if ($document->status !== 'fragmented') {
+                    throw new \Exception('Document not ready for mapping');
+                }
+
+                $fragments = $document->fragments->shuffle()->values();
+                $expectedCount = $document->fragment_count;
+
+                if ($fragments->count() !== $expectedCount) {
+                    throw new \Exception('Fragment count mismatch. Possible corruption or incomplete segmentation.');
+                }
+
+                $total = $fragments->count();
+                // safety guard
+                if ($total < 1) {
+                    throw new \Exception('No fragments available for mapping.');
+                }
+
+                if ($total <= 5) {
+                    // deterministic allocation for small fragment sets
+                    $textCount  = 1;
+                    $audioCount = 1;
+                    $imageCount = $total - 2; // remaining fragments are images
+                } else {
+                    // percentage-based allocation for larger fragment sets
+                    $textCount  = max(1, ceil($total * 0.1));
+                    $audioCount = max(1, ceil($total * 0.2));
+                    $imageCount = $total - $textCount - $audioCount;
+                }
+
+            // PHASE 2: Fetch valid covers
+                $fragmentSize = $fragments->max('size');
+
+                $textCoverPool  = Cover::where('type', 'text')
+                    ->get()->map(fn ($c) => [
+                                    'id' => $c->cover_id,
+                                    'capacity' => $c->metadata['capacity'] ?? null,
+                                ])
+                                ->filter(fn ($c) => $c['capacity'] >= $fragmentSize)
+                                ->values()->toArray();
+                if (empty($textCoverPool)) {
+
+                    while (count($textCoverPool) < $textCount) {
+                        $newTextCover = $this->generate_text_cover($fragmentSize);
+
+                        // normalize + append
+                        $textCoverPool[] = [
+                            'id' => $newTextCover->cover_id,
+                            'capacity' => $newTextCover->metadata['capacity'] ?? 0,
+                        ];
+                    }
+
+                }
+
+                $audioCoverPool = Cover::where('type', 'audio')
+                    ->get()->map(fn ($c) => [
+                                    'id' => $c->cover_id,
+                                    'capacity' => $c->metadata['capacity'] ?? null,
+                                ])
+                                ->filter(fn ($c) => $c['capacity'] >= $fragmentSize)
+                                ->values()->toArray();
+                if (empty($audioCoverPool)) {
+                    throw new \Exception('No available audio covers');
+                    // while (count($audioCoverPool) < $audioCount) {
+                        //$newAudioCover = $this->generate_audio_cover($fragmentSize);
+
+                        // normalize + append
+                        // $audioCoverPool[] = [
+                        //     'id' => $newAudioCover->cover_id,
+                        //     'capacity' => $newAudioCover->metadata['capacity'] ?? 0,
+                        // ];
+                    // }
+                }
+
+                $imageCoverPool = Cover::where('type', 'image')
+                    ->get()->map(fn ($c) => [
+                                    'id' => $c->cover_id,
+                                    'capacity' => $c->metadata['capacity'] ?? null,
+                                ])
+                                ->filter(fn ($c) => $c['capacity'] >= $fragmentSize)
+                                ->values()->toArray();
+                if (empty($imageCoverPool)) {
+                    throw new \Exception('No available image covers');
+                }
+
+            // PHASE 3: Mapping Proper
+                $mappingArray = [];
+
+                // Assign text fragments
+                $textFragments = $fragments->take($textCount);
+                foreach ($textFragments as $frag) {
+                    $cover = collect($textCoverPool)->random();
+                    $mappingArray[] = [
+                        'fragment_id' => $frag->fragment_id,
+                        'cover_id' => $cover['id'],
+                        'offset' => 0,
+                    ];
+                }
+
+                // Assign audio fragments
+                $audioFragments = $fragments->slice($textCount, $audioCount);
+                foreach ($audioFragments as $frag) {
+                    $cover = collect($audioCoverPool)->random();
+                    $mappingArray[] = [
+                        'fragment_id' => $frag->fragment_id,
+                        'cover_id' => $cover['id'],
+                        'offset' => 0,
+                    ];
+                }
+
+                // Assign image fragments
+                $imageFragments = $fragments->slice($textCount + $audioCount, $imageCount);
+                foreach ($imageFragments as $frag) {
+                    $cover = collect($imageCoverPool)->random();
+                    $mappingArray[] = [
+                        'fragment_id' => $frag->fragment_id,
+                        'cover_id' => $cover['id'],
+                        'offset' => 0,
+                    ];
+                }
+
+            // PHASE 4: Saving mapping to database
+            $map = FragmentMap::create([
+                'map_id' => (string) Str::uuid(),
+                'document_id' => $document->document_id,
+                'fragments_in_covers' => $mappingArray,
+                'status' => 'pending',
+            ]);
+
+            $document->update([
+                'status' => 'mapped',
+                //success message, Mapping created successfully.
+            ]);
+
+            //update fragment status from floating to mapped
+
+            //Dispatch fragment embedding into cover files
+            EmbedFragmentsJob::dispatchSync($map->map_id);
+
+        } catch (\Throwable $e) {
+            // Update document with failure info
+            $document->update([
+                'status' => 'failed',
+                'error_message' => ['Mapping failed', $e->getMessage()]
+            ]);
+
+            //return back()->withErrors('errors', [$e->getMessage(), $document->error_message]);
+        }
+    }
+
+    public function generate_text_cover(int $fragmentSize)
+    {
+        $maxId = DB::table('wiki_feeds')->max('id');
+
+        if (!$maxId) {
+            return response()->json(['error' => 'No data in wiki_feeds'], 500);
         }
 
-        // Assign audio fragments
-        $audioFragments = $fragments->slice($textCount, $audioCount);
-        foreach ($audioFragments as $frag) {
-            $cover = $audioCovers->random();
-            $mappingArray[] = [
-                'fragment_id' => $frag->fragment_id,
-                'cover_id' => $cover->cover_id,
-                'offset' => 0,
-            ];
+        $targetSize = $fragmentSize / 0.02;
+        $content = '';
+        $capacity = 0;
+
+        while (strlen($content) < $targetSize) {
+
+            $randomId = rand(1, $maxId);
+            $feed = DB::table('wiki_feeds')->where('id', $randomId)->first();
+
+            if (!$feed) continue;
+
+            $block = "pageid: {$feed->pageid}\n";
+            $block .= "title: {$feed->title}\n";
+            $block .= "content: {$feed->feed}\n\n";
+
+            if ($capacity > $targetSize) {
+                break;
+            }
+
+            $content .= $block;
+            $capacity = floor(strlen($content) * 0.02);
         }
 
-        // Assign image fragments
-        $imageFragments = $fragments->slice($textCount + $audioCount, $imageCount);
-        foreach ($imageFragments as $frag) {
-            $cover = $imageCovers->random();
-            $mappingArray[] = [
-                'fragment_id' => $frag->fragment_id,
-                'cover_id' => $cover->cover_id,
-                'offset' => 0,
-            ];
+        // File name
+        $randomHex = bin2hex(random_bytes(16));
+        $fileName = "{$randomHex}_cover_" . time() . ".txt";
+
+        // Ensure folder exists
+        if (!file_exists(storage_path('app/public/cover_texts'))) {
+            mkdir(storage_path('app/public/cover_texts'), 0755, true);
         }
 
-        // Save mapping
-        // FragmentMap::create([
-        //     'map_id' => Str::uuid(),
-        //     'document_id' => $this->document->document_id,
-        //     'fragments_in_covers' => $mappingArray,
-        //     'status' => 'pending',
-        // ]);
+        // Save file
+        Storage::disk('public')->put("cover_texts/{$fileName}", $content);
 
-        //this->document.status => mapped
+        $filePath = storage_path('app/public/cover_texts/' . $fileName);
 
-        //dispatch embedding
-*/
+        $cover = Cover::create([
+            'cover_id' => (string) Str::uuid(),      // generate UUID for PK
+            'type' => 'text',
+            'filename' => basename($filePath),
+            'path' => 'cover_text/' . basename($filePath), // storage path
+            'size_bytes' => strlen($content),
+            'metadata' => [
+                            'valid' => true,
+                            'capacity' => floor(strlen($content) * 0.02)
+            ],
+            'hash' => hash('sha256', file_get_contents($filePath)),
+        ]);
+
+        return $cover;
+    }
+
+    public function retryUntil(): ?\DateTimeInterface
+    {
+        return now()->addMinutes(1);
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        // Handle the failure
     }
 
     public function test_or_alternative_codes()

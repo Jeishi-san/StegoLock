@@ -29,89 +29,103 @@ class SegmentDocumentJob implements ShouldQueue
 
     public function handle(): void
     {
-        $ciphertext = file_get_contents(Storage::path($this->filePath));
-        if ($ciphertext === false) return;
+        $this->segment();
+    }
 
-        $ciphertextLength = strlen($ciphertext);
+    public function segment(): void
+    {
+        //print or display "segmentation ongoing..."
 
-        if ($ciphertextLength > 512000) {
-            // > 500 KB → random fragment size between 64 KB and 256 KB
-            $fragmentSize = random_int(65536, 262144);
-            $fragments = str_split($ciphertext, $fragmentSize);
-        } elseif ($ciphertextLength > 102400) {
-            // 100 KB < length ≤ 500 KB → split into 5 equal-ish fragments
-            $numFragments = 5;
-            $fragments = [];
-            $partSize = intdiv($ciphertextLength, $numFragments);
-            $remainder = $ciphertextLength % $numFragments;
+        try {
+            $ciphertext = file_get_contents(Storage::path($this->filePath));
+            if ($ciphertext === false) return;
 
-            $offset = 0;
-            for ($i = 0; $i < $numFragments; $i++) {
-                $size = $partSize + ($i < $remainder ? 1 : 0); // distribute remainder
-                $fragments[] = substr($ciphertext, $offset, $size);
-                $offset += $size;
+            $ciphertextLength = strlen($ciphertext);
+
+            if ($ciphertextLength > 512000) {
+                // > 500 KB → random fragment size between 64 KB and 256 KB
+                $fragmentSize = random_int(65536, 262144);
+                $fragments = str_split($ciphertext, $fragmentSize);
+            } elseif ($ciphertextLength > 102400) {
+                // 100 KB < length ≤ 500 KB → split into 5 equal-ish fragments
+                $numFragments = 5;
+                $fragments = [];
+                $partSize = intdiv($ciphertextLength, $numFragments);
+                $remainder = $ciphertextLength % $numFragments;
+
+                $offset = 0;
+                for ($i = 0; $i < $numFragments; $i++) {
+                    $size = $partSize + ($i < $remainder ? 1 : 0); // distribute remainder
+                    $fragments[] = substr($ciphertext, $offset, $size);
+                    $offset += $size;
+                }
+            } else {
+                // ≤ 100 KB → split into 3 equal-ish fragments
+                $numFragments = 3;
+                $fragments = [];
+                $partSize = intdiv($ciphertextLength, $numFragments);
+                $remainder = $ciphertextLength % $numFragments;
+
+                $offset = 0;
+                for ($i = 0; $i < $numFragments; $i++) {
+                    $size = $partSize + ($i < $remainder ? 1 : 0); // distribute remainder
+                    $fragments[] = substr($ciphertext, $offset, $size);
+                    $offset += $size;
+                }
             }
-        } else {
-            // ≤ 100 KB → split into 3 equal-ish fragments
-            $numFragments = 3;
-            $fragments = [];
-            $partSize = intdiv($ciphertextLength, $numFragments);
-            $remainder = $ciphertextLength % $numFragments;
 
-            $offset = 0;
-            for ($i = 0; $i < $numFragments; $i++) {
-                $size = $partSize + ($i < $remainder ? 1 : 0); // distribute remainder
-                $fragments[] = substr($ciphertext, $offset, $size);
-                $offset += $size;
+            $totalSize = 0;
+
+            foreach ($fragments as $index => $frag) {
+                Fragment::create([
+                    'fragment_id' => (string) Str::uuid(),
+                    'document_id' => $this->documentId,
+                    'index' => $index,
+                    'blob' => base64_encode($frag),
+                    'size' => strlen($frag),
+                    'hash' => hash('sha256', $frag),
+                    'status' => 'floating',
+                ]);
+
+                $totalSize += strlen($frag);
             }
-        }
 
-        $totalSize = 0;
+            // Verification BEFORE deletion
+            if ($totalSize !== $ciphertextLength) {
+                throw new \Exception('Fragmentation failed: size mismatch');
+            }
 
-        foreach ($fragments as $index => $frag) {
-            Fragment::create([
-                'fragment_id' => (string) Str::uuid(),
-                'document_id' => $this->documentId,
-                'index' => $index,
-                'blob' => base64_encode($frag),
-                'size' => strlen($frag),
-                'hash' => hash('sha256', $frag),
-                'status' => 'floating',
+            // Update the database with fragments info
+            $document = Document::find($this->documentId);
+            if (!$document) return;
+
+            $document->update([
+                'fragment_count' => count($fragments),
+                'status' => 'fragmented'
             ]);
 
-            $totalSize += strlen($frag);
+            // Safe to delete encrypted file
+            Storage::delete($this->filePath);
+
+            //Dispatch cover file generation and mapping
+            MapFragmentsToCoversJob::dispatchSync($this->documentId);
+
+        } catch (\Throwable $e) {
+            // Update document with failure info
+            $document->update([
+                'status' => 'failed',
+                'error_message' => ['Segmentation failed', $e->getMessage()]
+            ]);
         }
+    }
 
-        // Verification BEFORE deletion
-        if ($totalSize !== $ciphertextLength) {
-            throw new \Exception('Fragmentation failed: size mismatch');
-        }
+    public function retryUntil(): ?\DateTimeInterface
+    {
+        return now()->addMinutes(1);
+    }
 
-        // Update the database with fragments info
-        $document = Document::find($this->documentId);
-        if (!$document) return;
-
-        $document->update([
-            'fragment_count' => count($fragments),
-            'status' => 'fragmented'
-        ]);
-
-        // Safe to delete encrypted file
-        Storage::delete($this->filePath);
-
-        //Dispatch cover file generation and mapping
-        dd('YOU\'RE ABOUT TO MAP FRAGMENTS FOR DOCUMENT: '.$this->documentId);
-        //MapFragmentsToCoversJob::dispatch($this->documentId);
-
-        //test
-        //AssembleFragmentsJob::dispatchSync($document->document_id, $this->masterKey);
-
-        //test
-        //$samp_Fragment = Fragment::find('2d52491d-286d-47ad-9c75-a2f67f0eb85f');
-        //EmbedFragmentJob::dispatchSync();//$samp_Fragment
-
-        //test
-        //$samp_Fragment = Fragment::find('2d52491d-286d-47ad-9c75-a2f67f0eb85f');
-        //ExtractFragmentJob::dispatchSync();//$samp_Fragment
+    public function failed(\Throwable $exception): void
+    {
+        // Handle the failure
     }
 }

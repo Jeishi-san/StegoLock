@@ -2,6 +2,39 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Inertia } from '@inertiajs/inertia';
 import { Head } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
+
+/*
+const { flash } = usePage().props;
+
+return (
+    <div>
+        {flash?.success && (
+            <div className="bg-green-500 text-white p-2">
+                {flash.success}
+            </div>
+        )}
+
+        {flash?.error && (
+            <div className="bg-red-500 text-white p-2">
+                {flash.error}
+            </div>
+        )}
+    </div>
+);
+
+OR
+
+useEffect(() => {
+    if (flash?.success) {
+        alert(flash.success); // replace with toast library
+    }
+
+    if (flash?.error) {
+        alert(flash.error);
+    }
+}, [flash]);
+*/
 
 export default function Dashboard() {
 
@@ -18,7 +51,20 @@ export default function Dashboard() {
     });
 
     const handleUpload = () => {
-        form.post('/documents/upload');
+        form.post('/documents/upload', {
+            onSuccess: (page) => {
+                console.log('Success:', page.props);
+            },
+            // onSuccess: () => {
+            //     console.log('Success:', form);
+            // },
+            onError: (errors) => {
+                console.log('Validation errors:', errors);
+            },
+            onFinish: () => {
+                console.log('Request finished');
+            },
+        });
     };
 
     const handleGenerate = (e) => {

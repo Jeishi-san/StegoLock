@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Models\Document;
 use App\Models\Fragment;
+use App\Models\Cover;
+use App\Models\FragmentMap;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -12,25 +14,106 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
-class EmbedFragmentJob implements ShouldQueue
+class EmbedFragmentsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    //protected string $fragmentId;
+    protected string $mapId;
 
-    public function __construct() //string $fragmentId
+    public function __construct(string $mapId)
     {
-        //$this->fragmentId = $fragmentId;
+        $this->mapId = $mapId;
     }
 
     public function handle(): void
     {
-        //$this->lsb_on_txt();
-        //$this->lsb_on_img();
-        //$this->lsb_on_audio();
+        $this->embedFragments($this->mapId);
     }
 
-    private function lsb_on_txt(): void
+    private function embedFragments(string $mapId)
+    {
+        $map = FragmentMap::findOrFail($this->mapId);
+        $mapping = $map->fragments_in_covers;
+
+        $stegoMap = [];
+
+        foreach ($mapping as $map) {
+            $stegoMap[] = $this->embed($map['fragment_id'], $map['cover_id']);
+        }
+
+        //Save stegoMap to DB
+
+        return back()->with('success', $stegoMap);
+    }
+
+    private function embed(string $fragmentId, string $coverId)
+    {
+        $cover = Cover::findOrFail($coverId);
+        $fragment = Fragment::findOrFail($fragmentId);
+
+        $fileName = bin2hex(random_bytes(16)) . time();
+
+        $coverFile = storage_path('app/public/'. $cover->path);
+        $stegoFile = storage_path('app/public/cloud_storage/'. $fileName . $this->getExtension($cover->type));
+        $binaryFile = storage_path('app/private/bin/'. $fileName . '.bin');
+
+        if (!file_exists(storage_path('app/private/bin'))) {
+            mkdir(storage_path('app/private/bin'), 0755, true);
+        }
+
+        if (!file_exists(storage_path('app/public/cloud_storage/'))) {
+            mkdir(storage_path('app/public/cloud_storage/'), 0755, true);
+        }
+
+        $fragmentBinaryData = base64_decode($fragment->blob);
+
+        file_put_contents($binaryFile, $fragmentBinaryData);
+
+        $command = "python " . base_path('python_backend/embedding/' . $this->getScript($cover->type)) . " "
+            . escapeshellarg($coverFile) . " "
+            . escapeshellarg($stegoFile) . " "
+            . escapeshellarg($binaryFile) . " 2>&1"; // capture errors
+
+        $output = [];
+        $status = 0;
+
+        exec($command, $output, $status);
+
+        if ($status !== 0) {
+            throw new \Exception("Embedding failed:\n" . implode("\n", $output));
+        }
+
+        $offset = (int) end($output);
+
+        // Optional: log success
+
+        //delete fragment.bin
+        //unlink($binaryFile);
+
+        return ['fragmentId' => $fragmentId, 'stegoFile' => $stegoFile, 'offset' => $offset];
+    }
+
+    private function getExtension(string $coverType): string
+    {
+        return match ($coverType) {
+            'text' => '.txt',
+            'audio' => '.wav',
+            'image' => '.png',
+            default => throw new \InvalidArgumentException("Unsupported cover type: $coverType"),
+        };
+    }
+
+    private function getScript(string $coverType): string
+    {
+        return match ($coverType) {
+            'text' => 'text/embed.py',
+            'audio' => 'audio/embed.py',
+            'image' => 'image/embed.py',
+            default => throw new \InvalidArgumentException("Unsupported cover type: $coverType"),
+        };
+    }
+
+    private function lsb_on_txt(): void //single file embedding
     {
         //TEXT FILE EMBEDDING
         $inputText = storage_path('app/public/cover_texts/0b4de9fe5810de20801214a9d3bcb224_cover_1774372552.txt');
@@ -89,7 +172,7 @@ class EmbedFragmentJob implements ShouldQueue
         //unlink($dataFile);
     }
 
-    private function lsb_on_img(): void
+    private function lsb_on_img(): void //single file embedding
     {
         $inputImage = storage_path('app/public/cover_images/Alarcos_(Ciudad_Real)_cerro_y_asentamiento_íbero_(RPS_25-08-2012).png');
         $outputImage = storage_path('app/public/cloud_storage/output.png');
@@ -111,7 +194,7 @@ class EmbedFragmentJob implements ShouldQueue
         }
     }
 
-    public function lsb_on_audio(): void
+    public function lsb_on_audio(): void //single file embedding
     {
         $inputWAV = storage_path('app/public/cover_audios/470716__adrian-_-115__09_ladridos.wav');
         $outputWAV = storage_path('app/public/cloud_storage/output2.wav');

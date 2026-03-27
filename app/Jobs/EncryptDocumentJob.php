@@ -16,7 +16,7 @@ class EncryptDocumentJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected $documentId;
-    protected $filePath;
+    protected $temp_filePath;
 
     /**
      * Create a new job instance.
@@ -24,10 +24,10 @@ class EncryptDocumentJob implements ShouldQueue
      * @param int $documentId
      * @param string $filePath
      */
-    public function __construct(int $documentId, string $filePath)
+    public function __construct(int $documentId, string $temp_filePath)
     {
         $this->documentId = $documentId;
-        $this->filePath = $filePath;
+        $this->temp_filePath = $temp_filePath;
     }
 
     /**
@@ -35,12 +35,20 @@ class EncryptDocumentJob implements ShouldQueue
      */
     public function handle(): void
     {
+        $this->encrypt();
+    }
+
+    public function encrypt(): void
+    {
+        //print or display "encryption ongoing..."
         $document = Document::find($this->documentId);
-        if (!$document) return;
+        if (!$document) {
+            throw new \Exception("Missing document");
+        }
 
         try {
             // 1. Read the uploaded plaintext file
-            $plaintext = file_get_contents(Storage::path($this->filePath));
+            $plaintext = file_get_contents(Storage::path($this->temp_filePath));
 
             // 2. Generate a random document key salt (32 bytes)
             $dk_salt = random_bytes(Constant::DK_SALT_LEN);
@@ -78,17 +86,27 @@ class EncryptDocumentJob implements ShouldQueue
             ]);
 
             // Safe to delete uploaded file
-            Storage::delete($this->filePath);
+            Storage::delete($this->temp_filePath);
 
-            // Segmentation
+            //Segmentation
             SegmentDocumentJob::dispatchSync($document->document_id, $encPath, base64_encode($masterKey));
 
         } catch (\Throwable $e) {
             // Update document with failure info
             $document->update([
                 'status' => 'failed',
-                'error_message' => $e->getMessage()
+                'error_message' => ['Encryption failed', $e->getMessage()]
             ]);
         }
+    }
+
+    public function retryUntil(): ?\DateTimeInterface
+    {
+        return now()->addMinutes(1);
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        // Handle the failure
     }
 }

@@ -15,7 +15,16 @@ class CoverController extends Controller
     public function scan_cover(Request $request)
     {
         //$this->scan_text();
-        //MapFragmentsToCoversJob::dispatch('35');
+        $this->scan_audio();
+        $this->scan_image();
+
+        //return back()->with('success', 'mapping');
+
+        // try {
+        //     MapFragmentsToCoversJob::dispatchSync(95);
+        // } catch (\Exception $e) {
+        //     return back()->with('error', 'Failed to dispatch job');
+        // }
     }
 
     public function scan_audio()
@@ -291,7 +300,7 @@ class CoverController extends Controller
                     'cover_id' => (string) Str::uuid(),      // generate UUID for PK
                     'type' => 'text',
                     'filename' => basename($filePath),
-                    'path' => 'cover_text/' . basename($filePath), // storage path
+                    'path' => 'cover_texts/' . basename($filePath), // storage path
                     'size_bytes' => $total_bytes,
                     'metadata' => $metadata,
                     'hash' => hash('sha256', $contents),

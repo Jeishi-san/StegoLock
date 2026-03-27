@@ -18,7 +18,7 @@ return new class extends Migration
 
             $table->string('filename');
             $table->string('file_type');
-            $table->string('file_hash')->unique(); // SHA-256
+            $table->string('file_hash'); // SHA-256
             $table->unsignedBigInteger('original_size');
 
             $table->unsignedBigInteger('encrypted_size')->nullable();
@@ -42,6 +42,8 @@ return new class extends Migration
             $table->text('error_message')->nullable();
 
             $table->timestamps();
+
+            $table->unique(['document_id', 'file_hash']);
         });
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -10,66 +11,50 @@ use App\Models\Document;
 use App\Models\Cover;
 use App\Jobs\EncryptDocumentJob;
 use App\Jobs\ExtractFragmentJob;
+use App\Jobs\MapFragmentsToCoversJob;
+
 
 class DocumentController extends Controller
 {
     public function upload(Request $request)
     {
-        dd($request->all());
-        // // 1: Validate
-        // $request->validate([
-        //     'file' => 'required|file|mimes:pdf,doc,docx,txt|min:1|max:5120'
-        // ]);
+        // 1: Validate
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,doc,docx,txt|min:1|max:5120'
+        ]);
 
-        // $file = $request->file('file');
+        $file = $request->file('file');
 
-        // // 2: Generate hash (REAL duplicate check)
-        // $fileHash = hash_file('sha256', $file->getRealPath());
+        // 2:
+        try { // 2.1: catches file duplication errors per user
 
-        // // 3: Check duplicate
-        // if (Document::where('file_hash', $fileHash)->exists()) {
-        //     return back()->withErrors(['file' => 'Document already exists']);
-        // }
+            // 2.2: Generate hash (REAL duplicate check)
+            $fileHash = hash_hmac('sha256', file_get_contents($file->getRealPath()), config('app.key'));
 
-        // // 4: Store uploaded file temporarily
-        // $path = $file->store('uploads/temp');
+            // 2.3: Store uploaded file temporarily
+            $path = $file->store('uploads/temp');
 
-        // // 5: Save document record in DB
-        // $document = Document::create([
-        //     'user_id' => Auth::id(),
-        //     'filename' => $file->getClientOriginalName(),
-        //     'file_type' => $file->getClientOriginalExtension(),
-        //     'file_hash' => $fileHash,
-        //     'original_size' => $file->getSize(),
-        //     'status' => 'uploaded'
-        // ]);
+            // 2.4: Save document record in DB
+            $document = Document::create([
+                'user_id' => Auth::id(),
+                'filename' => $file->getClientOriginalName(),
+                'file_type' => $file->getClientOriginalExtension(),
+                'file_hash' => $fileHash,
+                'original_size' => $file->getSize(),
+                'status' => 'uploaded'
+            ]);
 
-        // try {
-        //     // 6. Dispatch encryption job immediately (synchronous)
-        //     EncryptDocumentJob::dispatchSync($document->document_id, $path);
 
-        //     // return response()->json([
-        //     //     'message' => 'File uploaded and encrypted successfully.',
-        //     //     'document_id' => $document->document_id
-        //     // ]);
+            if ($document) { // 2.5: check if storage in db successful
+                // 2.5 dispatch encryption job async
+                EncryptDocumentJob::dispatchSync($document->document_id, $path);
+            }
+        } catch (QueryException $e) {
 
-        // } catch (\Throwable $e) {
-        //     // 7. Handle encryption failure
-        //     $document->update([
-        //         'status' => 'failed',
-        //         'error_message' => $e->getMessage()
-        //     ]);
-
-        //     return response()->json([
-        //         'message' => 'File uploaded but encryption failed.',
-        //         'error' => $e->getMessage()
-        //     ], 500);
-        // }
-
-        // return response()->json([
-        //     'message' => 'File uploaded successfully',
-        //     'document_id' => $document->document_id
-        // ]);
+            return back()->withErrors([
+                'file' => ['You already uploaded this document', $e->getMessage()]
+            ]);
+        }
     }
 
     /**

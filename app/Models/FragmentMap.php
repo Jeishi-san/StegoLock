@@ -27,4 +27,9 @@ class FragmentMap extends Model
     public function document() {
         return $this->belongsTo(Document::class);
     }
+
+    public function fragmentCoverMaps()
+    {
+        return $this->hasMany(FragmentCoverMap::class, 'map_id', 'map_id');
+    }
 }

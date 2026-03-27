@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('fragment_maps', function (Blueprint $table) {
             $table->uuid('map_id')->primary();            // unique ID for this mapping entry
             $table->unsignedBigInteger('document_id');
-            $table->json('fragments_in_covers');         // array of {fragment_id, cover_id, offset}
+            $table->json('fragments_in_covers');         // array of {fragment_id, cover_id, offset, path}
             $table->enum('status', ['pending', 'complete'])
                 ->default('pending');                 // tracks reconstruction status
             $table->timestamps();
