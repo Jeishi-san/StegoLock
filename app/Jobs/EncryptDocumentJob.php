@@ -38,7 +38,7 @@ class EncryptDocumentJob implements ShouldQueue
         $this->encrypt();
     }
 
-    public function encrypt(): void
+    public function encrypt()
     {
         //print or display "encryption ongoing..."
         $document = Document::find($this->documentId);
@@ -75,10 +75,10 @@ class EncryptDocumentJob implements ShouldQueue
             );
 
             // 5. Save encrypted file (store nonce/IV + tag + ciphertext)
-            $encPath = 'uploads/encrypted/' . $document->document_id . '.enc';
+            $encPath = 'uploads/encrypted/' . $document->document_id . '.stegolock';
             Storage::put($encPath, $nonce . $tag . $ciphertext);
 
-            // 6. Update the database with encryption info
+            //6. Update the database with encryption info
             $document->update([
                 'dk_salt' => base64_encode($dk_salt),
                 'encrypted_size' => strlen($ciphertext),

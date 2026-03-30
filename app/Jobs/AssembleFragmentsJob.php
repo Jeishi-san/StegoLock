@@ -16,55 +16,49 @@ class AssembleFragmentsJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected string $documentId;
-    protected string $masterKey;
+    protected array $fragmentBin;
 
-    public function __construct(string $documentId, string $masterKey)
+    public function __construct(string $documentId, array $fragmentBin)
     {
         $this->documentId = $documentId;
-        $this->masterKey = $masterKey;
+        $this->fragmentBin = $fragmentBin;
     }
 
-    public function handle(): void
+    public function handle()
     {
         $document = Document::find($this->documentId);
         if (!$document) return;
 
         try {
-            // 1. Get all fragments ordered
-            $fragments = Fragment::where('document_id', $this->documentId)
-                ->orderBy('index')
-                ->get();
+            // check fragment integrity
+            $frag = [];
+            foreach ($this->fragmentBin as $fragment) {
+                $fragment_in_DB = Fragment::findOrFail($fragment[0]);
+                $fragmentBinaryData = file_get_contents(storage_path('app/private/bin/' . $fragment[1] . '.bin'));
 
-            if ($fragments->isEmpty()) {
-                throw new \Exception('No fragments found.');
-            }
-
-            // 2. Validate completeness (index sequence must be continuous)
-            $expectedIndex = 0;
-            foreach ($fragments as $fragment) {
-                if ($fragment->index !== $expectedIndex) {
-                    throw new \Exception("Missing fragment at index {$expectedIndex}");
+                if ($fragment_in_DB->hash !== hash('sha256',$fragmentBinaryData)) {
+                    throw new \Exception("Fragment integrity failed");
                 }
-                $expectedIndex++;
+
+                //temp store fragment_id, fragment index, binarydata, binary filename
+                $frag[] = [$fragment_in_DB->fragment_id, $fragment_in_DB->index, $fragmentBinaryData, $fragment[1]];
             }
 
-            // 3. Reconstruct binary ciphertext
+            //sort by index
+            usort($frag, function ($a, $b) {
+                return $a[1] <=> $b[1];
+            });
+
+            // Reconstruct binary ciphertext
             $reconstructed = '';
 
-            foreach ($fragments as $fragment) {
-                $binary = base64_decode($fragment->blob);
-
-                // 4. Integrity check
-                $hashCheck = hash('sha256', $binary);
-                if ($hashCheck !== $fragment->hash) {
-                    throw new \Exception("Fragment integrity failed at index {$fragment->index}");
-                }
-
+            foreach ($frag as $fragment) {
+                $binary = $fragment[2];
                 $reconstructed .= $binary;
             }
 
-            // 5. Save reconstructed encrypted file
-            $outputPath = 'uploads/reconstructed/' . $this->documentId . '.enc';
+            // Save reconstructed encrypted file
+            $outputPath = 'uploads/reconstructed/' . bin2hex(random_bytes(16)) . time() . '.stegolock';
             Storage::put($outputPath, $reconstructed);
 
             // 6. Update document
@@ -72,13 +66,19 @@ class AssembleFragmentsJob implements ShouldQueue
                 'status' => 'reconstructed'
             ]);
 
+            //delete fragment bin
+            $samp = [];
+            foreach ($frag as $fragment) {
+                unlink(storage_path('app/private/bin/' . $fragment[3] . '.bin'));
+            }
+
             //Decrypt
-            DecryptDocumentJob::dispatchSync($document->document_id, $this->masterKey);
+            DecryptDocumentJob::dispatchSync($document->document_id, basename($outputPath));
 
         } catch (\Throwable $e) {
             $document->update([
                 'status' => 'failed',
-                'error_message' => $e->getMessage()
+                'error_message' => 'File reconstruction failed' . $e->getMessage()
             ]);
         }
     }

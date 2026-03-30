@@ -19,11 +19,13 @@ class ExtractFragmentJob implements ShouldQueue
 
     protected string $stego_map_id;
     protected array $stegoFiles;
+    protected array $fragmentBin;
 
     public function __construct(string $stego_map_id, array $stegoFiles)
     {
         $this->stego_map_id = $stego_map_id;
         $this->stegoFiles = $stegoFiles;
+        $this->fragmentBin = [];
     }
 
     public function handle()
@@ -71,13 +73,13 @@ class ExtractFragmentJob implements ShouldQueue
 
             //text extraction
             foreach ($textFiles as $file) {
-                $this->extract_from_txt($file['filename'], $file['offset']);
+                $this->extract_from_txt($file);
             }
             foreach ($imageFiles as $file) {
-                $this->extract_from_img($file['filename']);
+                $this->extract_from_img($file);
             }
             foreach ($audioFiles as $file) {
-                $this->extract_from_audio($file['filename']);
+                $this->extract_from_audio($file);
             }
 
             // Update document status
@@ -86,6 +88,7 @@ class ExtractFragmentJob implements ShouldQueue
             ]);
 
             //dispatch reconstruction
+            AssembleFragmentsJob::dispatchSync($document->document_id, $this->fragmentBin);
 
         } catch (\Exception $e) {
             // Handle extraction errors
@@ -97,10 +100,11 @@ class ExtractFragmentJob implements ShouldQueue
 
     }
 
-    public function extract_from_txt(string $filename, int $offset): void
+    public function extract_from_txt(array $file): void
     {
-        $stegoText = storage_path('app/public/cloud_storage/' . $filename . '.txt');
-        $fragmentBin = storage_path('app/private/bin/'. $filename .'.bin');
+        $stegoText = storage_path('app/public/cloud_storage/' . $file['filename'] . '.txt');
+        $fragmentBin = storage_path('app/private/bin/'. $file['filename'] .'.bin');
+        $offset = $file['offset'];
 
         $command = "python " . base_path('python_backend/embedding/text/extract.py') . " "
             . escapeshellarg($stegoText) . " "
@@ -115,12 +119,14 @@ class ExtractFragmentJob implements ShouldQueue
         if ($status !== 0) {
             throw new \Exception("Extraction failed:\n" . implode("\n", $output));
         }
+
+        $this->fragmentBin[] = [$file['fragment_id'], $file['filename']];
     }
 
-    public function extract_from_img(string $filename): void
+    public function extract_from_img(array $file): void
     {
-        $stegoImage = storage_path('app/public/cloud_storage/' . $filename . '.png');
-        $fragmentBin = storage_path('app/private/bin/'. $filename .'.bin');
+        $stegoImage = storage_path('app/public/cloud_storage/' . $file['filename'] . '.png');
+        $fragmentBin = storage_path('app/private/bin/'. $file['filename'] .'.bin');
 
         $command = "python " . base_path('python_backend/embedding/image/extract.py') . " "
             . escapeshellarg($stegoImage) . " "
@@ -131,12 +137,14 @@ class ExtractFragmentJob implements ShouldQueue
         if ($status !== 0) {
             throw new \Exception("Extraction failed:\n" . implode("\n", $output));
         }
+
+        $this->fragmentBin[] = [$file['fragment_id'], $file['filename']];
     }
 
-    public function extract_from_audio(string $filename): void
+    public function extract_from_audio(array $file): void
     {
-        $stegoWAV = storage_path('app/public/cloud_storage/' . $filename . '.wav');
-        $fragmentBin = storage_path('app/private/bin/'. $filename .'.bin');
+        $stegoWAV = storage_path('app/public/cloud_storage/' . $file['filename'] . '.wav');
+        $fragmentBin = storage_path('app/private/bin/'. $file['filename'] .'.bin');
 
         $command = "python " . base_path('python_backend/embedding/audio/extract.py') . " "
             . escapeshellarg($stegoWAV) . " "
@@ -147,6 +155,8 @@ class ExtractFragmentJob implements ShouldQueue
         if ($status !== 0) {
             throw new \Exception("Extraction failed:\n" . implode("\n", $output));
         }
+
+        $this->fragmentBin[] = [$file['fragment_id'], $file['filename']];
     }
 }
 

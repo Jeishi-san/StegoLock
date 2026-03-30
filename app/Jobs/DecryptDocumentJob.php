@@ -16,29 +16,34 @@ class DecryptDocumentJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected string $documentId;
-    protected string $masterKey;
+    protected string $stegolock_file;
 
-    public function __construct(string $documentId, string $masterKey)
+    public function __construct(string $documentId, string $stegolock_file)
     {
         $this->documentId = $documentId;
-        $this->masterKey = $masterKey;
+        $this->stegolock_file = $stegolock_file;
     }
 
-    public function handle(): void
+    public function handle()
     {
         $document = Document::find($this->documentId);
         if (!$document) return;
 
+        $masterKey = session('master_key');
+        if (!$masterKey) {
+            throw new \Exception('Master key not found in session.');
+        }
+
         try {
-            // 1. Read reconstructed encrypted file
-            $encPath = 'uploads/reconstructed/' . $this->documentId . '.enc';
+            // Read reconstructed encrypted file
+            $encPath = 'uploads/reconstructed/' . $this->stegolock_file;
             $data = file_get_contents(Storage::path($encPath));
 
             if ($data === false) {
                 throw new \Exception('Encrypted file not found.');
             }
 
-            // 2. Extract components
+            // Get components
             $nonceLen = Constant::NONCE_LEN; // e.g., 12 bytes
             $tagLen = 16; // GCM tag is 16 bytes
 
@@ -51,7 +56,7 @@ class DecryptDocumentJob implements ShouldQueue
 
             $documentKey = hash_hkdf(
                 'sha256',
-                base64_decode($this->masterKey),
+                $masterKey,
                 32,
                 'document-enc-key',
                 $dk_salt
@@ -85,11 +90,12 @@ class DecryptDocumentJob implements ShouldQueue
 
             //return to user for download
             //delete after download / retain files, this leads to new securing process
+            return back()->with('success', 'File retrieved: ' . basename($outputPath));
 
         } catch (\Throwable $e) {
             $document->update([
                 'status' => 'failed',
-                'error_message' => $e->getMessage()
+                'error_message' => 'Decryption failed: ' . $e->getMessage()
             ]);
         }
     }
