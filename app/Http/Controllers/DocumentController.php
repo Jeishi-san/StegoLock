@@ -8,11 +8,13 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Models\Document;
+use App\Models\StegoFile;
+use App\Models\StegoMap;
 use App\Models\Cover;
 use App\Jobs\EncryptDocumentJob;
 use App\Jobs\ExtractFragmentJob;
 use App\Jobs\MapFragmentsToCoversJob;
-
+use PhpParser\Node\Stmt\TryCatch;
 
 class DocumentController extends Controller
 {
@@ -46,7 +48,7 @@ class DocumentController extends Controller
 
 
             if ($document) { // 2.5: check if storage in db successful
-                // 2.5 dispatch encryption job async
+                // 2.6 dispatch encryption job async
                 EncryptDocumentJob::dispatchSync($document->document_id, $path);
             }
         } catch (QueryException $e) {
@@ -62,7 +64,21 @@ class DocumentController extends Controller
      */
     public function unlock(Request $request)
     {
-        //Fetch stego files from storage
+        $document = Document::findOrFail($request->id);
+        try
+        {
+            //Fetch stego files from storage
+            $stegoMap = StegoMap::where('document_id', $document->document_id)->firstOrFail();
+            $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)->get();
+
+            return back()->with('success', $stegoFiles);
+        } catch (\Throwable $e) {
+            $document->update([
+                'status' => 'failed',
+                'error_message' => ['File fetch error', $e->getMessage()]
+            ]);
+        }
+
         //ExtractFragmentJob::dispatchSync();
     }
 

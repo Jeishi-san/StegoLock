@@ -5,21 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
-class StegoFile extends Model
+class StegoMap extends Model
 {
     use HasUuids;
 
-    protected $primaryKey = 'stego_file_id';
+    protected $primaryKey = 'stego_map_id';
     public $incrementing = false;
     protected $keyType = 'string';
 
     protected $fillable = [
-        'stego_file_id',
         'stego_map_id',
-        'fragment_id',
-        'offset',
-        'stego_path',
-        'stego_size',
+        'document_id',
         'status',
         'error_message',
     ];
@@ -30,23 +26,23 @@ class StegoFile extends Model
     |--------------------------------------------------------------------------
     */
 
-    public function map()
+    public function document()
     {
-        return $this->belongsTo(StegoMap::class, 'stego_map_id', 'stego_map_id');
+        return $this->belongsTo(Document::class, 'document_id', 'document_id');
     }
 
-    public function fragment()
+    public function stegoFiles()
     {
-        return $this->belongsTo(Fragment::class, 'fragment_id', 'fragment_id');
+        return $this->hasMany(StegoFile::class, 'stego_map_id', 'stego_map_id');
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Status
+    | Status (define this early, avoid chaos later)
     |--------------------------------------------------------------------------
     */
 
     const STATUS_PENDING = 'pending';
-    const STATUS_EMBEDDED = 'embedded';
+    const STATUS_COMPLETED = 'completed';
     const STATUS_FAILED = 'failed';
 }

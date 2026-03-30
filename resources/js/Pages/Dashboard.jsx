@@ -67,6 +67,24 @@ export default function Dashboard() {
         });
     };
 
+    const unlockDoc = useForm({
+        id: '',
+    });
+
+    const handleUnlock = () => {
+        unlockDoc.post('/documents/unlock', {
+            onSuccess: (page) => {
+                console.log('Success:', page.props);
+            },
+            onError: (errors) => {
+                console.log('Validation errors:', errors);
+            },
+            onFinish: () => {
+                console.log('Request finished');
+            },
+        });
+    };
+
     const handleGenerate = (e) => {
         e.preventDefault();
 
@@ -112,14 +130,22 @@ export default function Dashboard() {
                             <button onClick={handleUpload}>Upload</button>
                         </div>
                         <div className="p-6 text-gray-900">
+                            <input
+                                type="number"
+                                value={unlockDoc.data.id}
+                                onChange={(e) => unlockDoc.setData('id', e.target.value)}
+                            />
+                            <button onClick={handleUnlock}>Unlock Document</button>
+                        </div>
+                        {/* <div className="p-6 text-gray-900">
                             <form onSubmit={handleGenerate} encType="multipart/form-data">
                                 <button type="submit">Generate Text</button>
                             </form>
                         </div>
                         <div className="p-6 text-gray-900">
-                            <form onSubmit={handleExtract} encType="multipart/form-data">
+                            <form onSubmit={handleExtract} encType="multipart/form-data"> */}
                                 {/* <input type="number" name="documentid" placeholder="documentid" required /> */}
-                                <button type="submit">Extract</button>
+                                {/* <button type="submit">Extract</button>
                             </form>
                         </div>
                         <div className="p-6 text-gray-900">
@@ -131,7 +157,7 @@ export default function Dashboard() {
                             <form onSubmit={handleMap} encType="multipart/form-data">
                                 <button type="submit">Map</button>
                             </form>
-                        </div>
+                        </div> */}
                     </div>
                 </div>
             </div>

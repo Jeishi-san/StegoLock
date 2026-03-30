@@ -6,6 +6,8 @@ use App\Models\Document;
 use App\Models\Fragment;
 use App\Models\Cover;
 use App\Models\FragmentMap;
+use App\Models\StegoFile;
+use App\Models\StegoMap;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -27,23 +29,58 @@ class EmbedFragmentsJob implements ShouldQueue
 
     public function handle(): void
     {
-        $this->embedFragments($this->mapId);
+        $this->embedFragments();
     }
 
-    private function embedFragments(string $mapId)
+    private function embedFragments()
     {
         $map = FragmentMap::findOrFail($this->mapId);
+        $document = Document::findOrFail($map->document_id);
         $mapping = $map->fragments_in_covers;
 
-        $stegoMap = [];
+        try {
+            $stegoMap = [];
 
-        foreach ($mapping as $map) {
-            $stegoMap[] = $this->embed($map['fragment_id'], $map['cover_id']);
+            foreach ($mapping as $map) {
+                $stegoMap[] = $this->embed($map['fragment_id'], $map['cover_id']);
+            }
+
+            //Save stegoMap to DB
+            $newStegoMap = StegoMap::create([
+                'stego_map_id' => (string) Str::uuid(),
+                'document_id' => $document->document_id,
+                'status' => 'completed',
+            ]);
+
+            //Save stego files in DB
+            foreach ($stegoMap as $stego) {
+                StegoFile::create([
+                    'stego_map_id' => $newStegoMap->stego_map_id,
+                    'fragment_id' => $stego['fragmentId'],
+                    'offset' => $stego['offset'],
+                    'stego_path' => $stego['stegoFile'],
+                    'stego_size' => Storage::disk('public')->size($stego['stegoFile']),
+                    'status' => 'embedded',
+                ]);
+            }
+
+            // Update document status
+            $document->update([
+                'status' => 'embedded',
+            ]);
+
+            return back()->with('success', 'Embedded and stored.');
+        } catch (\Throwable $e) {
+
+
+            // Update document with failure info
+            $document->update([
+                'status' => 'failed',
+                'error_message' => ['Embedding failed (basecode error): ', $e->getMessage()]
+            ]);
+
+            //return back()->withErrors('errors', [$e->getMessage(), $document->error_message]);
         }
-
-        //Save stegoMap to DB
-
-        return back()->with('success', $stegoMap);
     }
 
     private function embed(string $fragmentId, string $coverId)
@@ -52,6 +89,9 @@ class EmbedFragmentsJob implements ShouldQueue
         $fragment = Fragment::findOrFail($fragmentId);
 
         $fileName = bin2hex(random_bytes(16)) . time();
+        while (file_exists(storage_path('app/public/cloud_storage/'. $fileName . $this->getExtension($cover->type)))) {
+            $fileName = bin2hex(random_bytes(16)) . time();
+        }
 
         $coverFile = storage_path('app/public/'. $cover->path);
         $stegoFile = storage_path('app/public/cloud_storage/'. $fileName . $this->getExtension($cover->type));
@@ -80,17 +120,17 @@ class EmbedFragmentsJob implements ShouldQueue
         exec($command, $output, $status);
 
         if ($status !== 0) {
-            throw new \Exception("Embedding failed:\n" . implode("\n", $output));
+            throw new \Exception("Embedding failed (py script error):\n" . implode("\n", $output));
         }
 
         $offset = (int) end($output);
 
         // Optional: log success
 
-        //delete fragment.bin
-        //unlink($binaryFile);
+        // Safe to delete binary file
+        unlink($binaryFile);
 
-        return ['fragmentId' => $fragmentId, 'stegoFile' => $stegoFile, 'offset' => $offset];
+        return ['fragmentId' => $fragmentId, 'stegoFile' => 'cloud_storage/' . basename($stegoFile), 'offset' => $offset];
     }
 
     private function getExtension(string $coverType): string
