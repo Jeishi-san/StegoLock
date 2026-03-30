@@ -45,6 +45,11 @@ class EmbedFragmentsJob implements ShouldQueue
                 $stegoMap[] = $this->embed($map['fragment_id'], $map['cover_id']);
             }
 
+            // Update document status
+            $document->update([
+                'status' => 'embedded',
+            ]);
+
             //Save stegoMap to DB
             $newStegoMap = StegoMap::create([
                 'stego_map_id' => (string) Str::uuid(),
@@ -66,7 +71,7 @@ class EmbedFragmentsJob implements ShouldQueue
 
             // Update document status
             $document->update([
-                'status' => 'embedded',
+                'status' => 'stored',
             ]);
 
             return back()->with('success', 'Embedded and stored.');

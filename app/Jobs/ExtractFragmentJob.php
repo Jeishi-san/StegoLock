@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Document;
+use App\Models\StegoMap;
 use App\Models\Fragment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -16,32 +17,95 @@ class ExtractFragmentJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    //protected string $fragmentId;
+    protected string $stego_map_id;
+    protected array $stegoFiles;
 
-    public function __construct() //string $fragmentId
+    public function __construct(string $stego_map_id, array $stegoFiles)
     {
-        //$this->fragmentId = $fragmentId;
+        $this->stego_map_id = $stego_map_id;
+        $this->stegoFiles = $stegoFiles;
     }
 
-    public function handle(): void
+    public function handle()
     {
-        //$this->extract_from_txt();
-        //$this->extract_from_img();
-        //$this->extract_from_audio();
+        $stegoMap = StegoMap::findOrFail($this->stego_map_id);
+        $document = Document::findOrFail($stegoMap->document_id);
 
+        $stegoFiles = [];
+
+        $textFiles = [];
+        $imageFiles = [];
+        $audioFiles = [];
+
+        try
+        {
+            foreach ($this->stegoFiles as $file) {
+
+                $path = storage_path('app/public/' . $file['stego_path']);
+
+                $filename = basename($path);
+
+                $stegoFiles[] = [
+                    'filename' => pathinfo($filename, PATHINFO_FILENAME),
+                    'type' => pathinfo($filename, PATHINFO_EXTENSION),
+                    'fragment_id' => $file['fragment_id'],
+                    'offset' => $file['offset']
+                ];
+
+            }
+
+            //separate file type according to files
+            foreach ($stegoFiles as $file) {
+                if ($file['type'] === 'txt') {
+                    $textFiles[] = $file;
+                } elseif ($file['type'] === 'png' || $file['type'] === 'jpg' || $file['type'] === 'jpeg') {
+                    $imageFiles[] = $file;
+                } elseif ($file['type'] === 'mp3' || $file['type'] === 'wav') {
+                    $audioFiles[] = $file;
+                } else {
+                    throw new \RuntimeException("Invalid stego file type: {$file['type']}");
+                }
+            }
+
+            // extraction proper
+
+            //text extraction
+            foreach ($textFiles as $file) {
+                $this->extract_from_txt($file['filename'], $file['offset']);
+            }
+            foreach ($imageFiles as $file) {
+                $this->extract_from_img($file['filename']);
+            }
+            foreach ($audioFiles as $file) {
+                $this->extract_from_audio($file['filename']);
+            }
+
+            // Update document status
+            $document->update([
+                'status' => 'extracted',
+            ]);
+
+            //dispatch reconstruction
+
+        } catch (\Exception $e) {
+            // Handle extraction errors
+            $document->update([
+                'status' => 'failed',
+                'error_message' => ("Error extracting fragments: " . $e->getMessage())
+            ]);
+        }
 
     }
 
-    public function extract_from_txt(): void
+    public function extract_from_txt(string $filename, int $offset): void
     {
-        //EXTRACT FROM TEXT
-        $stegoCoverPath = storage_path('app/public/cloud_storage/output.txt');
-        $outputFragmentPath = storage_path('app/private/bin/fragment.bin');
+        $stegoText = storage_path('app/public/cloud_storage/' . $filename . '.txt');
+        $fragmentBin = storage_path('app/private/bin/'. $filename .'.bin');
 
         $command = "python " . base_path('python_backend/embedding/text/extract.py') . " "
-            . escapeshellarg($stegoCoverPath) . " "
-            . escapeshellarg($outputFragmentPath) . " "
-            . escapeshellarg(785543) . " 2>&1";
+            . escapeshellarg($stegoText) . " "
+            . escapeshellarg($fragmentBin) . " "
+            . escapeshellarg($offset) . " 2>&1";
 
         $output = [];
         $status = 0;
@@ -51,61 +115,16 @@ class ExtractFragmentJob implements ShouldQueue
         if ($status !== 0) {
             throw new \Exception("Extraction failed:\n" . implode("\n", $output));
         }
-
-        // Optional: log success
-        //\Log::info("Extraction successful. Output: " . implode("\n", $output));
-
-        //         $stego_cover = storage_path('app/public/cloud_storage/output.txt');
-        //         $fragmentbin = storage_path('app/private/bin/fragment.bin'); //app/public/cloud_storage/output.txt
-        //         //$dataFile = storage_path('app/private/bin/fragment.bin'); //app/public/cover_texts/0b4de9fe5810de20801214a9d3bcb224_cover_1774372552.txt
-
-
-        // //        $fragment = Fragment::findOrFail($this->fragmentId);
-        //         //$fragmentBinaryData = base64_decode('2ulaCsu8D1Y0f/4srqOau4D+Bxo0vvbfRoD62XNj1K4jU+2j0BSKhT0r7HkfNtnZ/6UWxQRp7SX1EjMDiHYYD3qpjZZWUm9H5YFwioY1wDdMgOXVdf9uyM4EpMX3jP/8krxXmo6wllH9JSUaKFfB/UCr736YH5PN94rXLcZIpFZYFzcnr4U5SAmukD+C9/S6JEcv1DL0+xzTbcxWU9CqamZ4/vpabQCuBXieVSAR+euL7G6Oelfm1a9hXiMdDi98Pn0YTR2TQVstrPUGZv/YpJ/DUwCZndXrT60jmDqocGzLMx2HXQHnoUl2FroNoH1FyyvGrGd08ee+sAehfiyWCofrJT35q/U8h9Pdr/6zV2B1KQTKtTshND43BcLxLAvCBBIPlBgvikzvXsBYll34MXp1laP3HzY7chmTAmr0+ZvtRZRkvqUr7C2VdEsm9tFYuUrrbKKizLfhsW6tqvqtMp659RE3owdltTBCtpWld0hSbRE1ZAc7HZAf/OQeDDKl/MGcXIi8q9dbWauoYq9fDA4Fgn4/Ay1ExDMKc1ovq/z+GH4WIRQxnAhcmFI1NO/7FhB8IH10ajKNgMDzpB8CAE1Gl8szaxaj9XAXuGRu2hU9nEBMNVxDCMildjpmt6Rad/83EFvl0Sio9WvkeMcMi/j7I6yNa4LMf/mqAm4LUiMax0KSZfV9GaMPteXN5LThgdxcTJTsmUZbIl8ZTs+1iQ==');
-
-        //         //file_put_contents($dataFile, $fragmentBinaryData);
-
-        //         //dd(storage_path('app/temp/fragment.bin'));
-
-        //         // if (!file_exists($dataFile)) {
-        //         //     throw new \Exception("fragment.bin was NOT created");
-        //         // }
-
-        //         // if (filesize($dataFile) === 0) {
-        //         //     throw new \Exception("fragment.bin is EMPTY");
-        //         // }
-
-        //         $command = "python " . base_path('python_backend/embedding/text/extract.py') . " "
-        //             . escapeshellarg($stego_cover) . " "
-        //             . escapeshellarg($fragmentbin) . " "
-        //             . escapeshellarg('786856') . " 2>&1"; //offset, capture errors
-
-        //         $output = [];
-        //         $status = 0;
-
-        //         exec($command, $output, $status);
-
-        //         if ($status !== 0) {
-        //             throw new \Exception("Embedding failed:\n" . implode("\n", $output));
-        //         }
-
-        //         dd($output); //
-
-        //         // Optional: log success
-        //         // logger()->info("Embedding successful", [
-        //         //     'offset' => $offset,
-        //         //     'output_file' => $outputText,
-        //         // ]);
     }
 
-    public function extract_from_img(): void
+    public function extract_from_img(string $filename): void
     {
-        $stegoImage = storage_path('app/public/cloud_storage/output.png');
-        $outputFile = storage_path('app/private/bin/recovered_fragment.bin');
+        $stegoImage = storage_path('app/public/cloud_storage/' . $filename . '.png');
+        $fragmentBin = storage_path('app/private/bin/'. $filename .'.bin');
 
         $command = "python " . base_path('python_backend/embedding/image/extract.py') . " "
             . escapeshellarg($stegoImage) . " "
-            . escapeshellarg($outputFile);
+            . escapeshellarg($fragmentBin);
 
         exec($command, $output, $status);
 
@@ -114,14 +133,14 @@ class ExtractFragmentJob implements ShouldQueue
         }
     }
 
-    public function extract_from_audio(): void
+    public function extract_from_audio(string $filename): void
     {
-        $stegoWAV = storage_path('app/public/cloud_storage/output.wav');
-        $outputFile = storage_path('app/private/bin/extracted_fragment.bin');
+        $stegoWAV = storage_path('app/public/cloud_storage/' . $filename . '.wav');
+        $fragmentBin = storage_path('app/private/bin/'. $filename .'.bin');
 
         $command = "python " . base_path('python_backend/embedding/audio/extract.py') . " "
             . escapeshellarg($stegoWAV) . " "
-            . escapeshellarg($outputFile);
+            . escapeshellarg($fragmentBin);
 
         exec($command, $output, $status);
 

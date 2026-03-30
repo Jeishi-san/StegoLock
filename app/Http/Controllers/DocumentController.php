@@ -65,21 +65,36 @@ class DocumentController extends Controller
     public function unlock(Request $request)
     {
         $document = Document::findOrFail($request->id);
+        if (!$document) {
+            return back()->withErrors('errors', 'Document not found');
+        }
+
         try
         {
             //Fetch stego files from storage
             $stegoMap = StegoMap::where('document_id', $document->document_id)->firstOrFail();
-            $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)->get();
+            $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)->get()->toArray();
 
-            return back()->with('success', $stegoFiles);
+            if($document->fragment_count !== count($stegoFiles)) { //db check
+                throw new \Exception("Corrupted file error: Mismatched fragment count");
+            }
+
+            foreach ($stegoFiles as $file) { //storage check
+                if (!file_exists(storage_path('app/public/' . $file['stego_path']))) {
+                    throw new \Exception("Corrupted file error: Missing stego file");
+                }
+            }
+
+            //dispatch extraction
+            ExtractFragmentJob::dispatchSync($stegoMap->stego_map_id, $stegoFiles);
+
+            //return back()->with('success', $stegoFiles);
         } catch (\Throwable $e) {
             $document->update([
                 'status' => 'failed',
                 'error_message' => ['File fetch error', $e->getMessage()]
             ]);
         }
-
-        //ExtractFragmentJob::dispatchSync();
     }
 
 
