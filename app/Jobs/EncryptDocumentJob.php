@@ -10,30 +10,31 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Document;
 use Illuminate\Support\Facades\Storage;
+use App\Providers\B2Service;
 
 class EncryptDocumentJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected $documentId;
-    protected $temp_filePath;
+    protected $temp_filedata;
 
     /**
      * Create a new job instance.
      *
      * @param int $documentId
-     * @param string $filePath
+     * @param array $temp_filedata
      */
-    public function __construct(int $documentId, string $temp_filePath)
+    public function __construct(int $documentId, array $temp_filedata)
     {
         $this->documentId = $documentId;
-        $this->temp_filePath = $temp_filePath;
+        $this->temp_filedata = $temp_filedata;
     }
 
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle()
     {
         $this->encrypt();
     }
@@ -46,9 +47,18 @@ class EncryptDocumentJob implements ShouldQueue
             throw new \Exception("Missing document");
         }
 
+        $b2 = new B2Service();
+        $fileInfo = $this->temp_filedata;
+
+
         try {
             // 1. Read the uploaded plaintext file
-            $plaintext = file_get_contents(Storage::path($this->temp_filePath));
+            try {
+                $plaintext = $b2->readfile($fileInfo['fileId'], $fileInfo['fileName']);
+
+            } catch (\Throwable $e) {
+                return back()->with('error', $e->getMessage());
+            }
 
             // 2. Generate a random document key salt (32 bytes)
             $dk_salt = random_bytes(Constant::DK_SALT_LEN);
@@ -75,8 +85,18 @@ class EncryptDocumentJob implements ShouldQueue
             );
 
             // 5. Save encrypted file (store nonce/IV + tag + ciphertext)
-            $encPath = 'uploads/encrypted/' . $document->document_id . '.stegolock';
-            Storage::put($encPath, $nonce . $tag . $ciphertext);
+            $encPath = 'temp-encrypted/' . pathinfo(basename($fileInfo['fileName']), PATHINFO_FILENAME) . '.stegolock';
+
+            try {
+                $path = Storage::disk('b2')->put($encPath, $nonce . $tag . $ciphertext);
+
+                if (!$path) {
+                    throw new \Exception('Encryption process stopped: empty encryption file path');
+                }
+
+            } catch (\Throwable $e) {
+                return back()->with('error', $e->getMessage());
+            }
 
             //6. Update the database with encryption info
             $document->update([
@@ -86,18 +106,22 @@ class EncryptDocumentJob implements ShouldQueue
             ]);
 
             // Safe to delete uploaded file
-            Storage::delete($this->temp_filePath);
-
-            //Segmentation
-            SegmentDocumentJob::dispatchSync($document->document_id, $encPath, base64_encode($masterKey));
-
+            $uploadedFileDeleted = $b2->deleteFile($fileInfo['fileId'], $fileInfo['fileName']);
+            if(!$uploadedFileDeleted) {
+                throw new \Exception('Failed to delete temporary file');
+            }
         } catch (\Throwable $e) {
             // Update document with failure info
             $document->update([
                 'status' => 'failed',
                 'error_message' => ['Encryption failed', $e->getMessage()]
             ]);
+
+            return back()->with('error', $document->error_message);
         }
+
+        //Segmentation
+        SegmentDocumentJob::dispatchSync($document->document_id, $encPath);
     }
 
     public function retryUntil(): ?\DateTimeInterface

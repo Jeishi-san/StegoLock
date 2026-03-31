@@ -30,3 +30,6 @@
 ## to code
 - admin view
 - users must not be able to preview file content when its "Secured"
+
+### During Cloud Integ
+- composer require league/flysystem-aws-s3-v3 "^3.0"

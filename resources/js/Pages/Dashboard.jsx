@@ -85,6 +85,12 @@ export default function Dashboard() {
         });
     };
 
+    const handleDownload = (path) => {
+        window.location.href = `/documents/download?path=${encodeURIComponent(path)}`;
+    };
+
+
+
     const handleGenerate = (e) => {
         e.preventDefault();
 
@@ -136,6 +142,9 @@ export default function Dashboard() {
                                 onChange={(e) => unlockDoc.setData('id', e.target.value)}
                             />
                             <button onClick={handleUnlock}>Unlock Document</button>
+                        </div>
+                        <div className="p-6 text-gray-900">
+                            <button onClick={handleDownload}>Download Document</button>
                         </div>
                         {/* <div className="p-6 text-gray-900">
                             <form onSubmit={handleGenerate} encType="multipart/form-data">

@@ -28,8 +28,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/documents/upload', [DocumentController::class, 'upload'])
         ->name('documents.upload');
 
+    Route::post('/documents/upload_to_cloud', [DocumentController::class, 'upload_to_cloud'])
+        ->name('documents.upload_to_cloud');
+
     Route::post('/documents/unlock', [DocumentController::class, 'unlock'])
         ->name('documents.unlock');
+
+    Route::get('/documents/download', [DocumentController::class, 'download']);
 });
 
 use App\Http\Controllers\WikiFeedController;

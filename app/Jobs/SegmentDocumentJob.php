@@ -11,6 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use App\Providers\B2Service;
 
 class SegmentDocumentJob implements ShouldQueue
 {
@@ -18,13 +19,11 @@ class SegmentDocumentJob implements ShouldQueue
 
     protected string $documentId;
     protected string $filePath;
-    protected string $masterKey;
 
-    public function __construct(string $documentId, string $filePath, string $masterKey)
+    public function __construct(string $documentId, string $filePath)
     {
         $this->documentId = $documentId;
         $this->filePath = $filePath;
-        $this->masterKey = $masterKey;
     }
 
     public function handle(): void
@@ -32,12 +31,36 @@ class SegmentDocumentJob implements ShouldQueue
         $this->segment();
     }
 
-    public function segment(): void
+    public function segment()
     {
         //print or display "segmentation ongoing..."
+        $document = Document::find($this->documentId);
+        if (!$document) return;
+
+        $b2 = new B2Service();
+
+        $encryptionFileInfo = []; //the encrypted file to segment
+
+        try
+        {
+            $encryptionFileList = $b2->listFiles()['files'];
+
+            foreach ($encryptionFileList as $file) {
+                if ($file['fileName'] === $this->filePath) {
+                    $encryptionFileInfo[] = $file;
+                    break;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Handle the error
+            return back()->withErrors(['error' => 'File fetch error' . $e->getMessage()]);
+        }
 
         try {
-            $ciphertext = file_get_contents(Storage::path($this->filePath));
+
+            //$ciphertext = file_get_contents(Storage::path($this->filePath));
+            $ciphertext = $b2->readfile($encryptionFileInfo[0]['fileId'], $encryptionFileInfo[0]['fileName']);
+
             if ($ciphertext === false) return;
 
             $ciphertextLength = strlen($ciphertext);
@@ -96,8 +119,6 @@ class SegmentDocumentJob implements ShouldQueue
             }
 
             // Update the database with fragments info
-            $document = Document::find($this->documentId);
-            if (!$document) return;
 
             $document->update([
                 'fragment_count' => count($fragments),
@@ -105,11 +126,10 @@ class SegmentDocumentJob implements ShouldQueue
             ]);
 
             // Safe to delete encrypted file
-            Storage::delete($this->filePath);
-
-            //Dispatch cover file generation and mapping
-            MapFragmentsToCoversJob::dispatchSync($this->documentId);
-
+            $encryptedFileDeleted = $b2->deleteFile($encryptionFileInfo[0]['fileId'], $encryptionFileInfo[0]['fileName']);
+            if(!$encryptedFileDeleted) {
+                throw new \Exception('Failed to delete temporary file');
+            }
         } catch (\Throwable $e) {
             // Update document with failure info
             $document->update([
@@ -117,6 +137,9 @@ class SegmentDocumentJob implements ShouldQueue
                 'error_message' => ['Segmentation failed', $e->getMessage()]
             ]);
         }
+
+        //Dispatch cover file generation and mapping
+        MapFragmentsToCoversJob::dispatchSync($this->documentId);
     }
 
     public function retryUntil(): ?\DateTimeInterface

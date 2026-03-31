@@ -16,10 +16,72 @@ use App\Jobs\EncryptDocumentJob;
 use App\Jobs\ExtractFragmentJob;
 use App\Jobs\MapFragmentsToCoversJob;
 use PhpParser\Node\Stmt\TryCatch;
+use App\Providers\B2Service;
 
 class DocumentController extends Controller
 {
+
+    public function upload_(Request $request)
+    {
+        $b2 = new B2Service();
+        $data = $b2->listFiles();
+
+        return back()->with('success', $data ?? 'ngano?');
+    }
+
     public function upload(Request $request)
+    {
+        // Validate
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,doc,docx,txt|min:1|max:5120'
+        ]);
+
+        $file = $request->file('file');
+
+        // 2:
+        try { // 2.1: catches file duplication errors per user
+
+            // 2.2: Generate hash (REAL duplicate check)
+            $fileHash = hash_hmac('sha256', file_get_contents($file->getRealPath()), config('app.key'));
+
+            // 2.3: Store uploaded file in cloud temporarily
+            try {
+                $b2 = new B2Service();
+                $data = $b2->uploadFile($file);
+
+                if (!$data) {
+                    throw new \Exception('Upload failed');
+                }
+
+            } catch (\Throwable $e) {
+                return back()->with('error', $e->getMessage());
+            }
+
+            // 2.4: Save document record in DB
+            $document = Document::create([
+                'user_id' => Auth::id(),
+                'filename' => $file->getClientOriginalName(),
+                'file_type' => $file->getClientOriginalExtension(),
+                'file_hash' => $fileHash,
+                'original_size' => $file->getSize(),
+                'status' => 'uploaded'
+            ]);
+
+
+            if ($document) { // 2.5: check if storage in db successful
+                // 2.6 dispatch encryption job async
+                EncryptDocumentJob::dispatchSync($document->document_id, $data);
+            }
+
+        } catch (QueryException $e) {
+
+            return back()->withErrors([
+                'file' => ['You already uploaded this document', $e->getMessage()]
+            ]);
+        }
+    }
+
+    public function upload_local(Request $request)
     {
         // 1: Validate
         $request->validate([
@@ -34,7 +96,7 @@ class DocumentController extends Controller
             // 2.2: Generate hash (REAL duplicate check)
             $fileHash = hash_hmac('sha256', file_get_contents($file->getRealPath()), config('app.key'));
 
-            // 2.3: Store uploaded file temporarily
+            // 2.3: Store uploaded file in cloud temporarily
             $path = $file->store('uploads/temp');
 
             // 2.4: Save document record in DB
@@ -52,6 +114,7 @@ class DocumentController extends Controller
                 // 2.6 dispatch encryption job async
                 EncryptDocumentJob::dispatchSync($document->document_id, $path);
             }
+
         } catch (QueryException $e) {
 
             return back()->withErrors([
@@ -59,6 +122,35 @@ class DocumentController extends Controller
             ]);
         }
     }
+
+    public function download(Request $request)
+    {
+        //final download code
+        $b2 = new B2Service();
+        $response = $b2->download('4_zac0be882136b3cf396dc0f15_f106b48e4795636f5_d20260331_m104116_c005_v0501043_t0052_u01774953676447');
+
+        $headers = $response->headers();
+
+        $fileName = $headers['x-bz-file-name'][0] ?? 'download.bin';
+        $mimeType = $headers['content-type'][0] ?? 'application/octet-stream';
+
+        return response()->stream(function () use ($response) {
+            $body = $response->getBody();
+
+            while (!$body->eof()) {
+                echo $body->read(1024 * 8); // 8KB chunks
+                flush();
+            }
+        }, 200, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+            'Cache-Control' => 'no-store, no-cache',
+        ]);
+    }
+
+
+
+
 
     /**
      * Starts the retrieval process of the document
@@ -98,5 +190,58 @@ class DocumentController extends Controller
         }
     }
 
+    public function upload_to_cloud(Request $request)
+    {
+        //basic upload to b2
+            // try {
+            //     $path = Storage::disk('b2')->putFileAs(
+            //         'locked-documents',
+            //         $request->file('file'),
+            //         $request->file('file')->getClientOriginalName()
+            //     );
 
+            //     if (!$path) {
+            //         throw new \Exception('Upload failed: returned false');
+            //     }
+
+            //     return back()->with('success', $path);
+
+            // } catch (\Throwable $e) {
+            //     return back()->with('error', $e->getMessage());
+            // }
+    }
+
+    public function download2(Request $request)
+    {
+        //baasic retrieval, raw file content
+            // $content = Storage::disk('b2')->get('locked-documents/As_The_Deer_Sheet_Music.pdf');
+            // return back()->with('success', $content);
+
+        //force browser download file
+        try {
+
+            $path = 'locked-documents/As_The_Deer_Sheet_Music.pdf';
+
+            $disk = Storage::disk('b2');
+
+            if (!$disk->exists($path)) {
+                return back()->with('error', 'File not found');
+            }
+
+            $stream = $disk->readStream($path);
+
+            if (!$stream) {
+                throw new \Exception('Unable to open file stream');
+            }
+
+            $filename = basename($path);
+
+            return response()->streamDownload(function () use ($stream) {
+                fpassthru($stream);
+            }, $filename);
+
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
 }
