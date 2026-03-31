@@ -4,47 +4,7 @@ import { Head } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
 
-/*
-const { flash } = usePage().props;
-
-return (
-    <div>
-        {flash?.success && (
-            <div className="bg-green-500 text-white p-2">
-                {flash.success}
-            </div>
-        )}
-
-        {flash?.error && (
-            <div className="bg-red-500 text-white p-2">
-                {flash.error}
-            </div>
-        )}
-    </div>
-);
-
-OR
-
-useEffect(() => {
-    if (flash?.success) {
-        alert(flash.success); // replace with toast library
-    }
-
-    if (flash?.error) {
-        alert(flash.error);
-    }
-}, [flash]);
-*/
-
 export default function Dashboard() {
-
-    // const handleUpload = (e) => {
-    //     e.preventDefault();
-    //     const formData = new FormData(e.target);
-    //     console.log("UPLOAD TRIGGERED");
-    //     Inertia.post('/documents/upload', formData);
-    //     console.log("UPLOAD TRIGGERED2");
-    // };
 
     const form = useForm({
         file: null,
@@ -55,9 +15,6 @@ export default function Dashboard() {
             onSuccess: (page) => {
                 console.log('Success:', page.props);
             },
-            // onSuccess: () => {
-            //     console.log('Success:', form);
-            // },
             onError: (errors) => {
                 console.log('Validation errors:', errors);
             },
@@ -124,8 +81,8 @@ export default function Dashboard() {
         >
             <Head title="Dashboard" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+            <div className="py-6">
+                <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                         <div className="p-6 text-gray-900">
                             {/* <form onSubmit={handleUpload} encType="multipart/form-data">

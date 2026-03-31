@@ -25,7 +25,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Document upload route
-    Route::post('/documents/upload', [DocumentController::class, 'upload'])
+    Route::post('/documents/upload', [DocumentController::class, 'upload_'])
         ->name('documents.upload');
 
     Route::post('/documents/upload_to_cloud', [DocumentController::class, 'upload_to_cloud'])

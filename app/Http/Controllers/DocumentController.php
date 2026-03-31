@@ -26,7 +26,29 @@ class DocumentController extends Controller
         $b2 = new B2Service();
         $data = $b2->listFiles();
 
-        return back()->with('success', $data ?? 'ngano?');
+        $textFiles = [];
+
+        foreach ($data['files'] as $file) {
+            if ($file['contentType'] === 'text/plain') {
+                $textFiles[] = $file;
+            }
+        }
+
+        foreach ($textFiles as $index => $file) {
+            if ($index > 2) {
+                $fileName = basename($file['fileName']);
+                $localFile =  storage_path('app/public/cover_texts/'. $fileName);
+
+                $folder = storage_path('app/public/failed/');
+                if (!file_exists($folder)) {
+                    mkdir($folder, 0755, true);
+                }
+                // move the file
+                rename($localFile, $folder . $fileName);
+            }
+        }
+
+        //return back()->with('success', );
     }
 
     public function upload(Request $request)
