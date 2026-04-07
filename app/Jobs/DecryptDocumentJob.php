@@ -36,7 +36,7 @@ class DecryptDocumentJob implements ShouldQueue
 
         try {
             // Read reconstructed encrypted file
-            $encPath = 'uploads/reconstructed/' . $this->stegolock_file;
+            $encPath = 'temp/reconstructed/' . $this->stegolock_file;
             $data = file_get_contents(Storage::path($encPath));
 
             if ($data === false) {
@@ -77,7 +77,7 @@ class DecryptDocumentJob implements ShouldQueue
             }
 
             // 5. Save decrypted file
-            $outputPath = 'uploads/decrypted/' . $document->filename;
+            $outputPath = 'temp/decrypted/' . $document->filename;
             Storage::put($outputPath, $plaintext);
 
             // 6. Update document

@@ -34,7 +34,7 @@ class AssembleFragmentsJob implements ShouldQueue
             $frag = [];
             foreach ($this->fragmentBin as $fragment) {
                 $fragment_in_DB = Fragment::findOrFail($fragment[0]);
-                $fragmentBinaryData = file_get_contents(storage_path('app/private/bin/' . $fragment[1] . '.bin'));
+                $fragmentBinaryData = file_get_contents(storage_path('app/private/temp/bin/' . $fragment[1] . '.bin'));
 
                 if ($fragment_in_DB->hash !== hash('sha256',$fragmentBinaryData)) {
                     throw new \Exception("Fragment integrity failed");
@@ -58,7 +58,7 @@ class AssembleFragmentsJob implements ShouldQueue
             }
 
             // Save reconstructed encrypted file
-            $outputPath = 'uploads/reconstructed/' . bin2hex(random_bytes(16)) . time() . '.stegolock';
+            $outputPath = 'temp/reconstructed/' . bin2hex(random_bytes(16)) . time() . '.stegolock';
             Storage::put($outputPath, $reconstructed);
 
             // 6. Update document
@@ -67,9 +67,8 @@ class AssembleFragmentsJob implements ShouldQueue
             ]);
 
             //delete fragment bin
-            $samp = [];
             foreach ($frag as $fragment) {
-                unlink(storage_path('app/private/bin/' . $fragment[3] . '.bin'));
+                unlink(storage_path('app/private/temp/bin/' . $fragment[3] . '.bin'));
             }
 
             //Decrypt

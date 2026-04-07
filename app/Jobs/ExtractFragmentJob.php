@@ -12,6 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use App\Providers\B2Service;
 
 class ExtractFragmentJob implements ShouldQueue
 {
@@ -43,13 +44,9 @@ class ExtractFragmentJob implements ShouldQueue
         {
             foreach ($this->stegoFiles as $file) {
 
-                $path = storage_path('app/public/' . $file['stego_path']);
-
-                $filename = basename($path);
-
                 $stegoFiles[] = [
-                    'filename' => pathinfo($filename, PATHINFO_FILENAME),
-                    'type' => pathinfo($filename, PATHINFO_EXTENSION),
+                    'filename' => pathinfo($file['filename'], PATHINFO_FILENAME),
+                    'type' => pathinfo($file['filename'], PATHINFO_EXTENSION),
                     'fragment_id' => $file['fragment_id'],
                     'offset' => $file['offset']
                 ];
@@ -102,8 +99,8 @@ class ExtractFragmentJob implements ShouldQueue
 
     public function extract_from_txt(array $file): void
     {
-        $stegoText = storage_path('app/public/cloud_storage/' . $file['filename'] . '.txt');
-        $fragmentBin = storage_path('app/private/bin/'. $file['filename'] .'.bin');
+        $stegoText = storage_path('app/private/temp/cloud/' . $file['filename'] . '.txt');
+        $fragmentBin = storage_path('app/private/temp/bin/'. $file['filename'] .'.bin');
         $offset = $file['offset'];
 
         $command = "python " . base_path('python_backend/embedding/text/extract.py') . " "
@@ -121,12 +118,14 @@ class ExtractFragmentJob implements ShouldQueue
         }
 
         $this->fragmentBin[] = [$file['fragment_id'], $file['filename']];
+
+        unlink($stegoText);
     }
 
     public function extract_from_img(array $file): void
     {
-        $stegoImage = storage_path('app/public/cloud_storage/' . $file['filename'] . '.png');
-        $fragmentBin = storage_path('app/private/bin/'. $file['filename'] .'.bin');
+        $stegoImage = storage_path('app/private/temp/cloud/' . $file['filename'] . '.png');
+        $fragmentBin = storage_path('app/private/temp/bin/'. $file['filename'] .'.bin');
 
         $command = "python " . base_path('python_backend/embedding/image/extract.py') . " "
             . escapeshellarg($stegoImage) . " "
@@ -139,12 +138,14 @@ class ExtractFragmentJob implements ShouldQueue
         }
 
         $this->fragmentBin[] = [$file['fragment_id'], $file['filename']];
+
+        unlink($stegoImage);
     }
 
     public function extract_from_audio(array $file): void
     {
-        $stegoWAV = storage_path('app/public/cloud_storage/' . $file['filename'] . '.wav');
-        $fragmentBin = storage_path('app/private/bin/'. $file['filename'] .'.bin');
+        $stegoWAV = storage_path('app/private/temp/cloud/' . $file['filename'] . '.wav');
+        $fragmentBin = storage_path('app/private/temp/bin/'. $file['filename'] .'.bin');
 
         $command = "python " . base_path('python_backend/embedding/audio/extract.py') . " "
             . escapeshellarg($stegoWAV) . " "
@@ -157,6 +158,8 @@ class ExtractFragmentJob implements ShouldQueue
         }
 
         $this->fragmentBin[] = [$file['fragment_id'], $file['filename']];
+
+        unlink($stegoWAV);
     }
 }
 

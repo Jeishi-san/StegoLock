@@ -90,9 +90,10 @@ class DocumentController extends Controller
 
             $cloudFiles = $b2->listFiles();
 
-            $lockedIds = collect($cloudFiles['files'])
-                ->filter(fn($file) => Str::startsWith($file['fileName'], 'locked/'))
-                ->pluck('fileId');
+            $lockedFiles = collect($cloudFiles['files'])
+                ->filter(fn($file) => Str::startsWith($file['fileName'], 'locked/'));
+
+            $lockedIds = $lockedFiles->pluck('fileId');
 
             $allExist = collect($stegoFiles) //storage check
                 ->every(fn($file) => $lockedIds->contains($file['cloud_file_id']));
@@ -100,6 +101,22 @@ class DocumentController extends Controller
             if (!$allExist) {
                 throw new \Exception("Corrupted file error: Missing stego file");
             }
+
+            //download stego files for extraction later
+            // if (!file_exists(storage_path('app/private/temp/cloud/'))) {
+            //     mkdir(storage_path('app/private/temp/cloud/'), 0755, true);
+            // }
+
+            // foreach ($stegoFiles as $stegoFile) {
+            //     $downloadedStegoPath = storage_path('app/private/temp/cloud/' . $stegoFile['filename']);
+            //     foreach ($lockedFiles as $lockedFile) {
+            //         if ($stegoFile['cloud_file_id'] === $lockedFile['fileId']) {
+            //             $content = $b2->readfile($lockedFile['fileId']); //binary
+            //             file_put_contents($downloadedStegoPath, $content); //saving stego file to temp storage
+            //             break;
+            //         }
+            //     }
+            // }
 
             //dispatch extraction
             ExtractFragmentJob::dispatchSync($stegoMap->stego_map_id, $stegoFiles);
