@@ -37,29 +37,9 @@ class SegmentDocumentJob implements ShouldQueue
         $document = Document::find($this->documentId);
         if (!$document) return;
 
-        $b2 = new B2Service();
-
-        $encryptionFileInfo = []; //the encrypted file to segment
-
-        try
-        {
-            $encryptionFileList = $b2->listFiles()['files'];
-
-            foreach ($encryptionFileList as $file) {
-                if ($file['fileName'] === $this->filePath) {
-                    $encryptionFileInfo[] = $file;
-                    break;
-                }
-            }
-        } catch (\Throwable $e) {
-            // Handle the error
-            return back()->withErrors(['error' => 'File fetch error' . $e->getMessage()]);
-        }
-
         try {
 
-            //$ciphertext = file_get_contents(Storage::path($this->filePath));
-            $ciphertext = $b2->readfile($encryptionFileInfo[0]['fileId'], $encryptionFileInfo[0]['fileName']);
+            $ciphertext = file_get_contents(Storage::path($this->filePath));
 
             if ($ciphertext === false) return;
 
@@ -119,17 +99,14 @@ class SegmentDocumentJob implements ShouldQueue
             }
 
             // Update the database with fragments info
-
             $document->update([
                 'fragment_count' => count($fragments),
                 'status' => 'fragmented'
             ]);
 
             // Safe to delete encrypted file
-            $encryptedFileDeleted = $b2->deleteFile($encryptionFileInfo[0]['fileId'], $encryptionFileInfo[0]['fileName']);
-            if(!$encryptedFileDeleted) {
-                throw new \Exception('Failed to delete temporary file');
-            }
+            Storage::delete($this->filePath);
+
         } catch (\Throwable $e) {
             // Update document with failure info
             $document->update([

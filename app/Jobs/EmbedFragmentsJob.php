@@ -15,29 +15,86 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use App\Providers\B2Service;
 
 class EmbedFragmentsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected string $mapId;
+    protected array $cloudFiles;
+    protected array $localCovers;
+    protected array $stegoFiles;
 
     public function __construct(string $mapId)
     {
         $this->mapId = $mapId;
     }
 
-    public function handle(): void
+    public function handle()
     {
-        $this->embedFragments();
+        try
+        {
+            $isFetched = $this->fetchCoverFiles();
+            if(!$isFetched) {
+                throw new \Exception("Cover mismatch");
+            }
+            $this->embedFragments();
+        } catch (\Throwable $e) {
+            throw new \Exception("Error: " . $e->getMessage());
+        }
+
+    }
+
+    private function fetchCoverFiles() //fetch cover files from the cloud and create cover file copies in local storage for embedding
+    {
+        //fetch cover files from cloud
+        $b2 = new B2Service();
+        $files = $b2->listFiles();
+        $this->cloudFiles = $files['files'];
+
+        //create local copies of cover files
+        if (!file_exists(storage_path('app/private/temp/covers/'))) {
+            mkdir(storage_path('app/private/temp/covers/'), 0755, true);
+        }
+
+        $map = FragmentMap::findOrFail($this->mapId);
+        $mappedCovers = $map->fragments_in_covers;
+
+        $document = Document::findOrFail($map->document_id);
+
+        foreach ($mappedCovers as $mappedCover) {
+            $cover = Cover::findOrFail($mappedCover['cover_id']);
+
+            if ($cover) {
+                $coverTempPath = storage_path('app/private/temp/covers/' . basename($cover->path));
+                try {
+                    foreach ($this->cloudFiles as $file) {
+                        if ($file['fileName'] === $cover->path) {
+                            $content = $b2->readfile($file['fileId']); //binary
+                            file_put_contents($coverTempPath, $content); //saving cover to temp storage
+                            $this->localCovers[] = $coverTempPath;
+                            break;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    throw new \Exception("Cloud fetch failed: " . $e->getMessage());
+                }
+            } else throw new \Exception("Cover not found");
+        }
+
+
+        return count($this->localCovers) === $document->fragment_count;
     }
 
     private function embedFragments()
     {
+
         $map = FragmentMap::findOrFail($this->mapId);
         $document = Document::findOrFail($map->document_id);
         $mapping = $map->fragments_in_covers;
 
+        $b2 = new B2Service();
         try {
             $stegoMap = [];
 
@@ -50,23 +107,35 @@ class EmbedFragmentsJob implements ShouldQueue
                 'status' => 'embedded',
             ]);
 
-            //Save stegoMap to DB
+            // Save stegoMap to DB
             $newStegoMap = StegoMap::create([
                 'stego_map_id' => (string) Str::uuid(),
                 'document_id' => $document->document_id,
                 'status' => 'completed',
             ]);
 
-            //Save stego files in DB
-            foreach ($stegoMap as $stego) {
-                StegoFile::create([
-                    'stego_map_id' => $newStegoMap->stego_map_id,
-                    'fragment_id' => $stego['fragmentId'],
-                    'offset' => $stego['offset'],
-                    'stego_path' => $stego['stegoFile'],
-                    'stego_size' => Storage::disk('public')->size($stego['stegoFile']),
-                    'status' => 'embedded',
-                ]);
+            // Save stego files in cloud
+            $stegoFileInfos = [];
+            foreach ($this->stegoFiles as $filePath) {
+                $stegoFileInfos[] = $b2->storeFile($filePath);
+                unlink($filePath);
+            }
+
+            foreach ($stegoFileInfos as $stegoFile) {
+                foreach ($stegoMap as $stego) {
+                    if ($stegoFile['fileName'] === 'locked/' . $stego['stegoFile']) {
+                        StegoFile::create([
+                            'stego_map_id' => $newStegoMap->stego_map_id,
+                            'cloud_file_id' => $stegoFile['fileId'],
+                            'fragment_id' => $stego['fragmentId'],
+                            'offset' => $stego['offset'],
+                            'filename' => $stego['stegoFile'],
+                            'stego_size' => $stegoFile['contentLength'],
+                            'status' => 'embedded',
+                        ]);
+                        break;
+                    }
+                }
             }
 
             // Update document status
@@ -75,9 +144,8 @@ class EmbedFragmentsJob implements ShouldQueue
             ]);
 
             return back()->with('success', 'Embedded and stored.');
+
         } catch (\Throwable $e) {
-
-
             // Update document with failure info
             $document->update([
                 'status' => 'failed',
@@ -91,29 +159,44 @@ class EmbedFragmentsJob implements ShouldQueue
     private function embed(string $fragmentId, string $coverId)
     {
         $cover = Cover::findOrFail($coverId);
+
+        //generate random name for stego file
+        $fileName = bin2hex(random_bytes(16)) . time() . $this->getExtension($cover->type);
+
+        $lockedSet = collect($this->cloudFiles)
+            ->pluck('fileName')
+            ->flip(); // makes keys = fileName
+
+        do {
+            $fileName = bin2hex(random_bytes(16)) . time() . $this->getExtension($cover->type);
+            $fullName = 'locked/' . $fileName;
+        } while ($lockedSet->has($fullName));
+
+        $coverFile = '';
+        foreach ($this->localCovers as $localCover) {
+            if (basename($localCover) === $cover->filename) {
+                $coverFile = $localCover;
+                break;
+            }
+        }
+
+        $stegoFile = storage_path('app/private/temp/cloud/'. $fileName);
+        $binaryFile = storage_path('app/private/temp/bin/'. $fileName . '.bin');
+
+        if (!file_exists(storage_path('app/private/temp/bin'))) {
+            mkdir(storage_path('app/private/temp/bin'), 0755, true);
+        }
+
+        if (!file_exists(storage_path('app/private/temp/cloud/'))) {
+            mkdir(storage_path('app/private/temp/cloud/'), 0755, true);
+        }
+
+        //getting fragment data
         $fragment = Fragment::findOrFail($fragmentId);
-
-        $fileName = bin2hex(random_bytes(16)) . time();
-        while (file_exists(storage_path('app/public/cloud_storage/'. $fileName . $this->getExtension($cover->type)))) {
-            $fileName = bin2hex(random_bytes(16)) . time();
-        }
-
-        $coverFile = storage_path('app/public/'. $cover->path);
-        $stegoFile = storage_path('app/public/cloud_storage/'. $fileName . $this->getExtension($cover->type));
-        $binaryFile = storage_path('app/private/bin/'. $fileName . '.bin');
-
-        if (!file_exists(storage_path('app/private/bin'))) {
-            mkdir(storage_path('app/private/bin'), 0755, true);
-        }
-
-        if (!file_exists(storage_path('app/public/cloud_storage/'))) {
-            mkdir(storage_path('app/public/cloud_storage/'), 0755, true);
-        }
-
         $fragmentBinaryData = base64_decode($fragment->blob);
-
         file_put_contents($binaryFile, $fragmentBinaryData);
 
+        //embedding binary data with python script
         $command = "python " . base_path('python_backend/embedding/' . $this->getScript($cover->type)) . " "
             . escapeshellarg($coverFile) . " "
             . escapeshellarg($stegoFile) . " "
@@ -130,12 +213,32 @@ class EmbedFragmentsJob implements ShouldQueue
 
         $offset = (int) end($output);
 
-        // Optional: log success
+        $this->stegoFiles[] = $stegoFile;
 
-        // Safe to delete binary file
+        // // Optional: log success
+
+        // Safe to delete temp files
+        unlink($coverFile);
         unlink($binaryFile);
 
-        return ['fragmentId' => $fragmentId, 'stegoFile' => 'cloud_storage/' . basename($stegoFile), 'offset' => $offset];
+        return ['fragmentId' => $fragmentId, 'stegoFile' => basename($stegoFile), 'offset' => $offset];
+
+    }
+
+    private function storeStegoFiles(string $filePath) //store to cloud
+    {
+        //saving stego file to cloud storage
+        $b2 = new B2Service();
+        try {
+            $data = $b2->storeFile($filePath);
+
+            if (!$data) {
+                throw new \Exception('Cloud storage failed');
+            }
+
+        } catch (\Throwable $e) {
+            throw new \Exception("Cloud storage failed: " . $e->getMessage());
+        }
     }
 
     private function getExtension(string $coverType): string

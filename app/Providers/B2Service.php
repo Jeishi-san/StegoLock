@@ -118,6 +118,38 @@ class B2Service
         return $response;
     }
 
+    public function storeFile(string $filePath)
+    {
+        $store = $this->getUploadUrl();
+
+        $fileName = 'locked/'. basename($filePath);
+
+        $content = file_get_contents($filePath);
+
+        $sha1 = sha1($content);
+
+        $stream = fopen($filePath, 'r');
+
+        if ($content === false || $stream === false) {
+            throw new \Exception("Failed to read file");
+        }
+
+        /** @var \Illuminate\Http\Client\Response $response */
+        $response = Http::timeout(300)
+        ->withHeaders([
+            'Authorization' => $store['authorizationToken'],
+            'X-Bz-File-Name' => $fileName,
+            'Content-Type' => 'b2/x-auto',
+            'X-Bz-Content-Sha1' => $sha1,
+        ])
+        ->withBody($stream, 'application/octet-stream')
+        ->post($store['uploadUrl']);
+
+        fclose($stream);
+
+        return $response->json();
+    }
+
     public function listFiles()
     {
         $auth = $this->getAuth();
@@ -127,7 +159,7 @@ class B2Service
             'Authorization' => $auth['token'],
         ])->post($auth['apiUrl'] . '/b2api/v2/b2_list_file_names', [
             'bucketId' => env('B2_BUCKET_ID'),
-            'maxFileCount' => 100,
+            'maxFileCount' => 200,
         ]);
 
         return $response->json();
@@ -177,9 +209,9 @@ class B2Service
         return $response->json();
     }
 
-    public function readfile($fileId, $fileName)
+    public function readfile($fileId)
     {
-        $response = $this->download($fileId, $fileName);
+        $response = $this->download($fileId);
 
         $plaintext = '';
 

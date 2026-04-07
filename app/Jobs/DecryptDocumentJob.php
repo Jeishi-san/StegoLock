@@ -90,7 +90,7 @@ class DecryptDocumentJob implements ShouldQueue
 
             //return to user for download
             //delete after download / retain files, this leads to new securing process
-            return back()->with('success', 'File retrieved: ' . basename($outputPath));
+            //return back()->with('success', 'File retrieved: ' . basename($outputPath));
 
         } catch (\Throwable $e) {
             $document->update([

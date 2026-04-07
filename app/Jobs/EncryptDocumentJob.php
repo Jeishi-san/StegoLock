@@ -17,18 +17,18 @@ class EncryptDocumentJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected $documentId;
-    protected $temp_filedata;
+    protected $temp_filePath;
 
     /**
      * Create a new job instance.
      *
      * @param int $documentId
-     * @param array $temp_filedata
+     * @param array $temp_filePath
      */
-    public function __construct(int $documentId, array $temp_filedata)
+    public function __construct(int $documentId, string $temp_filePath)
     {
         $this->documentId = $documentId;
-        $this->temp_filedata = $temp_filedata;
+        $this->temp_filePath = $temp_filePath;
     }
 
     /**
@@ -46,19 +46,9 @@ class EncryptDocumentJob implements ShouldQueue
         if (!$document) {
             throw new \Exception("Missing document");
         }
-
-        $b2 = new B2Service();
-        $fileInfo = $this->temp_filedata;
-
-
         try {
             // 1. Read the uploaded plaintext file
-            try {
-                $plaintext = $b2->readfile($fileInfo['fileId'], $fileInfo['fileName']);
-
-            } catch (\Throwable $e) {
-                return back()->with('error', $e->getMessage());
-            }
+            $plaintext = file_get_contents(Storage::path($this->temp_filePath));
 
             // 2. Generate a random document key salt (32 bytes)
             $dk_salt = random_bytes(Constant::DK_SALT_LEN);
@@ -85,18 +75,9 @@ class EncryptDocumentJob implements ShouldQueue
             );
 
             // 5. Save encrypted file (store nonce/IV + tag + ciphertext)
-            $encPath = 'temp-encrypted/' . pathinfo(basename($fileInfo['fileName']), PATHINFO_FILENAME) . '.stegolock';
+            $encPath = 'temp/encrypted/' . pathinfo(basename(''.$this->temp_filePath), PATHINFO_FILENAME) . '.stegolock';
 
-            try {
-                $path = Storage::disk('b2')->put($encPath, $nonce . $tag . $ciphertext);
-
-                if (!$path) {
-                    throw new \Exception('Encryption process stopped: empty encryption file path');
-                }
-
-            } catch (\Throwable $e) {
-                return back()->with('error', $e->getMessage());
-            }
+            Storage::put($encPath, $nonce . $tag . $ciphertext);
 
             //6. Update the database with encryption info
             $document->update([
@@ -106,10 +87,8 @@ class EncryptDocumentJob implements ShouldQueue
             ]);
 
             // Safe to delete uploaded file
-            $uploadedFileDeleted = $b2->deleteFile($fileInfo['fileId'], $fileInfo['fileName']);
-            if(!$uploadedFileDeleted) {
-                throw new \Exception('Failed to delete temporary file');
-            }
+            Storage::delete($this->temp_filePath);
+
         } catch (\Throwable $e) {
             // Update document with failure info
             $document->update([
@@ -117,7 +96,7 @@ class EncryptDocumentJob implements ShouldQueue
                 'error_message' => ['Encryption failed', $e->getMessage()]
             ]);
 
-            return back()->with('error', $document->error_message);
+            //return back()->with('error', $document->error_message);
         }
 
         //Segmentation

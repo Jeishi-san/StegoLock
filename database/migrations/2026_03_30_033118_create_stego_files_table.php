@@ -10,6 +10,7 @@ return new class extends Migration {
         Schema::create('stego_files', function (Blueprint $table) {
             $table->uuid('stego_file_id')->primary();
 
+            $table->string('cloud_file_id');
             $table->uuid('stego_map_id');
             $table->uuid('fragment_id');
 

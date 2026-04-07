@@ -178,18 +178,16 @@ class MapFragmentsToCoversJob implements ShouldQueue
 
             //update fragment status from floating to mapped
 
-            //Dispatch fragment embedding into cover files
-            EmbedFragmentsJob::dispatchSync($map->map_id);
-
         } catch (\Throwable $e) {
             // Update document with failure info
             $document->update([
                 'status' => 'failed',
                 'error_message' => ['Mapping failed', $e->getMessage()]
             ]);
-
-            //return back()->withErrors('errors', [$e->getMessage(), $document->error_message]);
         }
+
+        //Dispatch fragment embedding into cover files
+        EmbedFragmentsJob::dispatchSync($map->map_id);
     }
 
     public function generate_text_cover(int $fragmentSize)
