@@ -17,9 +17,31 @@ use App\Jobs\ExtractFragmentJob;
 use App\Jobs\MapFragmentsToCoversJob;
 use PhpParser\Node\Stmt\TryCatch;
 use App\Providers\B2Service;
+use Inertia\Inertia;
 
 class DocumentController extends Controller
 {
+    protected $primaryKey = 'document_id';
+
+    public function index()
+    {
+        $documents = Document::where('user_id', Auth::id())
+            ->latest()
+            ->get([
+                'document_id',
+                'filename',
+                'file_type',
+                'original_size',
+                'encrypted_size',
+                'status',
+                'fragment_count',
+                'created_at'
+            ]);
+
+        return Inertia::render('MyDocuments', [
+            'documents' => $documents
+        ]);
+    }
 
     /**
      * Starts the locking and securing process of the document
@@ -103,20 +125,20 @@ class DocumentController extends Controller
             }
 
             //download stego files for extraction later
-            // if (!file_exists(storage_path('app/private/temp/cloud/'))) {
-            //     mkdir(storage_path('app/private/temp/cloud/'), 0755, true);
-            // }
+            if (!file_exists(storage_path('app/private/temp/cloud/'))) {
+                mkdir(storage_path('app/private/temp/cloud/'), 0755, true);
+            }
 
-            // foreach ($stegoFiles as $stegoFile) {
-            //     $downloadedStegoPath = storage_path('app/private/temp/cloud/' . $stegoFile['filename']);
-            //     foreach ($lockedFiles as $lockedFile) {
-            //         if ($stegoFile['cloud_file_id'] === $lockedFile['fileId']) {
-            //             $content = $b2->readfile($lockedFile['fileId']); //binary
-            //             file_put_contents($downloadedStegoPath, $content); //saving stego file to temp storage
-            //             break;
-            //         }
-            //     }
-            // }
+            foreach ($stegoFiles as $stegoFile) {
+                $downloadedStegoPath = storage_path('app/private/temp/cloud/' . $stegoFile['filename']);
+                foreach ($lockedFiles as $lockedFile) {
+                    if ($stegoFile['cloud_file_id'] === $lockedFile['fileId']) {
+                        $content = $b2->readfile($lockedFile['fileId']); //binary
+                        file_put_contents($downloadedStegoPath, $content); //saving stego file to temp storage
+                        break;
+                    }
+                }
+            }
 
             //dispatch extraction
             ExtractFragmentJob::dispatchSync($stegoMap->stego_map_id, $stegoFiles);

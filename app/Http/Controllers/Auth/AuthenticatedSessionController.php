@@ -86,7 +86,7 @@ class AuthenticatedSessionController extends Controller
         // Regenerate session
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return redirect()->intended(route('myDocuments', absolute: false));
     }
 
     /**

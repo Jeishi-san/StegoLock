@@ -1,8 +1,9 @@
 import { Link } from '@inertiajs/react';
 
 export default function NavLink({
-    active = false,
+    active = true,
     className = '',
+    icon: Icon,
     children,
     ...props
 }) {
@@ -10,13 +11,16 @@ export default function NavLink({
         <Link
             {...props}
             className={
-                'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none ' +
-                (active
-                    ? 'border-indigo-400 text-gray-900 focus:border-indigo-700'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 focus:border-gray-300 focus:text-gray-700') +
+                'w-full flex items-center px-4 py-3 rounded-xl transition-all ' +
+                (active ?
+                    'bg-gradient-to-r from-indigo-200 to-purple-100 text-indigo-700 shadow-md' :
+                    'text-gray-700 hover:bg-gray-200 ') +
                 className
             }
         >
+            <Icon className={
+                'size-5 mr-2 text-gray-500' +
+                (active ? ' text-indigo-600' : ' text-gray-500')} />
             {children}
         </Link>
     );

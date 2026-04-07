@@ -87,6 +87,8 @@ class RegisteredUserController extends Controller
             'master_key_enc' => base64_encode($master_key_enc),
             'nonce' => base64_encode($nonce),
             'tag' => base64_encode($tag),
+            //user storage limit
+            //user storate current size
         ]);
 
         event(new Registered($user));

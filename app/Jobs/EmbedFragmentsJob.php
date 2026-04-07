@@ -143,7 +143,7 @@ class EmbedFragmentsJob implements ShouldQueue
                 'status' => 'stored',
             ]);
 
-            return back()->with('success', 'Embedded and stored.');
+            //return back()->with('success', 'Embedded and stored.');
 
         } catch (\Throwable $e) {
             // Update document with failure info
