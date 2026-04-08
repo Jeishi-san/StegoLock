@@ -21,6 +21,7 @@ class Document extends Model
         'dk_salt',
         'status',
         'fragment_count',
+        'in_cloud_size',
         'error_message'
     ];
 
@@ -28,6 +29,7 @@ class Document extends Model
         'original_size' => 'integer',
         'encrypted_size' => 'integer',
         'fragment_count' => 'integer',
+        'in_cloud_size' => 'integer',
     ];
 
     public function user()

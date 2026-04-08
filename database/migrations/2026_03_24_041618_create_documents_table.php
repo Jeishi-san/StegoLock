@@ -39,6 +39,7 @@ return new class extends Migration
             ])->default('uploaded');
 
             $table->integer('fragment_count')->nullable();
+            $table->unsignedBigInteger('in_cloud_size')->default(0);
             $table->text('error_message')->nullable();
 
             $table->timestamps();

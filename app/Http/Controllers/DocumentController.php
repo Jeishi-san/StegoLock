@@ -19,6 +19,8 @@ use PhpParser\Node\Stmt\TryCatch;
 use App\Providers\B2Service;
 use Inertia\Inertia;
 
+use function Laravel\Prompts\alert;
+
 class DocumentController extends Controller
 {
     protected $primaryKey = 'document_id';
@@ -32,14 +34,18 @@ class DocumentController extends Controller
                 'filename',
                 'file_type',
                 'original_size',
-                'encrypted_size',
+                'in_cloud_size',
                 'status',
                 'fragment_count',
                 'created_at'
             ]);
 
+        $user = Auth::user();
+
         return Inertia::render('MyDocuments', [
-            'documents' => $documents
+            'documents' => $documents,
+            'totalStorage' => $user->storage_used,
+            'storageLimit' => $user->storage_limit,
         ]);
     }
 
@@ -80,6 +86,10 @@ class DocumentController extends Controller
                 EncryptDocumentJob::dispatchSync($document->document_id, $path);
             }
 
+            return response()->json([
+                'document_id' => $document->document_id
+            ]);
+
         } catch (QueryException $e) {
 
             return back()->withErrors([
@@ -96,8 +106,9 @@ class DocumentController extends Controller
     {
         $b2 = new B2Service();
         $document = Document::findOrFail($request->id);
-        if (!$document) {
-            return back()->withErrors('errors', 'Document not found');
+
+        if ($document->status !== 'stored') {
+            abort(400, 'File not stored');
         }
 
         try
@@ -152,12 +163,49 @@ class DocumentController extends Controller
         }
     }
 
+    /**
+     * Downloads the requested document from local storage after decryption
+     */
+    public function download($id)
+    {
+        $document = Document::findOrFail($id);
+
+        if ($document->status !== 'decrypted') {
+            abort(400, 'File not ready');
+        }
+
+        $path = 'temp/decrypted/' . $document->filename;
+
+        if (!Storage::exists($path)) {
+            abort(404, 'File missing');
+        }
+
+        return Storage::download($path, $document->filename);
+    }
+
+    public function getStatus($id)
+    {
+        $document = Document::findOrFail($id);
+
+        return response()->json([
+            'status' => $document->status
+        ]);
+    }
 
 
 
 
 
 
+
+
+
+    public function getFileInfo(Request $request)
+    {
+        $b2 = new B2Service();
+
+        return response()->json($b2->getFileInfo('4_zac0be882136b3cf396dc0f15_f102b21419ace697b_d20260408_m151014_c005_v0501039_t0004_u01775661014587'));
+    }
 
 
 
@@ -229,7 +277,7 @@ class DocumentController extends Controller
         }
     }
 
-    public function download(Request $request)
+    public function download_cloud(Request $request)
     {
         //final download code
         $b2 = new B2Service();

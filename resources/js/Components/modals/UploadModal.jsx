@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
+import { toast } from 'sonner';
+
 
 export default function UploadModal({ isOpen, onClose }) {
     const [filePreview, setFilePreview] = useState(null);
@@ -46,23 +48,55 @@ export default function UploadModal({ isOpen, onClose }) {
         setConfirmStep(true);
     };
 
-    const handleUpload = () => {
-        form.post('/documents/upload', {
-            forceFormData: true,
+    const handleUpload = async () => {
+        if (!form.data.file) return;
 
-            onSuccess: () => {
-                resetAll();
-                onClose();
-            },
+        const file = form.data.file;
 
-            onError: (errors) => {
-                console.log(errors);
+        const toastId = toast.loading('Uploading file...');
 
-                if (errors.file) {
-                    setFileError(errors.file);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 🔥 STEP A — Upload
+            const res = await axios.post('/documents/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
                 }
-            },
-        });
+            });
+
+            if (!res.ok) throw new Error('Upload failed');
+
+            const data = await res.json();
+
+            const documentId = data.document_id;
+
+            console.log('Document uploaded successfully:', documentId);
+
+            // // 🔥 STEP B — Switch toast to processing
+            // toast.loading('Locking file...', { id: toastId });
+
+            // // 🔥 STEP C — Poll status
+            // const interval = setInterval(async () => {
+            //     const statusRes = await fetch(`/documents/status/${documentId}`);
+            //     const data = await statusRes.json();
+
+            //     if (data.status === 'uploaded') {
+            //         clearInterval(interval);
+            //         toast.success('Upload complete', { id: toastId });
+            //     }
+
+            //     if (data.status === 'failed') {
+            //         clearInterval(interval);
+            //         toast.error('Upload failed', { id: toastId });
+            //     }
+
+            // }, 2000);
+
+        } catch (err) {
+            toast.error('Upload failed', { id: toastId });
+        }
     };
 
     const resetAll = () => {

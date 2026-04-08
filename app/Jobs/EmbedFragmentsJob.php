@@ -16,6 +16,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use App\Providers\B2Service;
+use Illuminate\Support\Facades\Auth;
 
 class EmbedFragmentsJob implements ShouldQueue
 {
@@ -89,6 +90,7 @@ class EmbedFragmentsJob implements ShouldQueue
 
     private function embedFragments()
     {
+        $user = Auth::user();
 
         $map = FragmentMap::findOrFail($this->mapId);
         $document = Document::findOrFail($map->document_id);
@@ -124,7 +126,7 @@ class EmbedFragmentsJob implements ShouldQueue
             foreach ($stegoFileInfos as $stegoFile) {
                 foreach ($stegoMap as $stego) {
                     if ($stegoFile['fileName'] === 'locked/' . $stego['stegoFile']) {
-                        StegoFile::create([
+                        $sFile = StegoFile::create([
                             'stego_map_id' => $newStegoMap->stego_map_id,
                             'cloud_file_id' => $stegoFile['fileId'],
                             'fragment_id' => $stego['fragmentId'],
@@ -133,6 +135,8 @@ class EmbedFragmentsJob implements ShouldQueue
                             'stego_size' => $stegoFile['contentLength'],
                             'status' => 'embedded',
                         ]);
+                        $user->increment('storage_used', $sFile->stego_size);
+                        $document->increment('in_cloud_size', $sFile->stego_size);
                         break;
                     }
                 }

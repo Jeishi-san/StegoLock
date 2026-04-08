@@ -22,6 +22,8 @@ return new class extends Migration
             $table->text('master_key_enc');
             $table->text('nonce');
             $table->text('tag');
+            $table->unsignedBigInteger('storage_used')->default(0);
+            $table->unsignedBigInteger('storage_limit')->default(1073741824); // 1GB
             $table->rememberToken();
             $table->timestamps();
         });

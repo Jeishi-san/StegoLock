@@ -37,23 +37,19 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
 
-
-
-
-
-
-
     // Document upload route
     Route::post('/documents/upload', [DocumentController::class, 'lockFile'])
         ->name('documents.upload');
 
-    Route::post('/documents/upload_to_cloud', [DocumentController::class, 'upload_to_cloud'])
-        ->name('documents.upload_to_cloud');
-
     Route::post('/documents/unlock', [DocumentController::class, 'unlockFile'])
         ->name('documents.unlock');
 
-    Route::get('/documents/download', [DocumentController::class, 'download']);
+    Route::get('/documents/status/{id}', [DocumentController::class, 'getStatus']);
+
+    Route::get('/documents/download/{id}', [DocumentController::class, 'download']);
+
+    Route::get('/documents/getFileInfo/{id}', [DocumentController::class, 'getStorageInfo']);
+
 });
 
 use App\Http\Controllers\WikiFeedController;

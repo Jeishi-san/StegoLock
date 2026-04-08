@@ -25,7 +25,9 @@ class User extends Authenticatable
         'ek_salt',
         'master_key_enc',
         'nonce',
-        'tag'
+        'tag',
+        'storage_used',
+        'storage_limit',
     ];
 
     /**
@@ -48,6 +50,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'storage_used' => 'integer',
+            'storage_limit' => 'integer',
         ];
     }
 }

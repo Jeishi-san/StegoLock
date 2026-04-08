@@ -1,4 +1,6 @@
 import { Shield, Plus, ChevronDown, Upload, FolderOpen, Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2,} from "lucide-react";
+import { Toaster } from 'sonner';
+
 import Dropdown from '@/Components/Dropdown';
 
 import { Sidebar } from "@/Components/Sidebar";
@@ -8,19 +10,25 @@ import { useState } from 'react';
 
 export default function AuthenticatedLayout({
     header,
-    children
+    children,
+    totalStorage,
+    storageLimit
  }) {
 
     const user = usePage().props.auth.user;
 
     return (
-        <div className="flex min-h-screen bg-gray-100">
+        <div className="flex min-h-screen bg-gray-100 overflow-hidden">
 
             {/* LEFT SIDE (Navigation) */}
-            <Sidebar/>
+            <Sidebar
+                totalStorage={totalStorage}
+                storageLimit={storageLimit}
+
+            />
 
             {/* RIGHT SIDE */}
-            <div className="flex flex-col flex-1">
+            <div className="flex flex-col flex-1 h-screen overflow-hidden">
                 {header && (
                     <header className="bg-white shadow border border-red-700">
                         <div className="flex h-[100px]">
@@ -79,7 +87,10 @@ export default function AuthenticatedLayout({
                     </header>
                 )}
 
-                <main>{children}</main>
+                <main className="flex-1 overflow-hidden">
+                    {children}
+                    <Toaster position="top-right" richColors />
+                </main>
             </div>
         </div>
     );

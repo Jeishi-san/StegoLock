@@ -25,7 +25,7 @@ export function Sidebar({
   storageLimit,
   onUploadClick,
   onManageStorageClick,
-  onNewFolderClick
+  onNewFolderClick,
 }) {
 
     const user = usePage().props.auth.user;
@@ -34,9 +34,10 @@ export function Sidebar({
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [showNewMenu, setShowNewMenu] = useState(false);
 
+    const [isUploading, setIsUploading] = useState(false);
 
-    //const storagePercentage = (totalStorage / storageLimit) * 100;
-    const storagePercentage = (500 / 1024) * 100;
+
+    const storagePercentage = (totalStorage / storageLimit) * 100;
 
     const MenuButton = ({ icon: Icon, label, onClick}) => (
         <button
@@ -118,7 +119,10 @@ export function Sidebar({
                 <div className="flex my-4 relative">
                     {/* New Button with Dropdown */}
                     <button
-                        onClick={() => setShowNewMenu(!showNewMenu)}
+                        onClick={() => {
+                            if (isUploading) return;
+                            setShowNewMenu(!showNewMenu);
+                        }}
                         className="w-full flex items-center justify-center gap-2 bg-gradient-to-r
                                     from-indigo-600 to-purple-600 text-white px-4 py-3.5
                                     rounded-xl hover:from-indigo-700 hover:to-purple-700
@@ -140,6 +144,7 @@ export function Sidebar({
                             <MenuButton icon={Upload}
                                         label="Document Upload"
                                         onClick={() => {
+                                            if (isUploading) return;
                                             setShowNewMenu(false);
                                             setShowUploadModal(true);
                                         }}
@@ -228,8 +233,7 @@ export function Sidebar({
                     <div className="flex items-center justify-between text-sm mb-2">
                         <span className="text-gray-600 font-medium">Storage</span>
                         <span className="text-gray-900 font-semibold">
-                        {/* {formatBytes(totalStorage)} / {formatBytes(storageLimit)} */}
-                        500 MB / 1 GB
+                            {formatBytes(totalStorage)} / {formatBytes(storageLimit)}
                         </span>
                     </div>
                     <div className="w-full bg-gray-300 rounded-full h-2 overflow-hidden">
