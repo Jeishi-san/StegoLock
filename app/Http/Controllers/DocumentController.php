@@ -25,6 +25,9 @@ class DocumentController extends Controller
 {
     protected $primaryKey = 'document_id';
 
+    /**
+     * Returns json containing the current user's documents, totalStorage, and storageLimit
+     */
     public function index()
     {
         $documents = Document::where('user_id', Auth::id())
@@ -50,9 +53,9 @@ class DocumentController extends Controller
     }
 
     /**
-     * Starts the locking and securing process of the document
+     * Upload the document temporarily
      */
-    public function lockFile(Request $request) //local upload
+    public function upload(Request $request) //local upload
     {
         // 1: Validate
         $request->validate([
@@ -81,20 +84,44 @@ class DocumentController extends Controller
             ]);
 
 
-            if ($document) { // 2.5: check if storage in db successful
-                // 2.6 dispatch encryption job async
-                EncryptDocumentJob::dispatchSync($document->document_id, $path);
+            if (!$document) { // 2.5: check if storage in db successful
+                throw new \Exception("Failed to store document");
             }
 
             return response()->json([
-                'document_id' => $document->document_id
+                'document_id' => $document->document_id,
+                'temp_path' => $path
             ]);
 
         } catch (QueryException $e) {
 
-            return back()->withErrors([
-                'file' => ['You already uploaded this document', $e->getMessage()]
+            return response()->json([
+                'file' => 'You already uploaded this document'
             ]);
+
+            // return back()->withErrors([
+            //     'file' => ['You already uploaded this document', $e->getMessage()]
+            // ]);
+        }
+    }
+
+    /**
+     * Starts the locking and securing process of the document
+     */
+    public function lockFile(Request $request)
+    {
+        try {
+            EncryptDocumentJob::dispatchSync($request->documentId, $request->temp_path);
+
+            // return response()->json([
+            //     'status' => 'success'
+            // ]);
+
+        } catch (QueryException $e) {
+
+            return response()->json([
+                'error' => ['Encryption failed', $e->getMessage()]
+            ], 500);
         }
     }
 

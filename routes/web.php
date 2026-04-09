@@ -38,8 +38,11 @@ Route::middleware('auth')->group(function () {
 
 
     // Document upload route
-    Route::post('/documents/upload', [DocumentController::class, 'lockFile'])
+    Route::post('/documents/upload', [DocumentController::class, 'upload'])
         ->name('documents.upload');
+
+    Route::post('/documents/lock', [DocumentController::class, 'lockFile'])
+        ->name('documents.lock');
 
     Route::post('/documents/unlock', [DocumentController::class, 'unlockFile'])
         ->name('documents.unlock');

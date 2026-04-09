@@ -89,7 +89,7 @@ export default function AuthenticatedLayout({
 
                 <main className="flex-1 overflow-hidden">
                     {children}
-                    <Toaster position="top-right" richColors />
+                    <Toaster position="top-center" richColors />
                 </main>
             </div>
         </div>

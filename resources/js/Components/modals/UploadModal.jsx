@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from '@inertiajs/react';
 import { toast } from 'sonner';
 
 
 export default function UploadModal({ isOpen, onClose }) {
+
     const [filePreview, setFilePreview] = useState(null);
     const [confirmStep, setConfirmStep] = useState(false);
     const [fileError, setFileError] = useState(null);
+    const [documentId, setDocumentId] = useState(null);
+    const [status, setStatus] = useState(null);
+    const [toastId, setToastId] = useState(null);
 
     const allowedTypes = [
         'application/pdf',
@@ -19,7 +23,66 @@ export default function UploadModal({ isOpen, onClose }) {
         file: null,
     });
 
+    useEffect(() => {
+
+        if (!documentId) return;
+
+        const interval = setInterval(async () => {
+            try {
+                const res = await axios.get(`/documents/status/${documentId}`);
+                const currentStatus = res.data.status;
+
+                setStatus(currentStatus);
+
+                if (currentStatus === 'stored') {
+                    clearInterval(interval);
+                }
+
+            } catch (err) {
+                console.log(err);
+            }
+        }, 2000);
+
+        return () => clearInterval(interval);
+    }, [documentId]);
+
+    useEffect(() => {
+        if (!status) return;
+
+        if (status === 'uploaded') {
+            toast.loading('Encrypting...', {id: toastId});
+        }
+
+        if (status === 'encrypted') {
+            toast.loading('Fragmenting...', {id: toastId});
+        }
+
+        if (status === 'fragmented') {
+            toast.loading('Mapping...', {id: toastId});
+        }
+
+        if (status === 'mapped') {
+            toast.loading('Embedding...', {id: toastId});
+        }
+
+        if (status === 'embedded') {
+            toast.laoding('Storing', {id: toastId});
+        }
+
+        if (status === 'stored') {
+            toast.success('Process completed', {id: toastId});
+        }
+
+        if (status === 'failed') {
+            toast.error('Process failed', {id: toastId});
+        }
+
+    }, [status]);
+
+
     if (!isOpen) return null;
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
@@ -54,49 +117,44 @@ export default function UploadModal({ isOpen, onClose }) {
         const file = form.data.file;
 
         const toastId = toast.loading('Uploading file...');
+        setToastId(toastId);
+
+        const uploadInfo = [];
 
         try {
             const formData = new FormData();
             formData.append('file', file);
 
-            // 🔥 STEP A — Upload
+            // Upload
             const res = await axios.post('/documents/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
             });
 
-            if (!res.ok) throw new Error('Upload failed');
-
-            const data = await res.json();
-
-            const documentId = data.document_id;
-
-            console.log('Document uploaded successfully:', documentId);
-
-            // // 🔥 STEP B — Switch toast to processing
-            // toast.loading('Locking file...', { id: toastId });
-
-            // // 🔥 STEP C — Poll status
-            // const interval = setInterval(async () => {
-            //     const statusRes = await fetch(`/documents/status/${documentId}`);
-            //     const data = await statusRes.json();
-
-            //     if (data.status === 'uploaded') {
-            //         clearInterval(interval);
-            //         toast.success('Upload complete', { id: toastId });
-            //     }
-
-            //     if (data.status === 'failed') {
-            //         clearInterval(interval);
-            //         toast.error('Upload failed', { id: toastId });
-            //     }
-
-            // }, 2000);
+            setDocumentId(res.data.document_id);
 
         } catch (err) {
-            toast.error('Upload failed', { id: toastId });
+            console.log(err.response?.data);
+            console.log(err.response?.status);
         }
+
+        await sleep(500);
+
+        // Locking process
+        try {
+            const toast2 = toast.loading('Locking file...');
+            const res = await axios.post('/documents/lock', {
+                documentId: uploadInfo[0].document_id,
+                temp_path: uploadInfo[0].temp_path
+            });
+
+            await toast.success('Document locked successfully', { id: toast2 });
+        } catch (err) {
+            console.log(err.response?.data);
+            console.log(err.response?.status);
+        }
+
     };
 
     const resetAll = () => {
@@ -105,6 +163,13 @@ export default function UploadModal({ isOpen, onClose }) {
         setConfirmStep(false);
         setFileError(null);
     };
+
+
+
+
+
+
+
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
