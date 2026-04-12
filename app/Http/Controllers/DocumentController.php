@@ -2,24 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\DecryptDocumentJob;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use App\Models\Document;
-use App\Models\StegoFile;
-use App\Models\StegoMap;
-use App\Models\Cover;
-use App\Jobs\EncryptDocumentJob;
-use App\Jobs\ExtractFragmentJob;
-use App\Jobs\MapFragmentsToCoversJob;
-use PhpParser\Node\Stmt\TryCatch;
-use App\Providers\B2Service;
+
 use Inertia\Inertia;
 
-use function Laravel\Prompts\alert;
+use App\Providers\B2Service;
+
+use App\Config\Constant;
+use App\Models\Document;
+use App\Models\Fragment;
+use App\Models\Cover;
+use App\Models\FragmentMap;
+use App\Models\StegoFile;
+use App\Models\StegoMap;
+
+use App\Jobs\ExtractFragmentJob;
 
 class DocumentController extends Controller
 {
@@ -52,10 +55,58 @@ class DocumentController extends Controller
         ]);
     }
 
+    public function lock(Request $request) {
+        $document = Document::findOrFail($request->document_id);
+        $isLocked = false;
+
+        $encrypted_path = $this->encrypt($document->document_id, $request->temp_path);
+        $segmented = $this->segment($document->document_id, $encrypted_path);
+
+        $mapId = "";
+        $cloudFiles = [];
+        $localCovers = [];
+        $stegoFiles = [];
+        if ($segmented) {
+            $mapId = $this->mapFragmentsToCovers($document->document_id);
+
+
+            // $fetchedData = $this->fetchCoverFiles($mapId);
+            // while(!$fetchedData['matched']) {
+            //     $fetchedData = $this->fetchCoverFiles($mapId);
+            //     throw new \Exception("Cover mismatch");
+            // }
+
+            $maxAttempts = 3;
+            $attempt = 0;
+
+            do {
+                $fetchedData = $this->fetchCoverFiles($mapId);
+                $attempt++;
+
+                if ($fetchedData['matched']) {
+                    break;
+                }
+
+            } while ($attempt < $maxAttempts);
+
+            if (!$fetchedData['matched']) {
+                throw new \Exception("Cover mismatch after {$attempt} attempts");
+            }
+
+
+            $cloudFiles[] = $fetchedData['cloudFiles'];
+            $localCovers[] = $fetchedData['localCovers'];
+            $embedded = $this->embedFragments($mapId, $cloudFiles, $localCovers);
+            return $embedded;
+        } else return $isLocked;
+
+        return true;
+    }
+
     /**
-     * Upload the document temporarily
+     * Uploads the document
      */
-    public function upload(Request $request) //local upload
+    public function upload(Request $request)
     {
         // 1: Validate
         $request->validate([
@@ -64,13 +115,17 @@ class DocumentController extends Controller
 
         $file = $request->file('file');
 
+        $document = new Document();
+
+        $path = "";
+
         // 2:
         try { // 2.1: catches file duplication errors per user
 
             // 2.2: Generate hash (REAL duplicate check)
             $fileHash = hash_hmac('sha256', file_get_contents($file->getRealPath()), config('app.key'));
 
-            // 2.3: Store uploaded file in cloud temporarily
+            // 2.3: Store uploaded file in local temporarily
             $path = $file->store('temp/uploads');
 
             // 2.4: Save document record in DB
@@ -88,11 +143,6 @@ class DocumentController extends Controller
                 throw new \Exception("Failed to store document");
             }
 
-            return response()->json([
-                'document_id' => $document->document_id,
-                'temp_path' => $path
-            ]);
-
         } catch (QueryException $e) {
 
             return response()->json([
@@ -103,27 +153,600 @@ class DocumentController extends Controller
             //     'file' => ['You already uploaded this document', $e->getMessage()]
             // ]);
         }
+
+        return [
+            'document_id' => $document->document_id,
+            'temp_path' => $path
+        ];
     }
 
-    /**
-     * Starts the locking and securing process of the document
-     */
-    public function lockFile(Request $request)
+    private function encrypt(int $documentId, string $temp_filePath)
     {
+        $document = Document::find($documentId);
+        if (!$document) {
+            throw new \Exception("Missing document");
+        }
         try {
-            EncryptDocumentJob::dispatchSync($request->documentId, $request->temp_path);
+            // 1. Read the uploaded plaintext file
+            $plaintext = file_get_contents(Storage::path($temp_filePath));
 
-            // return response()->json([
-            //     'status' => 'success'
-            // ]);
+            // 2. Generate a random document key salt (32 bytes)
+            $dk_salt = random_bytes(Constant::DK_SALT_LEN);
 
-        } catch (QueryException $e) {
+            // 3. Get master key from session
+            $masterKey = session('master_key');
+            if (!$masterKey) {
+                throw new \Exception('Master key not found in session.');
+            }
 
-            return response()->json([
-                'error' => ['Encryption failed', $e->getMessage()]
-            ], 500);
+            // 4. Derive the document key using HKDF | Output length: 32 bytes (256-bit key)
+            $documentKey = hash_hkdf('sha256', $masterKey, 32, 'document-enc-key', $dk_salt);
+
+            // 5. AES-256-GCM encryption
+            $nonce = random_bytes(Constant::NONCE_LEN); // 96-bit recommended IV/nonce
+            $tag = '';
+            $ciphertext = openssl_encrypt(
+                $plaintext,
+                'aes-256-gcm',
+                $documentKey,
+                OPENSSL_RAW_DATA,
+                $nonce,
+                $tag
+            );
+
+            // 5. Save encrypted file (store nonce/IV + tag + ciphertext)
+            $encPath = 'temp/encrypted/' . pathinfo(basename(''.$temp_filePath), PATHINFO_FILENAME) . '.stegolock';
+
+            Storage::put($encPath, $nonce . $tag . $ciphertext);
+
+            //6. Update the database with encryption info
+            $document->update([
+                'dk_salt' => base64_encode($dk_salt),
+                'encrypted_size' => strlen($ciphertext),
+                'status' => 'encrypted'
+            ]);
+
+            // Safe to delete uploaded file
+            Storage::delete($temp_filePath);
+
+            //return data for Segmentation
+            return $encPath;
+
+        } catch (\Throwable $e) {
+            // Update document with failure info
+            $document->update([
+                'status' => 'failed',
+                'error_message' => ['Encryption failed', $e->getMessage()]
+            ]);
+
+            //return back()->with('error', $document->error_message);
         }
     }
+
+    private function segment(string $documentId, string $filePath)
+    {
+        $document = Document::find($documentId);
+        if (!$document) return;
+
+        $isSegmented = false;
+        try {
+
+            $ciphertext = file_get_contents(Storage::path($filePath));
+
+            if ($ciphertext === false) return;
+
+            $ciphertextLength = strlen($ciphertext);
+
+            if ($ciphertextLength > 512000) {
+                // > 500 KB → random fragment size between 64 KB and 256 KB
+                $fragmentSize = random_int(65536, 262144);
+                $fragments = str_split($ciphertext, $fragmentSize);
+            } elseif ($ciphertextLength > 102400) {
+                // 100 KB < length ≤ 500 KB → split into 5 equal-ish fragments
+                $numFragments = 5;
+                $fragments = [];
+                $partSize = intdiv($ciphertextLength, $numFragments);
+                $remainder = $ciphertextLength % $numFragments;
+
+                $offset = 0;
+                for ($i = 0; $i < $numFragments; $i++) {
+                    $size = $partSize + ($i < $remainder ? 1 : 0); // distribute remainder
+                    $fragments[] = substr($ciphertext, $offset, $size);
+                    $offset += $size;
+                }
+            } else {
+                // ≤ 100 KB → split into 3 equal-ish fragments
+                $numFragments = 3;
+                $fragments = [];
+                $partSize = intdiv($ciphertextLength, $numFragments);
+                $remainder = $ciphertextLength % $numFragments;
+
+                $offset = 0;
+                for ($i = 0; $i < $numFragments; $i++) {
+                    $size = $partSize + ($i < $remainder ? 1 : 0); // distribute remainder
+                    $fragments[] = substr($ciphertext, $offset, $size);
+                    $offset += $size;
+                }
+            }
+
+            $totalSize = 0;
+
+            foreach ($fragments as $index => $frag) {
+                Fragment::create([
+                    'fragment_id' => (string) Str::uuid(),
+                    'document_id' => $documentId,
+                    'index' => $index,
+                    'blob' => base64_encode($frag),
+                    'size' => strlen($frag),
+                    'hash' => hash('sha256', $frag),
+                    'status' => 'floating',
+                ]);
+
+                $totalSize += strlen($frag);
+            }
+
+            // Verification BEFORE deletion
+            if ($totalSize !== $ciphertextLength) {
+                throw new \Exception('Fragmentation failed: size mismatch');
+            }
+
+            // Update the database with fragments info
+            $document->update([
+                'fragment_count' => count($fragments),
+                'status' => 'fragmented'
+            ]);
+
+            $isSegmented = true;
+
+            // Safe to delete encrypted file
+            Storage::delete($filePath);
+
+            return $isSegmented;
+        } catch (\Throwable $e) {
+            // Update document with failure info
+            $document->update([
+                'status' => 'failed',
+                'error_message' => ['Segmentation failed', $e->getMessage()]
+            ]);
+            return $isSegmented;
+        }
+    }
+
+    private function mapFragmentsToCovers(string $documentId)
+    {
+        try {
+            // PHASE 1: Allocation of fragments to cover types
+
+                $document = Document::with('fragments')->find($documentId);
+
+                if (!$document) {
+                    throw new \Exception('Document not found');
+                }
+
+                if ($document->status !== 'fragmented') {
+                    throw new \Exception('Document not ready for mapping');
+                }
+
+                $fragments = $document->fragments->shuffle()->values();
+                $expectedCount = $document->fragment_count;
+
+                if ($fragments->count() !== $expectedCount) {
+                    throw new \Exception('Fragment count mismatch. Possible corruption or incomplete segmentation.');
+                }
+
+                $total = $fragments->count();
+                // safety guard
+                if ($total < 1) {
+                    throw new \Exception('No fragments available for mapping.');
+                }
+
+                if ($total <= 5) {
+                    // deterministic allocation for small fragment sets
+                    $textCount  = 1;
+                    $audioCount = 1;
+                    $imageCount = $total - 2; // remaining fragments are images
+                } else {
+                    // percentage-based allocation for larger fragment sets
+                    $textCount  = max(1, ceil($total * 0.1));
+                    $audioCount = max(1, ceil($total * 0.2));
+                    $imageCount = $total - $textCount - $audioCount;
+                }
+
+            // PHASE 2: Fetch valid covers
+                $fragmentSize = $fragments->max('size');
+
+                $textCoverPool  = Cover::where('type', 'text')
+                    ->get()->map(fn ($c) => [
+                                    'id' => $c->cover_id,
+                                    'capacity' => $c->metadata['capacity'] ?? null,
+                                ])
+                                ->filter(fn ($c) => $c['capacity'] >= $fragmentSize)
+                                ->values()->toArray();
+                if (empty($textCoverPool)) {
+
+                    while (count($textCoverPool) < $textCount) {
+                        $newTextCover = $this->generate_text_cover($fragmentSize);
+
+                        // normalize + append
+                        $textCoverPool[] = [
+                            'id' => $newTextCover->cover_id,
+                            'capacity' => $newTextCover->metadata['capacity'] ?? 0,
+                        ];
+                    }
+
+                }
+
+                $audioCoverPool = Cover::where('type', 'audio')
+                    ->get()->map(fn ($c) => [
+                                    'id' => $c->cover_id,
+                                    'capacity' => $c->metadata['capacity'] ?? null,
+                                ])
+                                ->filter(fn ($c) => $c['capacity'] >= $fragmentSize)
+                                ->values()->toArray();
+                if (empty($audioCoverPool)) {
+                    throw new \Exception('No available audio covers');
+                    // while (count($audioCoverPool) < $audioCount) {
+                        //$newAudioCover = $this->generate_audio_cover($fragmentSize);
+
+                        // normalize + append
+                        // $audioCoverPool[] = [
+                        //     'id' => $newAudioCover->cover_id,
+                        //     'capacity' => $newAudioCover->metadata['capacity'] ?? 0,
+                        // ];
+                    // }
+                }
+
+                $imageCoverPool = Cover::where('type', 'image')
+                    ->get()->map(fn ($c) => [
+                                    'id' => $c->cover_id,
+                                    'capacity' => $c->metadata['capacity'] ?? null,
+                                ])
+                                ->filter(fn ($c) => $c['capacity'] >= $fragmentSize)
+                                ->values()->toArray();
+                if (empty($imageCoverPool)) {
+                    throw new \Exception('No available image covers');
+                }
+
+            // PHASE 3: Mapping Proper
+                $mappingArray = [];
+
+                // Assign text fragments
+                $textFragments = $fragments->take($textCount);
+                foreach ($textFragments as $frag) {
+                    $cover = collect($textCoverPool)->random();
+                    $mappingArray[] = [
+                        'fragment_id' => $frag->fragment_id,
+                        'cover_id' => $cover['id'],
+                        'offset' => 0,
+                    ];
+                }
+
+                // Assign audio fragments
+                $audioFragments = $fragments->slice($textCount, $audioCount);
+                foreach ($audioFragments as $frag) {
+                    $cover = collect($audioCoverPool)->random();
+                    $mappingArray[] = [
+                        'fragment_id' => $frag->fragment_id,
+                        'cover_id' => $cover['id'],
+                        'offset' => 0,
+                    ];
+                }
+
+                // Assign image fragments
+                $imageFragments = $fragments->slice($textCount + $audioCount, $imageCount);
+                foreach ($imageFragments as $frag) {
+                    $cover = collect($imageCoverPool)->random();
+                    $mappingArray[] = [
+                        'fragment_id' => $frag->fragment_id,
+                        'cover_id' => $cover['id'],
+                        'offset' => 0,
+                    ];
+                }
+
+            // PHASE 4: Saving mapping to database
+            $map = FragmentMap::create([
+                'map_id' => (string) Str::uuid(),
+                'document_id' => $document->document_id,
+                'fragments_in_covers' => $mappingArray,
+                'status' => 'pending',
+            ]);
+
+            $document->update([
+                'status' => 'mapped',
+                //success message, Mapping created successfully.
+            ]);
+
+            //update fragment status from floating to mapped
+
+            return $map->map_id;
+
+        } catch (\Throwable $e) {
+            // Update document with failure info
+            $document->update([
+                'status' => 'failed',
+                'error_message' => ['Mapping failed', $e->getMessage()]
+            ]);
+        }
+
+    }
+
+        private function generate_text_cover(int $fragmentSize)
+        {
+            $maxId = DB::table('wiki_feeds')->max('id');
+
+            if (!$maxId) {
+                return response()->json(['error' => 'No data in wiki_feeds'], 500);
+            }
+
+            $targetSize = $fragmentSize / 0.02;
+            $content = '';
+            $capacity = 0;
+
+            while (strlen($content) < $targetSize) {
+
+                $randomId = rand(1, $maxId);
+                $feed = DB::table('wiki_feeds')->where('id', $randomId)->first();
+
+                if (!$feed) continue;
+
+                $block = "pageid: {$feed->pageid}\n";
+                $block .= "title: {$feed->title}\n";
+                $block .= "content: {$feed->feed}\n\n";
+
+                if ($capacity > $targetSize) {
+                    break;
+                }
+
+                $content .= $block;
+                $capacity = floor(strlen($content) * 0.02);
+            }
+
+            // File name
+            $randomHex = bin2hex(random_bytes(16));
+            $fileName = "{$randomHex}_cover_" . time() . ".txt";
+
+            // Ensure folder exists
+            if (!file_exists(storage_path('app/public/cover_texts'))) {
+                mkdir(storage_path('app/public/cover_texts'), 0755, true);
+            }
+
+            // Save file
+            Storage::disk('public')->put("cover_texts/{$fileName}", $content);
+
+            $filePath = storage_path('app/public/cover_texts/' . $fileName);
+
+            $cover = Cover::create([
+                'cover_id' => (string) Str::uuid(),      // generate UUID for PK
+                'type' => 'text',
+                'filename' => basename($filePath),
+                'path' => 'cover_text/' . basename($filePath), // storage path
+                'size_bytes' => strlen($content),
+                'metadata' => [
+                                'valid' => true,
+                                'capacity' => floor(strlen($content) * 0.02)
+                ],
+                'hash' => hash('sha256', file_get_contents($filePath)),
+            ]);
+
+            return $cover;
+        }
+
+    private function fetchCoverFiles(string $mapId) //fetch cover files from the cloud and create cover file copies in local storage for embedding
+    {
+        //fetch cover files from cloud
+        $b2 = new B2Service();
+        $files = $b2->listFiles();
+        $cloudFiles = $files['files'];
+
+        //create local copies of cover files
+        if (!file_exists(storage_path('app/private/temp/covers/'))) {
+            mkdir(storage_path('app/private/temp/covers/'), 0755, true);
+        }
+
+        $map = FragmentMap::findOrFail($mapId);
+        $mappedCovers = $map->fragments_in_covers;
+
+        $document = Document::findOrFail($map->document_id);
+
+        $cloudMap = collect($cloudFiles)
+            ->flatten(1)
+            ->keyBy('fileName');
+
+        foreach ($mappedCovers as $mappedCover) {
+            $cover = Cover::findOrFail($mappedCover['cover_id']);
+
+            if ($cover) {
+                $coverTempPath = storage_path('app/private/temp/covers/' . basename($cover->path));
+                try {
+                    foreach ($cloudFiles as $file) {
+                        if ($file['fileName'] === $cover->path) {
+                            $content = $b2->readfile($file['fileId']); //binary
+                            file_put_contents($coverTempPath, $content); //saving cover to temp storage
+                            $localCovers[] = $coverTempPath;
+                            break;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    throw new \Exception("Cloud fetch failed: " . $e->getMessage());
+                }
+            } else throw new \Exception("Cover not found");
+        }
+
+
+        return [
+            'matched' => count($localCovers) === $document->fragment_count,
+            'cloudFiles' => $cloudFiles,
+            'localCovers' => $localCovers
+        ];
+    }
+
+    private function embedFragments(string $mapId, array $cloudFiles, array $localCovers)
+    {
+        $map = FragmentMap::findOrFail($mapId);
+        $document = Document::findOrFail($map->document_id);
+        $mapping = $map->fragments_in_covers;
+
+        $b2 = new B2Service();
+        try {
+            $stegoMap = [];
+
+            foreach ($mapping as $map) {
+                $stegoMap[] = $this->embed($map['fragment_id'], $map['cover_id'], $cloudFiles, $localCovers);
+                break;
+            }
+
+            // Update document status
+            $document->update([
+                'status' => 'embedded',
+            ]);
+
+            // Save stegoMap to DB
+            $newStegoMap = StegoMap::create([
+                'stego_map_id' => (string) Str::uuid(),
+                'document_id' => $document->document_id,
+                'status' => 'completed',
+            ]);
+
+            // Save stego files in cloud
+            $stegoFileInfos = [];
+            // foreach ($stegoFiles as $filePath) {
+            //     $stegoFileInfos[] = $b2->storeFile($filePath);
+            //     unlink($filePath);
+            // }
+
+            // foreach ($stegoFileInfos as $stegoFile) {
+            //     foreach ($stegoMap as $stego) {
+            //         if ($stegoFile['fileName'] === 'locked/' . $stego['stegoFile']) {
+            //             $sFile = StegoFile::create([
+            //                 'stego_map_id' => $newStegoMap->stego_map_id,
+            //                 'cloud_file_id' => $stegoFile['fileId'],
+            //                 'fragment_id' => $stego['fragmentId'],
+            //                 'offset' => $stego['offset'],
+            //                 'filename' => $stego['stegoFile'],
+            //                 'stego_size' => $stegoFile['contentLength'],
+            //                 'status' => 'embedded',
+            //             ]);
+            //             $user->increment('storage_used', $sFile->stego_size);
+            //             $document->increment('in_cloud_size', $sFile->stego_size);
+            //             break;
+            //         }
+            //     }
+            // }
+
+            // // Update document status
+            // $document->update([
+            //     'status' => 'stored',
+            // ]);
+
+            //return back()->with('success', 'Embedded and stored.');
+            return $stegoMap;
+
+        } catch (\Throwable $e) {
+            // Update document with failure info
+            $document->update([
+                'status' => 'failed',
+                'error_message' => ['Embedding failed (basecode error): ', $e->getMessage()]
+            ]);
+
+            //return back()->withErrors('errors', [$e->getMessage(), $document->error_message]);
+        }
+    }
+
+        private function embed(string $fragmentId, string $coverId, array $cloudFiles, array $localCovers)
+        {
+            $cover = Cover::findOrFail($coverId);
+
+            //generate random name for stego file
+            $fileName = bin2hex(random_bytes(16)) . time() . $this->getExtension($cover->type);
+
+            $lockedSet = collect($cloudFiles)
+                ->flatten(1)
+                ->pluck('fileName')
+                ->flip(); // makes keys = fileName
+
+            do {
+                $fileName = bin2hex(random_bytes(16)) . time() . $this->getExtension($cover->type);
+                $fullName = 'locked/' . $fileName;
+            } while ($lockedSet->has($fullName));
+
+            $coverFile = '';
+            $localCovers = collect($localCovers)->flatten(1);
+            // foreach ($localCovers as $localCover) {
+            //     if (basename($localCover) === $cover->filename) {
+            //         // $coverFile = $localCover;
+            //         // break;
+            //         return (basename($localCover) === $cover->filename);
+            //     }
+            // }
+            return $localCovers;
+
+            $stegoFile = storage_path('app/private/temp/cloud/'. $fileName);
+            $binaryFile = storage_path('app/private/temp/bin/'. $fileName . '.bin');
+
+            if (!file_exists(storage_path('app/private/temp/bin'))) {
+                mkdir(storage_path('app/private/temp/bin'), 0755, true);
+            }
+
+            if (!file_exists(storage_path('app/private/temp/cloud/'))) {
+                mkdir(storage_path('app/private/temp/cloud/'), 0755, true);
+            }
+
+            //getting fragment data
+            $fragment = Fragment::findOrFail($fragmentId);
+            $fragmentBinaryData = base64_decode($fragment->blob);
+            file_put_contents($binaryFile, $fragmentBinaryData);
+
+            //embedding binary data with python script
+            $command = "python " . base_path('python_backend/embedding/' . $this->getScript($cover->type)) . " "
+                . escapeshellarg($coverFile) . " "
+                . escapeshellarg($stegoFile) . " "
+                . escapeshellarg($binaryFile) . " 2>&1"; // capture errors
+
+            $output = [];
+            $status = 0;
+
+            exec($command, $output, $status);
+
+            if ($status !== 0) {
+                throw new \Exception("Embedding failed (py script error):\n" . implode("\n", $output));
+            }
+
+            $offset = (int) end($output);
+
+            // // Optional: log success
+
+            // Safe to delete temp files
+            unlink($coverFile);
+            unlink($binaryFile);
+
+            return ['fragmentId' => $fragmentId, 'stegoFile' => $stegoFile, 'offset' => $offset];
+
+        }
+
+        private function getExtension(string $coverType): string
+        {
+            return match ($coverType) {
+                'text' => '.txt',
+                'audio' => '.wav',
+                'image' => '.png',
+                default => throw new \InvalidArgumentException("Unsupported cover type: $coverType"),
+            };
+        }
+
+        private function getScript(string $coverType): string
+        {
+            return match ($coverType) {
+                'text' => 'text/embed.py',
+                'audio' => 'audio/embed.py',
+                'image' => 'image/embed.py',
+                default => throw new \InvalidArgumentException("Unsupported cover type: $coverType"),
+            };
+        }
+
+
+
+
+
 
 
     /**

@@ -37,8 +37,9 @@ class EmbedFragmentsJob implements ShouldQueue
         try
         {
             $isFetched = $this->fetchCoverFiles();
-            if(!$isFetched) {
-                throw new \Exception("Cover mismatch");
+            while(!$isFetched) {
+                $this->fetchCoverFiles();
+                //throw new \Exception("Cover mismatch");
             }
             $this->embedFragments();
         } catch (\Throwable $e) {

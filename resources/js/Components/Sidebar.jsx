@@ -39,12 +39,12 @@ export function Sidebar({
 
     const storagePercentage = (totalStorage / storageLimit) * 100;
 
-    const MenuButton = ({ icon: Icon, label, onClick}) => (
+    const MenuButton = ({ icon: Icon, label, onClick, className = ""}) => (
         <button
             onClick={onClick}
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+            className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left ${className}`}
         >
-            <Icon className="size-4 text-gray-500" />
+            <Icon className={`size-4 text-gray-500 ${className}`} />
             {label}
         </button>
     );
@@ -119,10 +119,7 @@ export function Sidebar({
                 <div className="flex my-4 relative">
                     {/* New Button with Dropdown */}
                     <button
-                        onClick={() => {
-                            if (isUploading) return;
-                            setShowNewMenu(!showNewMenu);
-                        }}
+                        onClick={() => { setShowNewMenu(!showNewMenu); }}
                         className="w-full flex items-center justify-center gap-2 bg-gradient-to-r
                                     from-indigo-600 to-purple-600 text-white px-4 py-3.5
                                     rounded-xl hover:from-indigo-700 hover:to-purple-700
@@ -140,14 +137,15 @@ export function Sidebar({
                             className="fixed inset-0 z-40"
                             onClick={() => setShowNewMenu(false)}
                         />
-                        <div className="absolute mt-14 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
+                        <div className="absolute w-full mt-14 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
                             <MenuButton icon={Upload}
-                                        label="Document Upload"
+                                        label="Lock a File"
                                         onClick={() => {
                                             if (isUploading) return;
                                             setShowNewMenu(false);
                                             setShowUploadModal(true);
                                         }}
+                                        className={isUploading ? 'text-slate-300' : ''}
                             />
                             <MenuButton icon={Plus}
                                         label="New Folder"
@@ -164,6 +162,8 @@ export function Sidebar({
             <UploadModal
                 isOpen={showUploadModal}
                 onClose={() => setShowUploadModal(false)}
+                allowUpload={() => setIsUploading(false)}
+                uploaded={() => setIsUploading(true)}
             />
 
             {/* Divider */}

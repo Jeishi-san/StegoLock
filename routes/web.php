@@ -41,7 +41,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/documents/upload', [DocumentController::class, 'upload'])
         ->name('documents.upload');
 
-    Route::post('/documents/lock', [DocumentController::class, 'lockFile'])
+    Route::post('/documents/lock', [DocumentController::class, 'lock'])
         ->name('documents.lock');
 
     Route::post('/documents/unlock', [DocumentController::class, 'unlockFile'])
