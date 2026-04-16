@@ -135,6 +135,8 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
 
     const handleUpload = async () => {
 
+        // const resp = await axios.post('/covers/scan');
+
         if (!form.data.file) return;
 
         resetAll();

@@ -1,5 +1,13 @@
 <?php
 
+/*admin functions note
+
+manage covers
+    - db
+    - cloud
+    - scan new cover files, add them to cloud and db
+*/
+
 namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Storage;
@@ -62,25 +70,34 @@ class DocumentController extends Controller
         $encrypted_path = $this->encrypt($document->document_id, $request->temp_path);
         $segmented = $this->segment($document->document_id, $encrypted_path);
 
+        //fetch cover files from cloud
+        $b2 = new B2Service();
+        $files = $b2->listFiles();
+        $cloudFiles = collect($files['files'])
+            ->map(function ($file) {
+                return [
+                    'id' => $file['fileId'],
+                    'fileName' => $file['fileName'],
+                ];
+            })
+            ->values()
+            ->toArray();
+
+        $cloudMap = collect($cloudFiles)
+            ->keyBy('fileName');
+
         $mapId = "";
-        $cloudFiles = [];
+
         $localCovers = [];
         $stegoFiles = [];
         if ($segmented) {
             $mapId = $this->mapFragmentsToCovers($document->document_id);
 
-
-            // $fetchedData = $this->fetchCoverFiles($mapId);
-            // while(!$fetchedData['matched']) {
-            //     $fetchedData = $this->fetchCoverFiles($mapId);
-            //     throw new \Exception("Cover mismatch");
-            // }
-
             $maxAttempts = 3;
             $attempt = 0;
 
             do {
-                $fetchedData = $this->fetchCoverFiles($mapId);
+                $fetchedData = $this->fetchCoverFiles(strval($mapId), $cloudFiles);
                 $attempt++;
 
                 if ($fetchedData['matched']) {
@@ -93,11 +110,15 @@ class DocumentController extends Controller
                 throw new \Exception("Cover mismatch after {$attempt} attempts");
             }
 
-
-            $cloudFiles[] = $fetchedData['cloudFiles'];
             $localCovers[] = $fetchedData['localCovers'];
+
             $embedded = $this->embedFragments($mapId, $cloudFiles, $localCovers);
+            $isLocked = true;
             return $embedded;
+            // return response()->json([
+            //     'status' => 'mapped',
+            //     'message' => 'Segments mapped'
+            // ]);
         } else return $isLocked;
 
         return true;
@@ -237,9 +258,13 @@ class DocumentController extends Controller
 
             $ciphertextLength = strlen($ciphertext);
 
-            if ($ciphertextLength > 512000) {
-                // > 500 KB → random fragment size between 64 KB and 256 KB
-                $fragmentSize = random_int(65536, 262144);
+            if ($ciphertextLength > 2097152) {
+                // > 2 MB → random fragment size between 320 KB and 512 KB
+                $fragmentSize = random_int(327680, 524288);
+                $fragments = str_split($ciphertext, $fragmentSize);
+            } elseif ($ciphertextLength > 512000) {
+                // > 500 KB < length ≤ 2 MB → random fragment size between 192KB and 256KB
+                $fragmentSize = random_int(196608, 262144);
                 $fragments = str_split($ciphertext, $fragmentSize);
             } elseif ($ciphertextLength > 102400) {
                 // 100 KB < length ≤ 500 KB → split into 5 equal-ish fragments
@@ -384,7 +409,7 @@ class DocumentController extends Controller
                                 ->filter(fn ($c) => $c['capacity'] >= $fragmentSize)
                                 ->values()->toArray();
                 if (empty($audioCoverPool)) {
-                    throw new \Exception('No available audio covers');
+                    // throw new \Exception('No available audio covers');
                     // while (count($audioCoverPool) < $audioCount) {
                         //$newAudioCover = $this->generate_audio_cover($fragmentSize);
 
@@ -506,20 +531,21 @@ class DocumentController extends Controller
             $fileName = "{$randomHex}_cover_" . time() . ".txt";
 
             // Ensure folder exists
-            if (!file_exists(storage_path('app/public/cover_texts'))) {
-                mkdir(storage_path('app/public/cover_texts'), 0755, true);
+            if (!file_exists(storage_path('app/private/temp/covers'))) {
+                mkdir(storage_path('app/private/temp/covers'), 0755, true);
             }
 
-            // Save file
-            Storage::disk('public')->put("cover_texts/{$fileName}", $content);
+            // Save file locally for immediate use
+            Storage::disk('local')->put("temp/covers/{$fileName}", $content);
 
-            $filePath = storage_path('app/public/cover_texts/' . $fileName);
+            $filePath = storage_path('app/private/temp/covers/' . $fileName);
 
+            //Save file to DB
             $cover = Cover::create([
                 'cover_id' => (string) Str::uuid(),      // generate UUID for PK
                 'type' => 'text',
                 'filename' => basename($filePath),
-                'path' => 'cover_text/' . basename($filePath), // storage path
+                'path' => 'cover_texts/' . basename($filePath), // storage path
                 'size_bytes' => strlen($content),
                 'metadata' => [
                                 'valid' => true,
@@ -528,15 +554,16 @@ class DocumentController extends Controller
                 'hash' => hash('sha256', file_get_contents($filePath)),
             ]);
 
+            //Save file in cloud for future use
+            // $b2 = new B2Service();
+            // $b2->storeFile($filePath);
+
             return $cover;
         }
 
-    private function fetchCoverFiles(string $mapId) //fetch cover files from the cloud and create cover file copies in local storage for embedding
+    private function fetchCoverFiles(string $mapId, array $cloudFiles) //fetch cover files from the cloud and create cover file copies in local storage for embedding
     {
-        //fetch cover files from cloud
         $b2 = new B2Service();
-        $files = $b2->listFiles();
-        $cloudFiles = $files['files'];
 
         //create local copies of cover files
         if (!file_exists(storage_path('app/private/temp/covers/'))) {
@@ -549,50 +576,64 @@ class DocumentController extends Controller
         $document = Document::findOrFail($map->document_id);
 
         $cloudMap = collect($cloudFiles)
-            ->flatten(1)
             ->keyBy('fileName');
+
+        $localCovers = [];
 
         foreach ($mappedCovers as $mappedCover) {
             $cover = Cover::findOrFail($mappedCover['cover_id']);
 
-            if ($cover) {
-                $coverTempPath = storage_path('app/private/temp/covers/' . basename($cover->path));
-                try {
-                    foreach ($cloudFiles as $file) {
-                        if ($file['fileName'] === $cover->path) {
-                            $content = $b2->readfile($file['fileId']); //binary
-                            file_put_contents($coverTempPath, $content); //saving cover to temp storage
-                            $localCovers[] = $coverTempPath;
-                            break;
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    throw new \Exception("Cloud fetch failed: " . $e->getMessage());
-                }
-            } else throw new \Exception("Cover not found");
-        }
+            $coverTempPath = storage_path('app/private/temp/covers/' . basename($cover->path));
 
+            $isNewCover = false;
+
+            $key = $this->getCoverFolder($cover->type).trim(strval($cover->filename));
+
+            if (!$cloudMap->has($key)) {
+
+                //check local storage
+                if (file_exists($coverTempPath)) {
+                    $isNewCover = true;
+                    $localCovers[] = $coverTempPath;
+                    continue;
+                }
+
+                if(!$isNewCover) throw new \Exception("Cover file missing: {$key}");
+            }
+
+            try { //files from cloud
+
+                $file = $cloudMap[$key];
+                $content = $b2->readfile($file['id']);
+                file_put_contents($coverTempPath, $content);
+
+                $localCovers[] = $coverTempPath;
+
+            } catch (\Throwable $e) {
+                throw new \Exception("Cloud fetch failed: " . $e->getMessage());
+            }
+        }
 
         return [
             'matched' => count($localCovers) === $document->fragment_count,
-            'cloudFiles' => $cloudFiles,
             'localCovers' => $localCovers
         ];
     }
 
     private function embedFragments(string $mapId, array $cloudFiles, array $localCovers)
     {
+        $user = Auth::user();
         $map = FragmentMap::findOrFail($mapId);
         $document = Document::findOrFail($map->document_id);
         $mapping = $map->fragments_in_covers;
 
+
         $b2 = new B2Service();
+        $stegoMap = [];
         try {
-            $stegoMap = [];
 
             foreach ($mapping as $map) {
                 $stegoMap[] = $this->embed($map['fragment_id'], $map['cover_id'], $cloudFiles, $localCovers);
-                break;
             }
 
             // Update document status
@@ -607,39 +648,47 @@ class DocumentController extends Controller
                 'status' => 'completed',
             ]);
 
+
             // Save stego files in cloud
+            $stegoFiles = collect($stegoMap)
+                ->pluck('stegoFile');
+
             $stegoFileInfos = [];
-            // foreach ($stegoFiles as $filePath) {
-            //     $stegoFileInfos[] = $b2->storeFile($filePath);
-            //     unlink($filePath);
-            // }
+            foreach ($stegoFiles as $filePath) {
+                $stegoFileInfos[] = $b2->storeFile($filePath);
+                unlink($filePath);
+            }
 
-            // foreach ($stegoFileInfos as $stegoFile) {
-            //     foreach ($stegoMap as $stego) {
-            //         if ($stegoFile['fileName'] === 'locked/' . $stego['stegoFile']) {
-            //             $sFile = StegoFile::create([
-            //                 'stego_map_id' => $newStegoMap->stego_map_id,
-            //                 'cloud_file_id' => $stegoFile['fileId'],
-            //                 'fragment_id' => $stego['fragmentId'],
-            //                 'offset' => $stego['offset'],
-            //                 'filename' => $stego['stegoFile'],
-            //                 'stego_size' => $stegoFile['contentLength'],
-            //                 'status' => 'embedded',
-            //             ]);
-            //             $user->increment('storage_used', $sFile->stego_size);
-            //             $document->increment('in_cloud_size', $sFile->stego_size);
-            //             break;
-            //         }
-            //     }
-            // }
+            // Save stego file to DB
+            foreach ($stegoFileInfos as $stegoFile) {
+                foreach ($stegoMap as $stego) {
+                    $filename = basename($stego['stegoFile']);
+                    if ($stegoFile['fileName'] === 'locked/' . $filename) {
+                        $sFile = StegoFile::create([
+                            'stego_map_id' => $newStegoMap->stego_map_id,
+                            'cloud_file_id' => $stegoFile['fileId'],
+                            'fragment_id' => $stego['fragmentId'],
+                            'offset' => $stego['offset'],
+                            'filename' => $filename,
+                            'stego_size' => $stegoFile['contentLength'],
+                            'status' => 'embedded',
+                        ]);
+                        $user->increment('storage_used', $sFile->stego_size);
+                        $document->increment('in_cloud_size', $sFile->stego_size);
+                        break;
+                    }
+                }
+            }
 
-            // // Update document status
-            // $document->update([
-            //     'status' => 'stored',
-            // ]);
+            // Update document status
+            $document->update([
+                'status' => 'stored',
+            ]);
 
             //return back()->with('success', 'Embedded and stored.');
-            return $stegoMap;
+            return response()->json([
+                'success' => 'Embedded and stored',
+            ]);
 
         } catch (\Throwable $e) {
             // Update document with failure info
@@ -649,6 +698,9 @@ class DocumentController extends Controller
             ]);
 
             //return back()->withErrors('errors', [$e->getMessage(), $document->error_message]);
+            return response()->json([
+                'errors' => $document->error_message,
+            ]);
         }
     }
 
@@ -656,33 +708,7 @@ class DocumentController extends Controller
         {
             $cover = Cover::findOrFail($coverId);
 
-            //generate random name for stego file
-            $fileName = bin2hex(random_bytes(16)) . time() . $this->getExtension($cover->type);
-
-            $lockedSet = collect($cloudFiles)
-                ->flatten(1)
-                ->pluck('fileName')
-                ->flip(); // makes keys = fileName
-
-            do {
-                $fileName = bin2hex(random_bytes(16)) . time() . $this->getExtension($cover->type);
-                $fullName = 'locked/' . $fileName;
-            } while ($lockedSet->has($fullName));
-
-            $coverFile = '';
-            $localCovers = collect($localCovers)->flatten(1);
-            // foreach ($localCovers as $localCover) {
-            //     if (basename($localCover) === $cover->filename) {
-            //         // $coverFile = $localCover;
-            //         // break;
-            //         return (basename($localCover) === $cover->filename);
-            //     }
-            // }
-            return $localCovers;
-
-            $stegoFile = storage_path('app/private/temp/cloud/'. $fileName);
-            $binaryFile = storage_path('app/private/temp/bin/'. $fileName . '.bin');
-
+            //creating temp folders for processing files
             if (!file_exists(storage_path('app/private/temp/bin'))) {
                 mkdir(storage_path('app/private/temp/bin'), 0755, true);
             }
@@ -690,6 +716,31 @@ class DocumentController extends Controller
             if (!file_exists(storage_path('app/private/temp/cloud/'))) {
                 mkdir(storage_path('app/private/temp/cloud/'), 0755, true);
             }
+
+            //generating filename for the stego file
+            $fileName = bin2hex(random_bytes(16)) . time() . $this->getExtension($cover->type);
+            $lockedSet = collect($cloudFiles)->pluck('fileName');
+
+            do { //loop if fileName exists in lockedSet
+                $fileName = bin2hex(random_bytes(16)) . time() . $this->getExtension($cover->type);
+                $fullName = 'locked/' . $fileName;
+            } while ($lockedSet->has($fullName));
+
+            //saving local path of the cover file
+            $coverFile = '';
+            $localCovers = collect($localCovers)->flatten(1);
+            foreach ($localCovers as $localCover) {
+                if (basename($localCover) === $cover->filename) {
+                    $coverFile = $localCover;
+                }
+            }
+
+            if (!$coverFile) {
+                throw new \Exception("Cover file not found during fetching: " . $cover->filename);
+            }
+
+            $stegoFile = storage_path('app/private/temp/cloud/'. $fileName);
+            $binaryFile = storage_path('app/private/temp/bin/'. $fileName . '.bin');
 
             //getting fragment data
             $fragment = Fragment::findOrFail($fragmentId);
@@ -713,14 +764,16 @@ class DocumentController extends Controller
 
             $offset = (int) end($output);
 
-            // // Optional: log success
+            // Optional: log success
 
             // Safe to delete temp files
+            if($lockedSet->has($cover->path)) {//Permanently delete cover file in DB if its newly generated
+                $cover->forceDelete();
+            }
             unlink($coverFile);
             unlink($binaryFile);
 
             return ['fragmentId' => $fragmentId, 'stegoFile' => $stegoFile, 'offset' => $offset];
-
         }
 
         private function getExtension(string $coverType): string
@@ -739,6 +792,16 @@ class DocumentController extends Controller
                 'text' => 'text/embed.py',
                 'audio' => 'audio/embed.py',
                 'image' => 'image/embed.py',
+                default => throw new \InvalidArgumentException("Unsupported cover type: $coverType"),
+            };
+        }
+
+        private function getCoverFolder(string $coverType): string
+        {
+            return match ($coverType) {
+                'text' => 'cover_texts/',
+                'audio' => 'cover_audios/',
+                'image' => 'cover_images/',
                 default => throw new \InvalidArgumentException("Unsupported cover type: $coverType"),
             };
         }
@@ -813,6 +876,26 @@ class DocumentController extends Controller
         }
     }
 
+    public function delete(Request $request)
+    {
+        $document = Document::findOrFail($request->document_id);
+
+        if ($document->status !== 'stored') {
+            abort(400, 'File not stored');
+        }
+
+        // try {
+        //     $b2 = new B2Service();
+        //     $b2->deleteFile($document->cloud_file_id);
+        //     $document->delete();
+
+        //     return response()->json(['message' => 'File deleted successfully']);
+        // } catch (\Throwable $e) {
+        //     return response()->json(['error' => $e->getMessage()], 500);
+        // }
+    }
+
+
     /**
      * Downloads the requested document from local storage after decryption
      */
@@ -841,14 +924,6 @@ class DocumentController extends Controller
             'status' => $document->status
         ]);
     }
-
-
-
-
-
-
-
-
 
     public function getFileInfo(Request $request)
     {

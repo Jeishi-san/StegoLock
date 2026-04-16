@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Models\Cover;
 use App\Jobs\MapFragmentsToCoversJob;
@@ -14,9 +15,11 @@ class CoverController extends Controller
 {
     public function scan_cover(Request $request)
     {
-        //$this->scan_text();
+        // $this->scan_text();
         $this->scan_audio();
         $this->scan_image();
+
+        // $this->generate_cover_text_file();
 
         //return back()->with('success', 'mapping');
 
@@ -312,7 +315,7 @@ class CoverController extends Controller
                 }
                 // move the file
                 rename($filePath, $failedFolder . basename($filePath));
-                //delete file in app/public/cover_text
+                //delete file in app/public/cover_texts
                 Storage::delete($filePath);
             }
         }
@@ -369,9 +372,67 @@ class CoverController extends Controller
         */
     }
 
-    public function generate_cover_text_file(Request $fragmentSize)
+    public function generate_cover_text_file()
     {
+        $fragmentSize = 407725;
         //$fragmentSize should be 2% of the text file size
+        $maxId = DB::table('wiki_feeds')->max('id');
+
+            if (!$maxId) {
+                return response()->json(['error' => 'No data in wiki_feeds'], 500);
+            }
+
+            $targetSize = $fragmentSize / 0.02;
+            $content = '';
+            $capacity = 0;
+
+            while (strlen($content) < $targetSize) {
+
+                $randomId = rand(1, $maxId);
+                $feed = DB::table('wiki_feeds')->where('id', $randomId)->first();
+
+                if (!$feed) continue;
+
+                $block = "pageid: {$feed->pageid}\n";
+                $block .= "title: {$feed->title}\n";
+                $block .= "content: {$feed->feed}\n\n";
+
+                if ($capacity > $targetSize) {
+                    break;
+                }
+
+                $content .= $block;
+                $capacity = floor(strlen($content) * 0.02);
+            }
+
+            // File name
+            $randomHex = bin2hex(random_bytes(16));
+            $fileName = "{$randomHex}_cover_" . time() . ".txt";
+
+            // Ensure folder exists
+            if (!file_exists(storage_path('app/private/temp/covers'))) {
+                mkdir(storage_path('app/private/temp/covers'), 0755, true);
+            }
+
+            // Save file
+            Storage::disk('local')->put("temp/covers/{$fileName}", $content);
+
+            $filePath = storage_path('app/private/temp/covers/' . $fileName);
+
+            $cover = Cover::create([
+                'cover_id' => (string) Str::uuid(),      // generate UUID for PK
+                'type' => 'text',
+                'filename' => basename($filePath),
+                'path' => 'cover_texts/' . basename($filePath), // storage path
+                'size_bytes' => strlen($content),
+                'metadata' => [
+                                'valid' => true,
+                                'capacity' => floor(strlen($content) * 0.02)
+                ],
+                'hash' => hash('sha256', file_get_contents($filePath)),
+            ]);
+
+            return $cover;
     }
 
 }

@@ -101,6 +101,15 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         router.get('/documents/getFileInfo', { id });
     };
 
+    // handleDelete
+    const handleDelete = async (id) => {
+        const resp = await axios.post('/documents/delete', {
+            document_id: id,
+        });
+
+        console.log(resp.data);
+    };
+
     return (
         <AuthenticatedLayout
             header={
@@ -213,7 +222,9 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                             <div className="border-t" />
 
                                             {/* Delete */}
-                                            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-red-50 text-red-600">
+                                            <button
+                                                onClick={() => handleDelete(doc.document_id)}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-red-50 text-red-600">
                                                 <Trash2 className="w-4 h-4 text-red-500" />
                                                 Delete
                                             </button>

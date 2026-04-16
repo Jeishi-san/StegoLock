@@ -83,7 +83,7 @@ class B2Service
         }
 
         /** @var \Illuminate\Http\Client\Response $response */
-        $response = Http::timeout(120)
+        $response = Http::timeout(180)
         ->withHeaders([
             'Authorization' => $upload['authorizationToken'],
             'X-Bz-File-Name' => $fileName,
@@ -123,31 +123,23 @@ class B2Service
         $store = $this->getUploadUrl();
 
         $fileName = 'locked/'. basename($filePath);
+        $sha1 = sha1_file($filePath);
 
-        $content = file_get_contents($filePath);
+        $client = new \GuzzleHttp\Client([
+            'timeout' => 0,
+        ]);
 
-        $sha1 = sha1($content);
-
-        $stream = fopen($filePath, 'r');
-
-        if ($content === false || $stream === false) {
-            throw new \Exception("Failed to read file");
-        }
-
-        /** @var \Illuminate\Http\Client\Response $response */
-        $response = Http::timeout(300)
-        ->withHeaders([
+        $response = $client->request('POST', $store['uploadUrl'], [
+        'headers' => [
             'Authorization' => $store['authorizationToken'],
             'X-Bz-File-Name' => $fileName,
             'Content-Type' => 'b2/x-auto',
             'X-Bz-Content-Sha1' => $sha1,
-        ])
-        ->withBody($stream, 'application/octet-stream')
-        ->post($store['uploadUrl']);
+        ],
+        'body' => fopen($filePath, 'r'),
+    ]);
 
-        fclose($stream);
-
-        return $response->json();
+        return json_decode($response->getBody(), true);
     }
 
     public function listFiles()
