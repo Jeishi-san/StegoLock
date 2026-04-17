@@ -38,6 +38,7 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
 
         toast.loading('Locking file...', { id: toastId });
             steps.forEach((text) => {
+                sleep(2000);
                 toast.loading(text, { id: toastId });
             });
     }, [documentId]);
@@ -76,62 +77,12 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
         e.returnValue = ''; // required for Chrome to show prompt
     };
 
-    const handleUpload_x = async () => {
-        if (!form.data.file) return;
-
-        resetAll();
-        onClose();
-        uploaded();
-
-        const file = form.data.file;
-
-        const toastId = toast.loading('Uploading file...');
-        setToastId(toastId);
-
-        try {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            // Upload
-            const res = await axios.post('/documents/upload', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-
-            setStatus(res.data.status);
-
-            setDocumentId(res.data.document_id);
-
-            // enable warning
-            window.addEventListener('beforeunload', handleBeforeUnload);
-
-            sleep(5000);
-            // Lock
-            try {
-                const resp = await axios.post('/documents/lock', {
-                    document_id: res.data.document_id,
-                    temp_path: res.data.temp_path
-                });
-
-            } finally {
-                // disable warning after request finishes
-                window.removeEventListener('beforeunload', handleBeforeUnload);
-            }
-
-        } catch (err) {
-            toast.error('File locking failed' . err.response?.data, { id: toastId });
-            console.log(err.response?.status);
-        }
-    };
-
     const resetAll = () => {
         form.reset();
         setFilePreview(null);
         setConfirmStep(false);
         setFileError(null);
     };
-
 
     const handleUpload = async () => {
 
@@ -175,6 +126,9 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
                 sleep(2000);
                 toast.success('File locked and stored successfully.', { id: toastId });
                 console.log(resp.data);
+                allowUpload();
+                // router.reload({ only: ['documents'] });
+                router.reload();
 
             } finally {
                 // disable warning after request finishes

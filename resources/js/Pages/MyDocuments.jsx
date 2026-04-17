@@ -23,6 +23,8 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
     const menuRef = useRef(null);
 
     const [openMenuId, setOpenMenuId] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [selectedDocId, setSelectedDocId] = useState(null);
 
     const toggleMenu = (id) => {
         setOpenMenuId(prev => (prev === id ? null : id));
@@ -75,6 +77,20 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         };
     }, [openMenuId]);
 
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') cancelDelete();
+        };
+
+        if (showDeleteModal) {
+            document.addEventListener('keydown', handleEsc);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEsc);
+        };
+    }, [showDeleteModal]);
+
     // handleUnlockFile
     const handleUnlock = async (id) => {
         router.post('/documents/unlock', { id });
@@ -101,14 +117,46 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         router.get('/documents/getFileInfo', { id });
     };
 
-    // handleDelete
-    const handleDelete = async (id) => {
-        const resp = await axios.post('/documents/delete', {
-            document_id: id,
-        });
+    // openDeleteModal
+    const openDeleteModal = (id) => {
+            setOpenMenuId(null);
+            setSelectedDocId(id);
+            setShowDeleteModal(true);
+        };
 
-        console.log(resp.data);
+    // confirmDelete
+    const confirmDelete = async () => {
+        if (!selectedDocId) return;
+
+        try {
+            const resp = await axios.post('/documents/delete', {
+                document_id: selectedDocId,
+            });
+
+            console.log(resp.data);
+
+            setShowDeleteModal(false);
+            setSelectedDocId(null);
+
+            // optional: refresh list
+            router.reload();
+
+        } catch (err) {
+            console.error(err);
+        }
     };
+
+    // cancelDelete
+    const cancelDelete = () => {
+        setShowDeleteModal(false);
+        setSelectedDocId(null);
+    };
+
+    // scan cover files
+    const scanCovers =  async() => {
+        const resp = await axios.post('/covers/scan');
+    };
+
 
     return (
         <AuthenticatedLayout
@@ -130,7 +178,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                             return (
                                 <div
                                     key={doc.document_id}
-                                    className="group relative p-4 bg-white rounded-lg shadow hover:shadow-lg hover:ring-1 hover:ring-purple-600 transition"
+                                    className="group relative w-full p-4 bg-white rounded-lg shadow hover:shadow-lg hover:ring-1 hover:ring-purple-600 transition"
                                 >
                                     <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition space-x-1">
                                         {/* Star */}
@@ -153,7 +201,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
 
                                     <FileText className={"size-14 rounded-xl p-2 " + getFileColor(doc.file_type)} />
 
-                                    <h3 className="text-md font-semibold text-gray-800 my-3">
+                                    <h3 className="text-md font-semibold text-gray-800 my-3 truncate" title={doc.filename}>
                                         {doc.filename}
                                     </h3>
 
@@ -192,9 +240,12 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                             <div className="border-t" />
 
                                             {/* Rename */}
-                                            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
+                                            <button
+                                                onClick={() => scanCovers()}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
                                                 <Pencil className="w-4 h-4 text-gray-600" />
-                                                Rename
+                                                {/* Rename */}
+                                                SCAN COVER FILES
                                             </button>
 
                                             {/* Move */}
@@ -223,7 +274,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
 
                                             {/* Delete */}
                                             <button
-                                                onClick={() => handleDelete(doc.document_id)}
+                                                onClick={() => openDeleteModal(doc.document_id)}
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-red-50 text-red-600">
                                                 <Trash2 className="w-4 h-4 text-red-500" />
                                                 Delete
@@ -243,6 +294,41 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                         </div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">No Documents Found</h3>
                         <p className="text-gray-500">Upload files to get started</p>
+                    </div>
+                </div>
+            )}
+            {showDeleteModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                    onClick={cancelDelete}
+                >
+                    {/* Modal */}
+                    <div className="bg-white rounded-xl shadow-xl w-80 p-6" onClick={(e) => e.stopPropagation()}>
+
+                        <h2 className="text-lg font-semibold text-gray-800 mb-2">
+                            Delete File
+                        </h2>
+
+                        <p className="text-sm text-gray-500 mb-6">
+                            Are you sure you want to delete this file? This action cannot be undone.
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={cancelDelete}
+                                className="px-4 py-2 text-sm rounded-md bg-gray-100 hover:bg-gray-200"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={confirmDelete}
+                                className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700"
+                            >
+                                Delete
+                            </button>
+                        </div>
+
                     </div>
                 </div>
             )}

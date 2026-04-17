@@ -83,13 +83,9 @@ class DocumentController extends Controller
             ->values()
             ->toArray();
 
-        $cloudMap = collect($cloudFiles)
-            ->keyBy('fileName');
-
         $mapId = "";
 
         $localCovers = [];
-        $stegoFiles = [];
         if ($segmented) {
             $mapId = $this->mapFragmentsToCovers($document->document_id);
 
@@ -114,14 +110,9 @@ class DocumentController extends Controller
 
             $embedded = $this->embedFragments($mapId, $cloudFiles, $localCovers);
             $isLocked = true;
-            return $embedded;
-            // return response()->json([
-            //     'status' => 'mapped',
-            //     'message' => 'Segments mapped'
-            // ]);
         } else return $isLocked;
 
-        return true;
+        return $isLocked;
     }
 
     /**
@@ -549,7 +540,8 @@ class DocumentController extends Controller
                 'size_bytes' => strlen($content),
                 'metadata' => [
                                 'valid' => true,
-                                'capacity' => floor(strlen($content) * 0.02)
+                                'capacity' => floor(strlen($content) * 0.02),
+                                'info' => 'System-generated'
                 ],
                 'hash' => hash('sha256', file_get_contents($filePath)),
             ]);
@@ -767,8 +759,8 @@ class DocumentController extends Controller
             // Optional: log success
 
             // Safe to delete temp files
-            if($lockedSet->has($cover->path)) {//Permanently delete cover file in DB if its newly generated
-                $cover->forceDelete();
+            if (isset($cover->metadata['info'])) {
+                $cover->forceDelete(); //Permanently delete cover file in DB if its newly generated
             }
             unlink($coverFile);
             unlink($binaryFile);
@@ -817,6 +809,9 @@ class DocumentController extends Controller
      */
     public function unlockFile(Request $request)
     {
+        // document status = stored after decryption, only if user chooses to keep the file
+        // delete file if user chooses to destroy it after unlocking
+
         $b2 = new B2Service();
         $document = Document::findOrFail($request->id);
 
@@ -876,23 +871,107 @@ class DocumentController extends Controller
         }
     }
 
+    /**
+     * Document files Deletion
+     * Delete cloud files first then DB records
+     * Only delete DB records if and only if cloud file deletion is successful
+     */
     public function delete(Request $request)
     {
-        $document = Document::findOrFail($request->document_id);
+        $user = Auth::user();
+        $document = Document::where('document_id', $request->document_id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
 
         if ($document->status !== 'stored') {
             abort(400, 'File not stored');
         }
 
-        // try {
-        //     $b2 = new B2Service();
-        //     $b2->deleteFile($document->cloud_file_id);
-        //     $document->delete();
+        $stegoMap = StegoMap::where('document_id', $document->document_id)->firstOrFail();
+        $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)
+            ->select('cloud_file_id', 'filename', 'stego_file_id')
+            ->get()
+            ->toArray();
 
-        //     return response()->json(['message' => 'File deleted successfully']);
-        // } catch (\Throwable $e) {
-        //     return response()->json(['error' => $e->getMessage()], 500);
-        // }
+        if(empty($stegoFiles)) {
+            return response()->json(['error' => 'No stego files found'], 404);
+        }
+
+        try {
+
+        /**
+         * Three-Layer Deletion Process
+         * Layer 1: Retry - handling temporary failures -> $this->deleteWithRetry($b2, $file)
+         * Layer 2: Deterministic result collection -> foreach ($stegoFiles as $file)
+         * Layer 3: Decision logic -> if (!empty($failedFiles))
+         */
+            $b2 = new B2Service();
+
+            $deletedFiles = [];
+            $failedFiles = [];
+
+            foreach ($stegoFiles as $file) {
+
+                $contentLength = $b2->getFileInfo($file['cloud_file_id'])['contentLength'];
+
+                $deleted = $this->deleteWithRetry($b2, $file);
+
+                if ($deleted) {
+                    $deletedFiles[] = $file['stego_file_id'];
+
+                } else {
+                    $failedFiles[] = $file['stego_file_id'];
+                }
+            }
+
+            if (!empty($failedFiles)) {
+
+                return response()->json([
+                    'message' => 'Some files failed to delete',
+                    'deleted' => $deletedFiles,
+                    'failed' => $failedFiles
+                ], 500);
+            }
+
+            $user->decrement('storage_used', $document->in_cloud_size);
+
+            // delete DB records
+            $document->forceDelete();
+
+            return response()->json(['message' => 'File deleted successfully']);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+
+        return $deletedFiles;
+    }
+
+    private function deleteWithRetry($b2, $file)
+    {
+        $maxRetries = 3;
+        $attempt = 0;
+
+        do {
+            try {
+                $result = $b2->deleteFile(
+                    $file['cloud_file_id'],
+                    'locked/' . $file['filename']
+                );
+
+                if ($result) {
+                    return true;
+                }
+
+            } catch (\Exception $e) {
+                return response()->json(['Delete retry error' => $e->getMessage()]);
+            }
+
+            $attempt++;
+            sleep(1); // simple backoff (can improve later)
+
+        } while ($attempt < $maxRetries);
+
+        return false;
     }
 
 
