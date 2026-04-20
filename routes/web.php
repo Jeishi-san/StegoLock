@@ -44,18 +44,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/documents/lock', [DocumentController::class, 'lock'])
         ->name('documents.lock');
 
+    Route::post('/documents/unlock', [DocumentController::class, 'unlock'])
+        ->name('documents.unlock');
+
     Route::post('/documents/delete', [DocumentController::class, 'delete'])
         ->name('documents.delete');
-
-
-
-
-    Route::post('/documents/unlock', [DocumentController::class, 'unlockFile'])
-        ->name('documents.unlock');
 
     Route::get('/documents/status/{id}', [DocumentController::class, 'getStatus']);
 
     Route::get('/documents/download/{id}', [DocumentController::class, 'download']);
+
+    Route::post('/documents/keep', [DocumentController::class, 'keep'])
+        ->name('documents.keep');
 
     Route::get('/documents/getFileInfo/{id}', [DocumentController::class, 'getStorageInfo']);
 

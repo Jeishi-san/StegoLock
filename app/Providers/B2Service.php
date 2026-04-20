@@ -142,7 +142,7 @@ class B2Service
         return json_decode($response->getBody(), true);
     }
 
-    public function listFiles()
+    public function listFiles() //300 files limit
     {
         $auth = $this->getAuth();
 
@@ -151,10 +151,38 @@ class B2Service
             'Authorization' => $auth['token'],
         ])->post($auth['apiUrl'] . '/b2api/v2/b2_list_file_names', [
             'bucketId' => env('B2_BUCKET_ID'),
-            'maxFileCount' => 200,
+            'maxFileCount' => 300,
         ]);
 
         return $response->json();
+    }
+
+    public function listAllFiles() //list all files
+    {
+        $auth = $this->getAuth();
+
+        $files = [];
+        $nextFileName = null;
+
+        do {
+            /** @var \Illuminate\Http\Client\Response $response */
+            $response = Http::withHeaders([
+                'Authorization' => $auth['token'],
+            ])->post($auth['apiUrl'] . '/b2api/v2/b2_list_file_names', [
+                'bucketId' => env('B2_BUCKET_ID'),
+                'maxFileCount' => 200,
+                'startFileName' => $nextFileName, // key part
+            ]);
+
+            $data = $response->json();
+
+            $files = array_merge($files, $data['files']);
+
+            $nextFileName = $data['nextFileName'] ?? null;
+
+        } while ($nextFileName);
+
+        return $files;
     }
 
     public function listAllVersions()

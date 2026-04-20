@@ -7,6 +7,7 @@ import { Head } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
+import { toast } from 'sonner';
 
 // ADD THIS
 import {
@@ -25,6 +26,9 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
     const [openMenuId, setOpenMenuId] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState(null);
+    const [showKeepFileModal, setShowKeepFileModal] = useState(null);
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     const toggleMenu = (id) => {
         setOpenMenuId(prev => (prev === id ? null : id));
@@ -91,17 +95,49 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         };
     }, [showDeleteModal]);
 
+    const handleBeforeUnload = (e) => {
+        e.preventDefault();
+        e.returnValue = ''; // required for Chrome to show prompt
+    };
+
     // handleUnlockFile
     const handleUnlock = async (id) => {
-        router.post('/documents/unlock', { id });
+
+        setOpenMenuId(null);
+
+        const toastId = toast.loading('Unlocking file...');
+        try {
+            // enable warning
+            window.addEventListener('beforeunload', handleBeforeUnload);
+
+            // Unlock
+            try {
+                //toast steps
+                const resp = await axios.post('/documents/unlock', {
+                    document_id: id
+                });
+
+                sleep(2000);
+                toast.success('File ready for download.', { id: toastId });
+
+            } finally {
+                // disable warning after request finishes
+                window.removeEventListener('beforeunload', handleBeforeUnload);
+            }
+
+        } catch (err) {
+            console.log('Error: ',err);
+            console.log('Unlock response:', err.response?.data);
+        }
 
         const interval = setInterval(async () => {
-            const res = await fetch(`/documents/status/${id}`);
-            const data = await res.json();
+            const { data } = await axios.get(`/documents/status/${id}`);
 
             if (data.status === 'decrypted') {
                 clearInterval(interval);
                 window.location.href = `/documents/download/${id}`;
+                setShowKeepFileModal(id);
+                setSelectedDocId(id);
             }
 
             if (data.status === 'failed') {
@@ -128,6 +164,10 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
     const confirmDelete = async () => {
         if (!selectedDocId) return;
 
+        setShowDeleteModal(false);
+        setSelectedDocId(null);
+
+        const toastId = toast.loading('Deleting document...');
         try {
             const resp = await axios.post('/documents/delete', {
                 document_id: selectedDocId,
@@ -135,14 +175,15 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
 
             console.log(resp.data);
 
-            setShowDeleteModal(false);
-            setSelectedDocId(null);
+            toast.success('Document deleted successfully', { id: toastId });
 
+            sleep(1000);
             // optional: refresh list
             router.reload();
 
         } catch (err) {
             console.error(err);
+            toast.error('Failed to delete document', { id: toastId });
         }
     };
 
@@ -151,6 +192,33 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         setShowDeleteModal(false);
         setSelectedDocId(null);
     };
+
+    // after download
+    const handleDeleteFromKeepModal = () => {
+        openDeleteModal(showKeepFileModal);
+        setShowKeepFileModal(null);
+    };
+
+    // after download
+    const keepFile = async () => {
+        //toast steps
+        const toastId = toast.loading('Keeping file...');
+
+        try {
+            const resp = await axios.post('/documents/keep', {
+                document_id: selectedDocId
+            });
+
+            sleep(2000);
+            toast.success('File kept.', { id: toastId });
+
+            setShowKeepFileModal(null);
+            setSelectedDocId(null);
+        } catch (err) {
+            toast.error('Failed to keep file.', { id: toastId });
+        }
+    };
+
 
     // scan cover files
     const scanCovers =  async() => {
@@ -333,6 +401,51 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                 </div>
             )}
 
+            {showKeepFileModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                    onClick={() => setShowKeepFileModal(null)}
+                >
+                    {/* Modal */}
+                    <div
+                        className="bg-white rounded-xl shadow-xl w-80 p-6"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+
+                        <h2 className="text-lg font-semibold text-gray-800 mb-2">
+                            File Unlocked
+                        </h2>
+
+                        <p className="text-sm text-gray-500 mb-6">
+                            Do you want to keep the unlocked file on the system or remove it?
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={keepFile}
+                                className="px-4 py-2 text-sm rounded-md bg-gray-100 hover:bg-gray-200"
+                            >
+                                Keep File
+                            </button>
+
+                            <button
+                                onClick={handleDeleteFromKeepModal}
+                                className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700"
+                            >
+                                Delete File
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
         </AuthenticatedLayout>
     );
 }
+
+/**
+ * Unlock Icon
+ * File Successfully Unlocked
+ *
+ */

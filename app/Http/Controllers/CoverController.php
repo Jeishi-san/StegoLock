@@ -15,7 +15,7 @@ class CoverController extends Controller
 {
     public function scan_cover(Request $request)
     {
-        // $this->scan_text();
+        $this->scan_text();
         $this->scan_audio();
         $this->scan_image();
 
