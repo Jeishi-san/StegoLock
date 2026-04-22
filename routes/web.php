@@ -26,9 +26,12 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::get('/myDocuments', [DocumentController::class, 'index'])
         ->name('myDocuments');
 
-    Route::get('/folder', function () {
-        return Inertia::render('Folder');
-    })->name('folder');
+    Route::get('/myFolders', [FolderController::class, 'index'])
+        ->name('myFolders');
+
+    //     Route::get('/folder', function () {
+    //     return Inertia::render('Folder');
+    // })->name('folder');
 });
 
 Route::middleware('auth')->group(function () {
@@ -58,6 +61,14 @@ Route::middleware('auth')->group(function () {
         ->name('documents.keep');
 
     Route::get('/documents/getFileInfo/{id}', [DocumentController::class, 'getStorageInfo']);
+
+
+
+    Route::get('/folders', [FolderController::class, 'index']);
+    Route::post('/folders', [FolderController::class, 'store']);
+    Route::put('/folders/{id}', [FolderController::class, 'update']);
+    Route::delete('/folders/{id}', [FolderController::class, 'destroy']);
+    Route::put('/documents/{id}/move', [DocumentController::class, 'moveDocument']);
 
 });
 

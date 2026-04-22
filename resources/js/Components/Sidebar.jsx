@@ -185,8 +185,8 @@ export function Sidebar({
                             My Documents
                         </NavLink>
                         <NavLink
-                            href={route('folder')}
-                            active={route().current('folders')}
+                            href={route('myFolders')}
+                            active={route().current('myFolders')}
                             icon={FolderTree}
                         >
                             My Folders
@@ -197,7 +197,7 @@ export function Sidebar({
                             <div className="w-full border-t border-gray-300"></div>
                         </div>
 
-                        <NavLink
+                        {/* <NavLink
                             href={route('folder')}
                             active={route().current('/folders')}
                             icon={FolderOpen}
@@ -213,7 +213,7 @@ export function Sidebar({
                             href={route('folder')}
                             active={route().current('/folders')}
                             icon={Star}
-                        >Starred</NavLink>
+                        >Starred</NavLink> */}
                     </div>
 
                 </div>

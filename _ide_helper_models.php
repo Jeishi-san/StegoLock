@@ -50,9 +50,12 @@ namespace App\Models{
  * @property string|null $dk_salt
  * @property string $status
  * @property int|null $fragment_count
+ * @property int $in_cloud_size
  * @property string|null $error_message
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string|null $folder_id
+ * @property-read \App\Models\Folder|null $folder
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Fragment> $fragments
  * @property-read int|null $fragments_count
  * @property-read \App\Models\User $user
@@ -67,13 +70,42 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Document whereFileHash($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Document whereFileType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Document whereFilename($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Document whereFolderId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Document whereFragmentCount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Document whereInCloudSize($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Document whereOriginalSize($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Document whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Document whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Document whereUserId($value)
  */
 	class Document extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
+ * @property string $folder_id
+ * @property int $user_id
+ * @property string $name
+ * @property string|null $parent_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Folder> $children
+ * @property-read int|null $children_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Document> $documents
+ * @property-read int|null $documents_count
+ * @property-read Folder|null $parent
+ * @property-read \App\Models\User $user
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Folder newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Folder newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Folder query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Folder whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Folder whereFolderId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Folder whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Folder whereParentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Folder whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Folder whereUserId($value)
+ */
+	class Folder extends \Eloquent {}
 }
 
 namespace App\Models{
@@ -129,10 +161,11 @@ namespace App\Models{
 namespace App\Models{
 /**
  * @property string $stego_file_id
+ * @property string $cloud_file_id
  * @property string $stego_map_id
  * @property string $fragment_id
  * @property int $offset
- * @property string $stego_path
+ * @property string $filename
  * @property int $stego_size
  * @property string $status
  * @property string|null $error_message
@@ -143,14 +176,15 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereCloudFileId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereErrorMessage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereFilename($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereFragmentId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereOffset($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereStegoFileId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereStegoMapId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereStegoPath($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereStegoSize($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StegoFile whereUpdatedAt($value)
  */
@@ -193,6 +227,8 @@ namespace App\Models{
  * @property string $master_key_enc
  * @property string $nonce
  * @property string $tag
+ * @property int $storage_used
+ * @property int $storage_limit
  * @property string|null $remember_token
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -213,6 +249,8 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereNonce($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User wherePasswordHash($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereRememberToken($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereStorageLimit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereStorageUsed($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereTag($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereUpdatedAt($value)
  */

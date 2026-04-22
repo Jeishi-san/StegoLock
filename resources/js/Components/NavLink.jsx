@@ -10,6 +10,8 @@ export default function NavLink({
     return (
         <Link
             {...props}
+            preserveState
+            preserveScroll
             className={
                 'w-full flex items-center px-4 py-3 rounded-xl transition-all ' +
                 (active ?

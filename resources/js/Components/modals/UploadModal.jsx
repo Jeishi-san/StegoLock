@@ -33,15 +33,7 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    useEffect(() => {
-        if (!documentId) return;
 
-        toast.loading('Locking file...', { id: toastId });
-            steps.forEach((text) => {
-                sleep(2000);
-                toast.loading(text, { id: toastId });
-            });
-    }, [documentId]);
 
     if (!isOpen) return null;
 
@@ -115,19 +107,14 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
 
             // Lock
             setDocumentId(res.data['document_id']);
-            sleep(2000);
             try {
-                //toast steps
                 const resp = await axios.post('/documents/lock', {
                     document_id: res.data['document_id'],
                     temp_path: res.data['temp_path']
                 });
 
-                sleep(2000);
-                toast.success('File locked and stored successfully.', { id: toastId });
-                console.log(resp.data);
+                toast.success('Locking started in background. You can navigate away.', { id: toastId });
                 allowUpload();
-                // router.reload({ only: ['documents'] });
                 router.reload();
 
             } finally {

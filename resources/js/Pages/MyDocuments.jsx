@@ -1,5 +1,5 @@
-import { Shield, FileText, Star, MoreVertical,
-    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock } from 'lucide-react';
+import { Shield, FileText, Star, MoreVertical, Upload,
+    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatBytes, formatDate } from '@/Utils/fileUtils';
 import { Inertia } from '@inertiajs/inertia';
@@ -28,6 +28,8 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
     const [selectedDocId, setSelectedDocId] = useState(null);
     const [showKeepFileModal, setShowKeepFileModal] = useState(null);
 
+    const [isUploading, setIsUploading] = useState(false);
+
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     const toggleMenu = (id) => {
@@ -46,6 +48,10 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
             default:
                 return 'Unknown File Type';
         }
+    };
+    
+    const isProcessing = (status) => {
+        return ['uploaded', 'encrypted', 'fragmented', 'mapped', 'embedded'].includes(status);
     };
 
     // (Floating UI setup)
@@ -261,21 +267,36 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                                     refs.setReference(node);
                                                 }
                                             }}
-                                            onClick={() => toggleMenu(doc.document_id)}
+                                            onClick={() => !isProcessing(doc.status) && toggleMenu(doc.document_id)}
+                                            className={isProcessing(doc.status) ? 'opacity-50 cursor-not-allowed' : ''}
+                                            disabled={isProcessing(doc.status)}
                                         >
                                             <MoreVertical className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
                                         </button>
                                     </div>
 
-                                    <FileText className={"size-14 rounded-xl p-2 " + getFileColor(doc.file_type)} />
+                                    <div className="relative inline-block">
+                                        <FileText className={"size-14 rounded-xl p-2 " + getFileColor(doc.file_type)} />
+                                        {isProcessing(doc.status) && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-white/60 rounded-xl">
+                                                <Loader2 className="size-6 text-purple-600 animate-spin" />
+                                            </div>
+                                        )}
+                                    </div>
 
                                     <h3 className="text-md font-semibold text-gray-800 my-3 truncate" title={doc.filename}>
                                         {doc.filename}
                                     </h3>
 
-                                    <div className="flex justify-between">
+                                    <div className="flex justify-between items-center">
                                         <p className="text-sm text-gray-500">
-                                            {formatBytes(doc.in_cloud_size)}
+                                            {isProcessing(doc.status) ? (
+                                                <span className="flex items-center gap-1.5 text-purple-600 font-medium italic">
+                                                     {doc.status}...
+                                                </span>
+                                            ) : (
+                                                formatBytes(doc.in_cloud_size)
+                                            )}
                                         </p>
 
                                         <p className="text-sm text-gray-500">
@@ -362,6 +383,27 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                         </div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">No Documents Found</h3>
                         <p className="text-gray-500">Upload files to get started</p>
+                        {/* UPLOAD FILE BUTTON */}
+                        <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
+                            <div className="flex my-4 relative">
+                                {/* New Button with Dropdown */}
+                                <button
+                                    onClick={() => {
+                                            if (isUploading) return;
+                                            setShowNewMenu(false);
+                                            setShowUploadModal(true);
+                                        }}
+                                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r
+                                                from-indigo-600 to-purple-600 text-white px-4 py-3.5
+                                                rounded-xl hover:from-indigo-700 hover:to-purple-700
+                                                transition-all font-medium shadow-lg shadow-indigo-500/30"
+                                >
+                                    <Upload className="size-5" />
+                                    Upload Document
+                                </button>
+
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -404,7 +446,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
             {showKeepFileModal && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-                    onClick={() => setShowKeepFileModal(null)}
+
                 >
                     {/* Modal */}
                     <div
@@ -417,7 +459,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                         </h2>
 
                         <p className="text-sm text-gray-500 mb-6">
-                            Do you want to keep the unlocked file on the system or remove it?
+                            Do you want to keep the locked file on the system or remove it?
                         </p>
 
                         <div className="flex justify-end gap-3">

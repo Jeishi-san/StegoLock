@@ -102,17 +102,17 @@ class B2Service
     {
         $auth = $this->getAuth();
 
+        $url = $auth['downloadUrl'] . '/b2api/v3/b2_download_file_by_id?fileId=' . $fileId;
+
         /** @var \Illuminate\Http\Client\Response $response */
         $response = Http::withHeaders([
             'Authorization' => $auth['token'],
         ])->withOptions([
             'stream' => true,
-        ])->post($auth['apiUrl'] . '/b2api/v2/b2_download_file_by_id', [
-            'fileId' => $fileId,
-        ]);
+        ])->get($url);
 
         if (!$response->successful()) {
-            throw new \Exception('B2 streaming download failed');
+            throw new \Exception('B2 streaming download failed: ' . $response->status());
         }
 
         return $response;
@@ -130,14 +130,14 @@ class B2Service
         ]);
 
         $response = $client->request('POST', $store['uploadUrl'], [
-        'headers' => [
-            'Authorization' => $store['authorizationToken'],
-            'X-Bz-File-Name' => $fileName,
-            'Content-Type' => 'b2/x-auto',
-            'X-Bz-Content-Sha1' => $sha1,
-        ],
-        'body' => fopen($filePath, 'r'),
-    ]);
+            'headers' => [
+                'Authorization' => $store['authorizationToken'],
+                'X-Bz-File-Name' => $fileName,
+                'Content-Type' => 'b2/x-auto',
+                'X-Bz-Content-Sha1' => $sha1,
+            ],
+            'body' => fopen($filePath, 'r'),
+        ]);
 
         return json_decode($response->getBody(), true);
     }
@@ -252,5 +252,25 @@ class B2Service
         $stream->close();
 
         return $plaintext;
+    }
+
+    public function wrong_download(string $fileId)
+    {
+        $auth = $this->getAuth();
+
+        /** @var \Illuminate\Http\Client\Response $response */
+        $response = Http::withHeaders([
+            'Authorization' => $auth['token'],
+        ])->withOptions([
+            'stream' => true,
+        ])->post($auth['apiUrl'] . '/b2api/v2/b2_download_file_by_id', [
+            'fileId' => $fileId,
+        ]);
+
+        if (!$response->successful()) {
+            throw new \Exception('B2 streaming download failed');
+        }
+
+        return $response;
     }
 }
