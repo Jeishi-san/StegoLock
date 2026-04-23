@@ -52,7 +52,10 @@ class DocumentController extends Controller
                 'status',
                 'fragment_count',
                 'created_at'
-            ]);
+            ])->map(function ($doc) {
+                $doc->starred = $doc->isStarredBy(Auth::user());
+                return $doc;
+            });
 
         $user = Auth::user();
 
@@ -64,9 +67,149 @@ class DocumentController extends Controller
     }
 
     /**
+     *
+     */
+    public function starred()
+    {
+        $documents = Document::whereHas('sharedWith', function ($query) {
+            $query->where('user_id', Auth::id())
+                ->where('starred', true);
+        })
+        ->orWhere(function ($query) {
+            $query->where('user_id', Auth::id())
+                ->whereHas('sharedWith', function ($q) {
+                    $q->where('user_id', Auth::id())
+                        ->where('starred', true);
+                });
+        })
+        ->latest()
+        ->get([
+            'document_id',
+            'filename',
+            'file_type',
+            'original_size',
+            'in_cloud_size',
+            'status',
+            'fragment_count',
+            'created_at',
+            'user_id'
+        ])->map(function ($doc) {
+            $doc->starred = true;
+            $doc->owner_name = $doc->user->name;
+            return $doc;
+        });
+
+        $user = Auth::user();
+
+        return Inertia::render('Starred', [
+            'documents' => $documents,
+            'totalStorage' => $user->storage_used,
+            'storageLimit' => $user->storage_limit,
+        ]);
+    }
+
+    /**
+     *
+     */
+    public function sharedWithMe()
+    {
+        $documents = Document::whereHas('sharedWith', function ($query) {
+            $query->where('user_id', Auth::id())
+                ->whereNotNull('shared_by');
+        })
+        ->latest()
+        ->get([
+            'document_id',
+            'filename',
+            'file_type',
+            'original_size',
+            'in_cloud_size',
+            'status',
+            'fragment_count',
+            'created_at',
+            'user_id'
+        ])->map(function ($doc) {
+            $doc->owner_name = $doc->user->name;
+            $doc->starred = $doc->isStarredBy(Auth::user());
+            return $doc;
+        });
+
+        $user = Auth::user();
+
+        return Inertia::render('SharedWithMe', [
+            'documents' => $documents,
+            'totalStorage' => $user->storage_used,
+            'storageLimit' => $user->storage_limit,
+        ]);
+    }
+
+    /**
+     * Toggle star for document
+     */
+    public function toggleStar(Request $request)
+    {
+        $request->validate([
+            'document_id' => 'required|exists:documents,document_id'
+        ]);
+
+        $document = Document::findOrFail($request->document_id);
+
+        $pivot = $document->sharedWith()->firstOrCreate(
+            ['user_id' => Auth::id()],
+            ['shared_by' => null]
+        );
+
+        $current = $pivot->pivot->starred;
+        $document->sharedWith()->updateExistingPivot(Auth::id(), [
+            'starred' => !$current
+        ]);
+
+        return response()->json([
+            'starred' => !$current
+        ]);
+    }
+
+    /**
+     * Share document with user
+     */
+    public function share(Request $request)
+    {
+        $request->validate([
+            'document_id' => 'required|exists:documents,document_id',
+            'email' => 'required|email|exists:users,email'
+        ]);
+
+        $document = Document::where('id', $request->document_id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $sharedUser = User::where('email', $request->email)->firstOrFail();
+
+        if ($sharedUser->id === Auth::id()) {
+            return response()->json([
+                'message' => 'Cannot share document with yourself'
+            ], 400);
+        }
+
+        $document->sharedWith()->syncWithoutDetaching([
+            $sharedUser->id => [
+                'shared_by' => Auth::id(),
+                'permission' => 'view'
+            ]
+        ]);
+
+        return response()->json([
+            'message' => 'Document shared successfully'
+        ]);
+    }
+
+    /**
+<<<<<<< Updated upstream
      * Starts the locking and securing process of the document
      */
     /**
+=======
+>>>>>>> Stashed changes
      * Starts the locking and securing process of the document
      */
     public function lock(Request $request) {

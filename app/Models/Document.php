@@ -57,4 +57,21 @@ class Document extends Model
     {
         return $this->hasMany(Fragment::class, 'document_id', 'document_id');
     }
+
+    public function sharedWith()
+    {
+        return $this->belongsToMany(User::class)
+            ->withPivot(['starred', 'shared_by', 'permission', 'created_at', 'updated_at'])
+            ->withTimestamps();
+    }
+
+    public function isStarredBy(User $user): bool
+    {
+        return $this->sharedWith()->where('user_id', $user->id)->value('starred') ?? false;
+    }
+
+    public function isSharedWith(User $user): bool
+    {
+        return $this->sharedWith()->where('user_id', $user->id)->whereNotNull('shared_by')->exists();
+    }
 }

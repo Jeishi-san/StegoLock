@@ -29,6 +29,12 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::get('/myFolders', [FolderController::class, 'index'])
         ->name('myFolders');
 
+    Route::get('/starred', [DocumentController::class, 'starred'])
+        ->name('starred');
+
+    Route::get('/shared-with-me', [DocumentController::class, 'sharedWithMe'])
+        ->name('sharedWithMe');
+
     //     Route::get('/folder', function () {
     //     return Inertia::render('Folder');
     // })->name('folder');

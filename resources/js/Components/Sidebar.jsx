@@ -201,23 +201,17 @@ export function Sidebar({
                             <div className="w-full border-t border-gray-300"></div>
                         </div>
 
-                        {/* <NavLink
-                            href={route('folder')}
-                            active={route().current('/folders')}
-                            icon={FolderOpen}
-                        >All Documents</NavLink>
+                         <NavLink
+                             href={route('starred')}
+                             active={route().current('starred')}
+                             icon={Star}
+                         >Starred</NavLink>
 
-                        <NavLink
-                            href={route('folder')}
-                            active={route().current('/folders')}
-                            icon={Users}
-                        >Shared With Me</NavLink>
-
-                        <NavLink
-                            href={route('folder')}
-                            active={route().current('/folders')}
-                            icon={Star}
-                        >Starred</NavLink> */}
+                         <NavLink
+                             href={route('sharedWithMe')}
+                             active={route().current('sharedWithMe')}
+                             icon={Users}
+                         >Shared With Me</NavLink>
                     </div>
 
                 </div>

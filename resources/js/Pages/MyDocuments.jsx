@@ -294,6 +294,40 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         }
     };
 
+    const handleToggleStar = async (docId) => {
+        try {
+            const resp = await axios.post('/documents/toggle-star', {
+                document_id: docId
+            });
+            
+            if (resp.data.starred) {
+                toast.success('Added to starred');
+            } else {
+                toast.success('Removed from starred');
+            }
+            router.reload();
+        } catch (err) {
+            toast.error('Failed to update star status');
+        }
+    };
+
+    const handleToggleStar = async (docId) => {
+        try {
+            const resp = await axios.post('/documents/toggle-star', {
+                document_id: docId
+            });
+            
+            if (resp.data.starred) {
+                toast.success('Added to starred');
+            } else {
+                toast.success('Removed from starred');
+            }
+            router.reload();
+        } catch (err) {
+            toast.error('Failed to update star status');
+        }
+    };
+
 
     // scan cover files
     const scanCovers =  async() => {
