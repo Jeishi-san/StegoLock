@@ -8,6 +8,7 @@ import { useForm } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
+import Tooltip from '@/Components/Tooltip';
 import {
     useFloating,
     offset,
@@ -68,7 +69,7 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
             case 'reconstructed': return 'Decrypting file...';
             case 'decrypted': return 'Decrypted';
             case 'retrieved': return 'Retrieved';
-            case 'failed': return 'Processing failed';
+            case 'failed': return 'Error';
             default: return status ? status.charAt(0).toUpperCase() + status.slice(1) : '';
         }
     };
@@ -224,12 +225,14 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
                                             {getStatusDisplay(doc.status)}
                                         </span>
                                     ) : doc.status === 'failed' ? (
-                                        <div className="flex items-center gap-1 group/error" title={doc.error_message}>
-                                            <AlertCircle className="size-3 text-red-500" />
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
-                                                Failed
-                                            </span>
-                                        </div>
+                                        <Tooltip content={doc.error_message ? (typeof doc.error_message === 'object' ? JSON.stringify(doc.error_message) : doc.error_message) : "Error occurred during processing"}>
+                                            <div className="flex items-center gap-1 group/error">
+                                                <AlertCircle className="size-3 text-red-500" />
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
+                                                    Error
+                                                </span>
+                                            </div>
+                                        </Tooltip>
                                     ) : (
                                         <p className="text-sm text-gray-500">
                                             {formatBytes(doc.in_cloud_size || doc.original_size)}

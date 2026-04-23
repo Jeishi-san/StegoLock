@@ -8,6 +8,7 @@ import { useForm } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
+import Tooltip from '@/Components/Tooltip';
 
 // ADD THIS
 import {
@@ -147,7 +148,7 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
             case 'reconstructed': return 'Decrypting file...';
             case 'decrypted': return 'Decrypted';
             case 'retrieved': return 'Retrieved';
-            case 'failed': return 'Processing failed';
+            case 'failed': return 'Error';
             default: return status.charAt(0).toUpperCase() + status.slice(1);
         }
     };
@@ -422,7 +423,7 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
                             return (
                                 <div
                                     key={doc.document_id}
-                                    title={isProcessing ? `${processType} file is ongoing...` : ""}
+                                    title={isProcessing ? `${processType} file is ongoing...` : undefined}
                                     className={"group relative w-full p-4 bg-white rounded-lg shadow transition " + 
                                         (isProcessing ? "border-2 border-indigo-100 bg-indigo-50/10 cursor-wait" : "hover:shadow-lg hover:ring-1 hover:ring-purple-600 cursor-pointer")}
                                 >
@@ -480,13 +481,14 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
                                                 </span>
                                             </div>
                                         ) : doc.status === 'failed' ? (
-                                            <div className="flex items-center gap-1 group/error" 
-                                                 title={typeof doc.error_message === 'object' ? JSON.stringify(doc.error_message) : doc.error_message}>
-                                                <AlertCircle className="size-3 text-red-500" />
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
-                                                    {getStatusDisplay(doc.status, doc.document_id)}
-                                                </span>
-                                            </div>
+                                            <Tooltip content={doc.error_message ? (typeof doc.error_message === 'object' ? JSON.stringify(doc.error_message) : doc.error_message) : "Error occurred during processing"}>
+                                                <div className="flex items-center gap-1 group/error">
+                                                    <AlertCircle className="size-3 text-red-500" />
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
+                                                        {getStatusDisplay(doc.status, doc.document_id)}
+                                                    </span>
+                                                </div>
+                                            </Tooltip>
                                         ) : (
                                             <p className="text-sm text-gray-500">
                                                 {formatBytes(doc.in_cloud_size || doc.original_size)}

@@ -54,7 +54,9 @@ class DocumentController extends Controller
                 'in_cloud_size',
                 'status',
                 'fragment_count',
-                'created_at'
+                'created_at',
+                'error_message',
+                'is_starred'
             ]);
 
         $folders = \App\Models\Folder::where('user_id', Auth::id())
