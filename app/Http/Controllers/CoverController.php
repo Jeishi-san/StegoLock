@@ -7,8 +7,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Models\Cover;
-use App\Jobs\MapFragmentsToCoversJob;
-use App\Jobs\EncryptDocumentJob;
+
 
 
 class CoverController extends Controller

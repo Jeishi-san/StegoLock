@@ -21,27 +21,9 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
         'text/plain',
     ];
 
-    const steps = [
-        "Ongoing encryption process...",
-        "Segmenting file...",
-        "Embedding files..."
-    ];
-
     const form = useForm({
         file: null,
     });
-
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-    useEffect(() => {
-        if (!documentId) return;
-
-        toast.loading('Locking file...', { id: toastId });
-            steps.forEach((text) => {
-                sleep(2000);
-                toast.loading(text, { id: toastId });
-            });
-    }, [documentId]);
 
     if (!isOpen) return null;
 
@@ -86,8 +68,6 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
 
     const handleUpload = async () => {
 
-        // const resp = await axios.post('/covers/scan');
-
         if (!form.data.file) return;
 
         resetAll();
@@ -96,13 +76,12 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
 
         const file = form.data.file;
 
-        const toastId = toast.loading('Uploading file...');
+        const toastId = toast.loading('Locking file...', { duration: 3000 });
         setToastId(toastId);
         try {
             const formData = new FormData();
             formData.append('file', file);
 
-            sleep(2000);
             // Upload
             const res = await axios.post('/documents/upload', formData, {
                 headers: {
@@ -115,19 +94,18 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
 
             // Lock
             setDocumentId(res.data['document_id']);
-            sleep(2000);
             try {
-                //toast steps
+                // Dispatch Lock request
                 const resp = await axios.post('/documents/lock', {
                     document_id: res.data['document_id'],
                     temp_path: res.data['temp_path']
                 });
 
-                sleep(2000);
-                toast.success('File locked and stored successfully.', { id: toastId });
-                console.log(resp.data);
+                if (resp.data.status === 'processing') {
+                    toast.dismiss(toastId);
+                }
+                
                 allowUpload();
-                // router.reload({ only: ['documents'] });
                 router.reload();
 
             } finally {
