@@ -77,56 +77,85 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
     };
 
     const handleUpload = async () => {
-
-        // const resp = await axios.post('/covers/scan');
-
         if (!form.data.file) return;
 
+        const file = form.data.file;
         resetAll();
         onClose();
         uploaded();
 
-        const file = form.data.file;
-
         const toastId = toast.loading('Uploading file...');
         setToastId(toastId);
+
         try {
             const formData = new FormData();
             formData.append('file', file);
 
-            sleep(2000);
-            // Upload
+            // 1. Initial Upload
             const res = await axios.post('/documents/upload', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            // enable warning
+            const docId = res.data['document_id'];
+            setDocumentId(docId);
             window.addEventListener('beforeunload', handleBeforeUnload);
 
-            // Lock
-            setDocumentId(res.data['document_id']);
-            try {
-                const resp = await axios.post('/documents/lock', {
-                    document_id: res.data['document_id'],
-                    temp_path: res.data['temp_path']
-                });
+            // 2. Start Locking (Asynchronous)
+            toast.loading('Starting encryption...', { id: toastId });
+            await axios.post('/documents/lock', {
+                document_id: docId,
+                temp_path: res.data['temp_path']
+            });
 
-                toast.success('Locking started in background. You can navigate away.', { id: toastId });
-                allowUpload();
-                router.reload();
-
-            } finally {
-                // disable warning after request finishes
-                window.removeEventListener('beforeunload', handleBeforeUnload);
-            }
+            // 3. Start Polling for status
+            pollStatus(docId, toastId);
 
         } catch (err) {
-            console.log('Error: ',err);
-            console.log('Lock response:', err.response?.data);
+            console.error('Upload error:', err);
+            toast.error(err.response?.data?.error || 'Upload failed', { id: toastId });
+            window.removeEventListener('beforeunload', handleBeforeUnload);
         }
     };
+
+    const pollStatus = async (docId, toastId) => {
+        const interval = setInterval(async () => {
+            try {
+                const response = await axios.get(`/documents/status/${docId}`);
+                const currentStatus = response.data.status;
+
+                // Update toast based on status
+                switch (currentStatus) {
+                    case 'encrypted':
+                        toast.loading('File encrypted. Segmenting...', { id: toastId });
+                        break;
+                    case 'fragmented':
+                        toast.loading('File segmented. Mapping covers...', { id: toastId });
+                        break;
+                    case 'mapped':
+                        toast.loading('Covers mapped. Embedding data...', { id: toastId });
+                        break;
+                    case 'embedded':
+                        toast.loading('Data embedded. Finalizing storage...', { id: toastId });
+                        break;
+                    case 'stored':
+                        clearInterval(interval);
+                        toast.success('Document secured successfully!', { id: toastId });
+                        window.removeEventListener('beforeunload', handleBeforeUnload);
+                        router.reload();
+                        break;
+                    case 'failed':
+                        clearInterval(interval);
+                        toast.error('Processing failed. Check logs.', { id: toastId });
+                        window.removeEventListener('beforeunload', handleBeforeUnload);
+                        break;
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+                clearInterval(interval);
+            }
+        }, 2000); // Poll every 2 seconds
+    };
+
 
 
 

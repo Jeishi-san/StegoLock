@@ -51,7 +51,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
     };
     
     const isProcessing = (status) => {
-        return ['uploaded', 'encrypted', 'fragmented', 'mapped', 'embedded'].includes(status);
+        return ['uploaded', 'encrypted', 'fragmented', 'mapped', 'embedded', 'unlocking', 'extracted', 'reconstructed'].includes(status);
     };
 
     // (Floating UI setup)
@@ -108,51 +108,61 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
 
     // handleUnlockFile
     const handleUnlock = async (id) => {
-
         setOpenMenuId(null);
+        const toastId = toast.loading('Initiating retrieval...');
 
-        const toastId = toast.loading('Unlocking file...');
         try {
-            // enable warning
             window.addEventListener('beforeunload', handleBeforeUnload);
 
-            // Unlock
-            try {
-                //toast steps
-                const resp = await axios.post('/documents/unlock', {
-                    document_id: id
-                });
+            // 1. Start the asynchronous unlock process
+            await axios.post('/documents/unlock', {
+                document_id: id
+            });
 
-                sleep(2000);
-                toast.success('File ready for download.', { id: toastId });
-
-            } finally {
-                // disable warning after request finishes
-                window.removeEventListener('beforeunload', handleBeforeUnload);
-            }
+            // 2. Start polling for status updates
+            const interval = setInterval(async () => {
+                try {
+                    const { data } = await axios.get(`/documents/status/${id}`);
+                    
+                    switch (data.status) {
+                        case 'unlocking':
+                            toast.loading('Fetching stego files from cloud...', { id: toastId });
+                            break;
+                        case 'extracted':
+                            toast.loading('Extracting data from covers...', { id: toastId });
+                            break;
+                        case 'reconstructed':
+                            toast.loading('Reconstructing file fragments...', { id: toastId });
+                            break;
+                        case 'decrypted':
+                            clearInterval(interval);
+                            toast.success('File ready for download.', { id: toastId });
+                            window.removeEventListener('beforeunload', handleBeforeUnload);
+                            
+                            // Trigger download and show keep modal
+                            window.location.href = `/documents/download/${id}`;
+                            setShowKeepFileModal(id);
+                            setSelectedDocId(id);
+                            router.reload(); // Refresh to update status icons
+                            break;
+                        case 'failed':
+                            clearInterval(interval);
+                            toast.error('Decryption failed. Please check logs.', { id: toastId });
+                            window.removeEventListener('beforeunload', handleBeforeUnload);
+                            break;
+                    }
+                } catch (pollErr) {
+                    console.error('Polling error:', pollErr);
+                }
+            }, 2000);
 
         } catch (err) {
-            console.log('Error: ',err);
-            console.log('Unlock response:', err.response?.data);
+            console.error('Unlock error:', err);
+            toast.error(err.response?.data?.error || 'Unlock initiation failed', { id: toastId });
+            window.removeEventListener('beforeunload', handleBeforeUnload);
         }
-
-        const interval = setInterval(async () => {
-            const { data } = await axios.get(`/documents/status/${id}`);
-
-            if (data.status === 'decrypted') {
-                clearInterval(interval);
-                window.location.href = `/documents/download/${id}`;
-                setShowKeepFileModal(id);
-                setSelectedDocId(id);
-            }
-
-            if (data.status === 'failed') {
-                clearInterval(interval);
-                alert('Decryption failed');
-            }
-
-        }, 2000); // check every 2 seconds
     };
+
 
     //handleFileInfo
     const handleFileInfo = async (id) => {

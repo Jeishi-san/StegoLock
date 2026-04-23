@@ -7,8 +7,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Models\Cover;
-use App\Jobs\MapFragmentsToCoversJob;
-use App\Jobs\EncryptDocumentJob;
+
 
 
 class CoverController extends Controller
@@ -23,11 +22,7 @@ class CoverController extends Controller
 
         //return back()->with('success', 'mapping');
 
-        // try {
-        //     MapFragmentsToCoversJob::dispatchSync(95);
-        // } catch (\Exception $e) {
-        //     return back()->with('error', 'Failed to dispatch job');
-        // }
+
     }
 
     public function scan_audio()
