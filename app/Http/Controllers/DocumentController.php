@@ -51,7 +51,8 @@ class DocumentController extends Controller
                 'in_cloud_size',
                 'status',
                 'fragment_count',
-                'created_at'
+                'created_at',
+                'encryption_mode'
             ])->map(function ($doc) {
                 $doc->starred = $doc->isStarredBy(Auth::user());
                 return $doc;

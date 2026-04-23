@@ -93,8 +93,20 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
+        // Auto login user after registration
+        Auth::login($user);
+
+        // Regenerate session
+        $request->session()->regenerate();
+
+        // Decrypt and store master key in session
+        $encryption_key = hash_pbkdf2('sha256', $password_derivedKey, $ek_salt, 100000, 32, true);
+        
+        session(['master_key' => $master_key]);
+        session(['master_key_expires_at' => now()->addMinutes(10)]);
+
         return redirect()
-            ->route('login')
-            ->with('success', 'Registration successful. Please log in to continue.');
+            ->route('myDocuments')
+            ->with('success', 'Registration successful. Welcome to StegoLock!');
         }
 }

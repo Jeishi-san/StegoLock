@@ -11,8 +11,10 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
     const [documentId, setDocumentId] = useState(null);
     const [toastId, setToastId] = useState(null);
     const [status, setStatus] = useState(null);
-
     const [locked, setLocked] = useState(null);
+    const [encryptionMode, setEncryptionMode] = useState('legacy_derived');
+    const [viewerEmails, setViewerEmails] = useState([]);
+    const [newViewerEmail, setNewViewerEmail] = useState('');
 
     const allowedTypes = [
         'application/pdf',

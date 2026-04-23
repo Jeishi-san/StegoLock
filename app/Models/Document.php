@@ -24,11 +24,35 @@ class Document extends Model
         'dek_nonce',
         'dek_tag',
         'dek_hash',
+        'encryption_mode',
+        'document_dek',
+        'document_dek_iv',
+        'document_dek_tag',
         'status',
         'fragment_count',
         'in_cloud_size',
         'error_message'
     ];
+
+    public function isEnvelopeMode(): bool
+    {
+        return $this->encryption_mode === 'envelope_wrapped';
+    }
+
+    public function getWrappedDekForUser(int $userId): ?object
+    {
+        $grant = $this->sharedWith()->where('user_id', $userId)->first();
+        
+        if (!$grant || !$grant->pivot->wrapped_dek) {
+            return null;
+        }
+
+        return (object) [
+            'wrapped_dek' => $grant->pivot->wrapped_dek,
+            'iv' => $grant->pivot->wrapped_dek_iv,
+            'auth_tag' => $grant->pivot->wrapped_dek_auth_tag,
+        ];
+    }
 
     protected $casts = [
         'original_size' => 'integer',
@@ -60,7 +84,14 @@ class Document extends Model
 
     public function sharedWith()
     {
-        return $this->belongsToMany(User::class)
+        return $this->belongsToMany(
+            User::class,
+            'document_user',
+            'document_id',
+            'user_id',
+            'document_id',
+            'id'
+        )
             ->withPivot(['starred', 'shared_by', 'permission', 'created_at', 'updated_at'])
             ->withTimestamps();
     }

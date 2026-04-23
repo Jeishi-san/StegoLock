@@ -2,11 +2,67 @@
 
 namespace App\Providers;
 
-
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Session;
+use App\Models\Document;
+use App\Config\Constant;
 
 class EncryptionService
 {
-    public function encrypt(int $documentId, string $temp_filePath)
+    /**
+     * Generate cryptographically secure 256-bit Document Encryption Key
+     */
+    public function generateRandomDEK(): string
+    {
+        return random_bytes(32);
+    }
+
+    /**
+     * Wrap DEK with user's master key using AES-256-GCM
+     */
+    public function wrapDEK(string $dek, string $userMasterKey): array
+    {
+        $nonce = random_bytes(12); // 96-bit IV recommended for GCM
+        $tag = '';
+
+        $wrappedDek = openssl_encrypt(
+            $dek,
+            'aes-256-gcm',
+            $userMasterKey,
+            OPENSSL_RAW_DATA,
+            $nonce,
+            $tag
+        );
+
+        return [
+            'wrapped_dek' => $wrappedDek,
+            'iv' => $nonce,
+            'auth_tag' => $tag,
+        ];
+    }
+
+    /**
+     * Unwrap DEK wrapped for a user
+     */
+    public function unwrapDEK(string $wrappedDek, string $iv, string $authTag, string $userMasterKey): string
+    {
+        $dek = openssl_decrypt(
+            $wrappedDek,
+            'aes-256-gcm',
+            $userMasterKey,
+            OPENSSL_RAW_DATA,
+            $iv,
+            $authTag
+        );
+
+        if ($dek === false) {
+            throw new \Exception("Failed to unwrap DEK: Invalid key or corrupted data");
+        }
+
+        return $dek;
+    }
+
+    public function encrypt(int $documentId, string $temp_filePath, string $encryptionMode = 'legacy_derived', array $viewerUserIds = [])
     {
         //print or display "encryption ongoing..."
         $document = Document::find($documentId);
@@ -17,17 +73,49 @@ class EncryptionService
             // 1. Read the uploaded plaintext file
             $plaintext = file_get_contents(Storage::path($temp_filePath));
 
-            // 2. Generate a random document key salt (32 bytes)
-            $dk_salt = random_bytes(Constant::DK_SALT_LEN);
-
-            // 3. Get master key from session
+            // 2. Get master key from session
             $masterKey = session('master_key');
             if (!$masterKey) {
                 throw new \Exception('Master key not found in session.');
             }
 
-            // 4. Derive the document key using HKDF | Output length: 32 bytes (256-bit key)
-            $documentKey = hash_hkdf('sha256', $masterKey, 32, 'document-enc-key', $dk_salt);
+            // 3. Get document key based on encryption mode
+            if ($encryptionMode === 'envelope_wrapped') {
+                // Envelope mode: generate true random DEK
+                $documentKey = $this->generateRandomDEK();
+                $dk_salt = null;
+
+                // Wrap DEK for owner
+                $ownerWrapped = $this->wrapDEK($documentKey, $masterKey);
+                
+                $document->update([
+                    'encryption_mode' => 'envelope_wrapped',
+                    'document_dek' => $ownerWrapped['wrapped_dek'],
+                    'document_dek_iv' => $ownerWrapped['iv'],
+                    'document_dek_tag' => $ownerWrapped['auth_tag'],
+                ]);
+
+                // Wrap DEK for all specified viewers
+                foreach ($viewerUserIds as $userId) {
+                    // In production: fetch each user's public wrapped master key here
+                    $viewerWrapped = $this->wrapDEK($documentKey, $masterKey);
+                    
+                    $document->sharedWith()->attach($userId, [
+                        'shared_by' => $document->user_id,
+                        'wrapped_dek' => $viewerWrapped['wrapped_dek'],
+                        'wrapped_dek_iv' => $viewerWrapped['iv'],
+                        'wrapped_dek_auth_tag' => $viewerWrapped['auth_tag'],
+                    ]);
+                }
+            } else {
+                // Legacy mode: derive DEK from user master key
+                $dk_salt = random_bytes(Constant::DK_SALT_LEN);
+                $documentKey = hash_hkdf('sha256', $masterKey, 32, 'document-enc-key', $dk_salt);
+                
+                $document->update([
+                    'encryption_mode' => 'legacy_derived',
+                ]);
+            }
 
             // 5. AES-256-GCM encryption
             $nonce = random_bytes(Constant::NONCE_LEN); // 96-bit recommended IV/nonce

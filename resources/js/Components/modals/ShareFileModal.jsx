@@ -6,6 +6,9 @@ export function ShareFileModal({ document: doc, onClose, currentUserEmail }) {
   const [email, setEmail] = useState('');
   const [isSharing, setIsSharing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [grantedUsers, setGrantedUsers] = useState([]);
+
+  const isEnvelopeMode = doc.encryption_mode === 'envelope_wrapped';
 
   const handleShare = async () => {
     setIsSharing(true);
