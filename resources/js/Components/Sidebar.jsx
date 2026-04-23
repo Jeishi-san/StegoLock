@@ -143,7 +143,7 @@ export function Sidebar({
                         />
                         <div className="absolute w-full mt-14 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
                             <MenuButton icon={Upload}
-                                        label={isProcessOngoing ? "Processing ongoing..." : "Lock a File"}
+                                        label={isProcessOngoing ? "Currently locking a file..." : "Lock a File"}
                                         onClick={() => {
                                             if (isProcessOngoing) return;
                                             setShowNewMenu(false);

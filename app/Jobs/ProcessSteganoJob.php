@@ -341,8 +341,14 @@ class ProcessSteganoJob implements ShouldQueue
     private function fetchCoverFiles(string $mapId)
     {
         $b2 = new B2Service();
-        if (!file_exists(storage_path('app/private/temp/covers/'))) {
-            mkdir(storage_path('app/private/temp/covers/'), 0755, true);
+        $tempPath = storage_path('app/private/temp/covers/');
+        $cachePath = storage_path('app/private/cache/covers/');
+
+        if (!file_exists($tempPath)) {
+            mkdir($tempPath, 0755, true);
+        }
+        if (!file_exists($cachePath)) {
+            mkdir($cachePath, 0755, true);
         }
 
         $map = FragmentMap::findOrFail($mapId);
@@ -353,10 +359,19 @@ class ProcessSteganoJob implements ShouldQueue
 
         foreach ($uniqueCoversToDownload as $coverId) {
             $cover = Cover::findOrFail($coverId);
-            $coverTempPath = storage_path('app/private/temp/covers/' . $cover->filename);
+            $coverTempPath = $tempPath . $cover->filename;
+            $coverCachePath = $cachePath . $cover->filename;
             $key = $this->getCoverFolder($cover->type) . trim(strval($cover->filename));
 
             if (!file_exists($coverTempPath)) {
+                // 1. Check Cache first
+                if (file_exists($coverCachePath)) {
+                    copy($coverCachePath, $coverTempPath);
+                    $this->createdTempFiles[] = $coverTempPath;
+                    continue;
+                }
+
+                // 2. Download from Cloud if not in cache
                 $file = $b2->findFileByName($key);
                 if (!$file) {
                     throw new \Exception("Cover file not found in cloud: {$key}");
@@ -367,6 +382,9 @@ class ProcessSteganoJob implements ShouldQueue
                     throw new \Exception("Failed to write cover file to local storage: {$coverTempPath}");
                 }
                 $this->createdTempFiles[] = $coverTempPath;
+
+                // 3. Save to Cache for future use
+                copy($coverTempPath, $coverCachePath);
             }
         }
 
