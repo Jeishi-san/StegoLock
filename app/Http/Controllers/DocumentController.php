@@ -255,388 +255,26 @@ class DocumentController extends Controller
      */
     public function unlock(Request $request)
     {
-        // document status = stored after decryption, only if user chooses to keep the file
-        // delete file if user chooses to destroy it after unlocking
-
-        $b2 = new B2Service();
         $document = Document::findOrFail($request->document_id);
 
-        if ($document->status !== 'stored') {
-            abort(400, 'File not stored');
+        if (!in_array($document->status, ['stored', 'decrypted', 'retrieved'])) {
+            abort(400, 'Invalid document status for unlocking');
         }
-
-        //fetch stego files
-        $stegoFiles = $this->fetchStegoFiles($b2, $document);
-        $extracted = $this->extractFragment($stegoFiles['stego_map_id'], $stegoFiles['files']);
-        $stegolock_file = $this->assemble($document, $extracted);
-        $decrypted = $this->decrypt($document, $stegolock_file);
-
-        return $decrypted;
-    }
-
-    private function fetchStegoFiles($b2, $document){
-        try
-        {
-            //Fetch stego files from storage
-            $stegoMap = StegoMap::where('document_id', $document->document_id)->firstOrFail();
-            $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)->get()->toArray();
-
-            if($document->fragment_count !== count($stegoFiles)) { //db check
-                throw new \Exception("Corrupted file error: Mismatched fragment count");
-            }
-
-            $cloudFiles = $b2->listAllFiles();
-
-            $lockedFiles = collect($cloudFiles)
-                    ->filter(fn($file) => Str::startsWith($file['fileName'], 'locked/'));
-
-            $lockedIds = $lockedFiles->pluck('fileId');
-
-            $allExist = collect($stegoFiles) //storage check
-                ->every(fn($file) => $lockedIds->contains($file['cloud_file_id']));
-
-            if (!$allExist) {
-                throw new \Exception("Corrupted file error: Missing stego file");
-            }
-
-            //download stego files for extraction later
-            if (!file_exists(storage_path('app/private/temp/cloud/'))) {
-                mkdir(storage_path('app/private/temp/cloud/'), 0755, true);
-            }
-
-            foreach ($stegoFiles as $stegoFile) {
-                $downloadedStegoPath = storage_path('app/private/temp/cloud/' . $stegoFile['filename']);
-                foreach ($lockedFiles as $lockedFile) {
-                    if ($stegoFile['cloud_file_id'] === $lockedFile['fileId']) {
-                        $content = $b2->readfile($lockedFile['fileId']); //binary
-                        file_put_contents($downloadedStegoPath, $content); //saving stego file to temp storage
-                        break;
-                    }
-                }
-            }
-
-            return ['stego_map_id' => $stegoMap->stego_map_id, 'files' => $stegoFiles];
-        } catch (\Throwable $e) {
-            $document->update([
-                'status' => 'failed',
-                'error_message' => ['File fetch error', $e->getMessage()]
-            ]);
-        }
-    }
-    /**
-     * Extracts fragments from stego files
-     * Returns document_id and fragmentBin
-     */
-    private function extractFragment($mapId, $stegoFiles) {
-        // ensure temp folders exist
-        if (!file_exists(storage_path('app/private/temp/bin/'))) {
-            mkdir(storage_path('app/private/temp/bin/'), 0755, true);
-        }
-
-        $stegoMap = StegoMap::findOrFail($mapId);
-        $document = Document::findOrFail($stegoMap->document_id);
-
-        $fragmentBin = [];
-        $stegoFiles_trunc = [];
-
-        $textFiles = [];
-        $imageFiles = [];
-        $audioFiles = [];
-
-        try
-        {
-            foreach ($stegoFiles as $file) {
-
-                $stegoFiles_trunc[] = [
-                    'filename' => pathinfo($file['filename'], PATHINFO_FILENAME),
-                    'type' => pathinfo($file['filename'], PATHINFO_EXTENSION),
-                    'fragment_id' => $file['fragment_id'],
-                    'offset' => $file['offset']
-                ];
-
-            }
-
-            //separate file type according to files
-            foreach ($stegoFiles_trunc as $file) {
-                if ($file['type'] === 'txt') {
-                    $textFiles[] = $file;
-                } elseif ($file['type'] === 'png' || $file['type'] === 'jpg' || $file['type'] === 'jpeg') {
-                    $imageFiles[] = $file;
-                } elseif ($file['type'] === 'mp3' || $file['type'] === 'wav') {
-                    $audioFiles[] = $file;
-                } else {
-                    throw new \RuntimeException("Invalid stego file type: {$file['type']}");
-                }
-            }
-
-
-            // extraction proper
-            foreach ($textFiles as $file) {//text extraction
-                $fragmentBin[] = $this->extract_from_txt($file);
-            }
-            foreach ($imageFiles as $file) {//image extraction
-                $fragmentBin[] = $this->extract_from_img($file);
-            }
-            foreach ($audioFiles as $file) {//audio extraction
-                $fragmentBin[] = $this->extract_from_audio($file);
-            }
-
-            // Update document status
-            $document->update([
-                'status' => 'extracted',
-            ]);
-
-            // //dispatch reconstruction
-            // // AssembleFragmentsJob::dispatchSync($document->document_id, $this->fragmentBin);
-
-            return $fragmentBin; //fragment_id | filename
-
-        } catch (\Exception $e) {
-            // Handle extraction errors
-            $document->update([
-                'status' => 'failed',
-                'error_message' => ("Error extracting fragments: " . $e->getMessage())
-            ]);
-        }
-    }
-
-    /**
-     * Returns fragment data
-     */
-        private function extract_from_txt(array $file)
-        {
-            $stegoText = storage_path('app/private/temp/cloud/' . $file['filename'] . '.txt');
-            $fragmentBin = storage_path('app/private/temp/bin/'. $file['filename'] .'.bin');
-            $offset = $file['offset'];
-
-            $command = "python " . base_path('python_backend/embedding/text/extract.py') . " "
-                . escapeshellarg($stegoText) . " "
-                . escapeshellarg($fragmentBin) . " "
-                . escapeshellarg($offset) . " 2>&1";
-
-            $output = [];
-            $status = 0;
-
-            exec($command, $output, $status);
-
-            if ($status !== 0) {
-                throw new \Exception("Extraction failed:\n" . implode("\n", $output));
-            }
-
-            unlink($stegoText);
-
-            return [$file['fragment_id'], $file['filename']];
-        }
-
-    /**
-     * Returns fragment data
-     */
-        private function extract_from_img(array $file)
-        {
-            $stegoImage = storage_path('app/private/temp/cloud/' . $file['filename'] . '.png');
-            $fragmentBin = storage_path('app/private/temp/bin/'. $file['filename'] .'.bin');
-
-            $command = "python " . base_path('python_backend/embedding/image/extract.py') . " "
-                . escapeshellarg($stegoImage) . " "
-                . escapeshellarg($fragmentBin);
-
-            exec($command, $output, $status);
-
-            if ($status !== 0) {
-                throw new \Exception("Extraction failed:\n" . implode("\n", $output));
-            }
-
-            unlink($stegoImage);
-
-            return [$file['fragment_id'], $file['filename']];
-        }
-
-    /**
-     * Returns fragment data
-     */
-        private function extract_from_audio(array $file)
-        {
-            $stegoWAV = storage_path('app/private/temp/cloud/' . $file['filename'] . '.wav');
-            $fragmentBin = storage_path('app/private/temp/bin/'. $file['filename'] .'.bin');
-
-            $command = "python " . base_path('python_backend/embedding/audio/extract.py') . " "
-                . escapeshellarg($stegoWAV) . " "
-                . escapeshellarg($fragmentBin);
-
-            exec($command, $output, $status);
-
-            if ($status !== 0) {
-                throw new \Exception("Extraction failed:\n" . implode("\n", $output));
-            }
-
-            unlink($stegoWAV);
-
-            return [$file['fragment_id'], $file['filename']];
-        }
-
-    /**
-     * Assembles extracted fragments
-     * Returns document file/path
-     */
-    public function assemble($document, $fragmentBin)
-    {
-        $document = Document::findOrFail($document->document_id);
-
-        if($document->status !== 'extracted') {
-            abort(400, 'Process error: File not extracted');
-        }
-
-        try {
-            // check fragment integrity
-            $frag = [];
-            foreach ($fragmentBin as $fragment) {
-                $fragment_in_DB = Fragment::findOrFail($fragment[0]);
-                $fragmentBinaryData = file_get_contents(storage_path('app/private/temp/bin/' . $fragment[1] . '.bin'));
-
-                if ($fragment_in_DB->hash !== hash('sha256',$fragmentBinaryData)) {
-                    throw new \Exception("Fragment integrity failed");
-                }
-
-                //temp store fragment_id, fragment index, binarydata, binary filename
-                $frag[] = [$fragment_in_DB->fragment_id, $fragment_in_DB->index, $fragmentBinaryData, $fragment[1]];
-            }
-
-            //sort by index
-            usort($frag, function ($a, $b) {
-                return $a[1] <=> $b[1];
-            });
-
-            // Reconstruct binary ciphertext
-            $reconstructed = '';
-
-            foreach ($frag as $fragment) {
-                $binary = $fragment[2];
-                $reconstructed .= $binary;
-            }
-
-            // Save reconstructed encrypted file
-            $outputPath = 'temp/reconstructed/' . bin2hex(random_bytes(16)) . time() . '.stegolock';
-            Storage::put($outputPath, $reconstructed);
-
-            // 6. Update document
-            $document->update([
-                'status' => 'reconstructed'
-            ]);
-
-            //delete fragment bin
-            foreach ($frag as $fragment) {
-                unlink(storage_path('app/private/temp/bin/' . $fragment[3] . '.bin'));
-            }
-
-            //Decrypt
-            // DecryptDocumentJob::dispatchSync($document->document_id, basename($outputPath));
-
-            return basename($outputPath);
-
-        } catch (\Throwable $e) {
-            $document->update([
-                'status' => 'failed',
-                'error_message' => 'File reconstruction failed' . $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * Decrypts the assembled encrypted file
-     * Returns the decrypted file path
-     */
-    public function decrypt($document, $stegolock_file)
-    {
-        $document = Document::find($document->document_id);
-
-        if ($document->status !== 'reconstructed') return;
 
         $masterKey = session('master_key');
         if (!$masterKey) {
-            throw new \Exception('Master key not found in session.');
+            abort(403, 'Master key not found in session. Please log in again.');
         }
 
-        try {
-            // Read reconstructed encrypted file
-            $encPath = 'temp/reconstructed/' . $stegolock_file;
-            // $encPath = 'temp/reconstructed/' . 'D4d1HNugBbB0hmFwY3o3j3dAsyw4u7jyMWZClH4P.stegolock';
-            $data = file_get_contents(Storage::path($encPath));
+        // Dispatch the unlocking process to the background
+        // Base64 encode the key to avoid JSON encoding errors with binary data
+        \App\Jobs\ProcessUnlockJob::dispatch($document->document_id, base64_encode($masterKey));
 
-            if ($data === false) {
-                throw new \Exception('Encrypted file not found.');
-            }
-
-            // Get components
-            $nonceLen = Constant::NONCE_LEN; // e.g., 12 bytes
-            $tagLen = 16; // GCM tag is 16 bytes
-
-            $nonce = substr($data, 0, $nonceLen);
-            $tag = substr($data, $nonceLen, $tagLen);
-            $ciphertext = substr($data, $nonceLen + $tagLen);
-
-            // 3. Unwrap the Document Key (DEK)
-            $dk_salt = base64_decode($document->dk_salt);
-            $wrapping_key = hash_hkdf('sha256', $masterKey, 32, 'dek-wrapping-key', $dk_salt);
-
-            $dek_nonce = base64_decode($document->dek_nonce);
-            $dek_tag = base64_decode($document->dek_tag);
-            $encrypted_dek = base64_decode($document->encrypted_dek);
-
-            $dek = openssl_decrypt(
-                $encrypted_dek,
-                'aes-256-gcm',
-                $wrapping_key,
-                OPENSSL_RAW_DATA,
-                $dek_nonce,
-                $dek_tag
-            );
-
-            if ($dek === false) {
-                throw new \Exception('Failed to unwrap Document Key. Wrong master key?');
-            }
-
-            // 4. Verify DEK Integrity
-            if (hash('sha256', $dek) !== $document->dek_hash) {
-                throw new \Exception('Document Key integrity check failed.');
-            }
-
-            // 5. Decrypt File using the unwrapped DEK
-            $plaintext = openssl_decrypt(
-                $ciphertext,
-                'aes-256-gcm',
-                $dek,
-                OPENSSL_RAW_DATA,
-                $nonce,
-                $tag
-            );
-
-            if ($plaintext === false) {
-                throw new \Exception('Possible tampering or wrong key.');
-            }
-
-            // 5. Save decrypted file
-            $outputPath = 'temp/decrypted/' . $document->filename;
-            Storage::put($outputPath, $plaintext);
-
-            // 6. Update document
-            $document->update([
-                'status' => 'decrypted'
-            ]);
-
-            // Safe to delete decrypted file
-            Storage::delete($encPath);
-
-            //return to user for download
-            //delete after download / retain files, this leads to new securing process
-            //return back()->with('success', 'File retrieved: ' . basename($outputPath));
-
-            return $outputPath;
-        } catch (\Throwable $e) {
-            $document->update([
-                'status' => 'failed',
-                'error_message' => 'Decryption failed: ' . $e->getMessage()
-            ]);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Unlocking file',
+            'status' => 'stored' // It stays stored while fetching
+        ]);
     }
 
     /**
@@ -656,6 +294,9 @@ class DocumentController extends Controller
             abort(404, 'File missing');
         }
 
+        // Update status to retrieved
+        $document->update(['status' => 'retrieved']);
+
         return Storage::download($path, $document->filename);
     }
 
@@ -672,7 +313,7 @@ class DocumentController extends Controller
             ->firstOrFail();
 
         $is_stored_OR_decrypted = false;
-        if ($document->status === 'stored' || $document->status === 'decrypted') {
+        if (in_array($document->status, ['stored', 'decrypted', 'retrieved'])) {
             $is_stored_OR_decrypted = true;
         }
 
@@ -727,6 +368,12 @@ class DocumentController extends Controller
             }
 
             $user->decrement('storage_used', $document->in_cloud_size);
+
+            // Cleanup local decrypted file if it exists
+            $localPath = 'temp/decrypted/' . $document->filename;
+            if (Storage::exists($localPath)) {
+                Storage::delete($localPath);
+            }
 
             // delete DB records
             $document->forceDelete();
@@ -785,11 +432,17 @@ class DocumentController extends Controller
 
         $document = Document::findOrFail($request->document_id);
 
-        abort_if($document->status !== 'decrypted', 400, 'Invalid state');
+        abort_if(!in_array($document->status, ['decrypted', 'retrieved']), 400, 'Invalid state');
 
         $document->update([
             'status' => 'stored'
         ]);
+
+        // Cleanup local decrypted file
+        $localPath = 'temp/decrypted/' . $document->filename;
+        if (Storage::exists($localPath)) {
+            Storage::delete($localPath);
+        }
 
         return [
             'message' => 'Document kept successfully'

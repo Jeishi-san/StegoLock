@@ -28,18 +28,38 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState(null);
     const [showKeepFileModal, setShowKeepFileModal] = useState(null);
+    const [unlockingProgress, setUnlockingProgress] = useState(() => {
+        const saved = localStorage.getItem('stegolock_unlocking_progress');
+        return saved ? JSON.parse(saved) : {};
+    });
+
+    const updateUnlockingProgress = (id, startTime = Date.now()) => {
+        setUnlockingProgress(prev => {
+            const next = startTime ? { ...prev, [id]: startTime } : { ...prev };
+            if (!startTime) delete next[id];
+            localStorage.setItem('stegolock_unlocking_progress', JSON.stringify(next));
+            return next;
+        });
+    };
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     // Update localDocs when props change (initial load or manual reload)
     useEffect(() => {
         setLocalDocs(documents);
+        
+        // Detect if any document is stuck in 'retrieved' or 'decrypted' status on mount
+        const stuckDoc = documents.find(doc => doc.status === 'retrieved' || doc.status === 'decrypted');
+        if (stuckDoc && !showKeepFileModal) {
+            setShowKeepFileModal(stuckDoc.document_id);
+            setSelectedDocId(stuckDoc.document_id);
+        }
     }, [documents]);
 
     // Polling logic for all processing documents
     useEffect(() => {
         const processingDocs = localDocs.filter(doc => 
-            !['stored', 'decrypted', 'failed'].includes(doc.status)
+            unlockingProgress[doc.document_id] || !['stored', 'decrypted', 'retrieved', 'failed'].includes(doc.status)
         );
 
         if (processingDocs.length === 0) return;
@@ -47,9 +67,15 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         const interval = setInterval(async () => {
             const updatedDocs = await Promise.all(
                 localDocs.map(async (doc) => {
-                    if (!['stored', 'decrypted', 'failed'].includes(doc.status)) {
+                    if (unlockingProgress[doc.document_id] || !['stored', 'decrypted', 'failed'].includes(doc.status)) {
                         try {
                             const { data } = await axios.get(`/documents/status/${doc.document_id}`);
+                            
+                            // If it's finished or failed, remove from unlockingProgress
+                            if (['decrypted', 'failed'].includes(data.status)) {
+                                updateUnlockingProgress(doc.document_id, null);
+                            }
+
                             return { ...doc, ...data };
                         } catch (e) {
                             console.error("Failed to fetch status for", doc.document_id);
@@ -65,8 +91,12 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                 
                 // Detect newly finished documents
                 updatedDocs.forEach((doc, index) => {
-                    if (doc.status === 'stored' && localDocs[index].status !== 'stored') {
+                    const prevStatus = localDocs[index]?.status;
+                    if (doc.status === 'stored' && prevStatus && prevStatus !== 'stored' && !['decrypted', 'retrieved'].includes(prevStatus)) {
                         toast.success(`${doc.filename} is locked successfully`);
+                    }
+                    if (doc.status === 'decrypted' && prevStatus && prevStatus !== 'decrypted') {
+                        toast.success(`${doc.filename} is unlocked successfully`);
                     }
                 });
 
@@ -77,26 +107,59 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                     (doc.status === 'stored' || doc.status === 'decrypted') && 
                     localDocs[index].status !== doc.status
                 );
+
                 if (justFinished) {
                     router.reload({ only: ['totalStorage', 'storageLimit'] });
+                    
+                    // If it just decrypted, trigger download
+                    if (justFinished.status === 'decrypted') {
+                        window.location.href = `/documents/download/${justFinished.document_id}`;
+                        setShowKeepFileModal(justFinished.document_id);
+                        setSelectedDocId(justFinished.document_id);
+                    }
                 }
             }
-        }, 3000);
+        }, 1000);
 
         return () => clearInterval(interval);
     }, [localDocs]);
 
-    const getStatusDisplay = (status) => {
+    const getStatusDisplay = (status, docId) => {
+        // Handle Simulated Progress for Unlocking
+        if (unlockingProgress[docId]) {
+            const elapsed = Date.now() - unlockingProgress[docId];
+            if (elapsed < 2000) return 'Fetching stego files';
+            if (elapsed < 4000) return 'Extracting fragments';
+            if (elapsed < 6000) return 'Reconstructing file';
+            return 'Decrypting file';
+        }
+
         switch (status) {
             case 'uploaded': return 'Initializing...';
             case 'encrypted': return 'Encrypting file...';
             case 'fragmented': return 'Embedding file...';
             case 'mapped': return 'Embedding file...';
-            case 'embedded': return 'Storing files...';
-            case 'extracted': return 'Extracting fragments...';
-            case 'reconstructed': return 'Assembling file...';
+            case 'embedded': return 'Storing file...';
+            case 'stored': return 'Stored';
+            case 'extracted': return 'Reconstructing file...';
+            case 'reconstructed': return 'Decrypting file...';
+            case 'decrypted': return 'Decrypted';
+            case 'retrieved': return 'Retrieved';
             case 'failed': return 'Processing failed';
             default: return status.charAt(0).toUpperCase() + status.slice(1);
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'stored':
+            case 'decrypted':
+            case 'retrieved':
+                return 'bg-green-100 text-green-700';
+            case 'failed':
+                return 'bg-red-100 text-red-700';
+            default:
+                return 'bg-indigo-100 text-indigo-700';
         }
     };
 
@@ -175,20 +238,28 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
 
         setOpenMenuId(null);
 
-        const toastId = toast.loading('Unlocking file...');
+        const toastId = toast.loading('Unlocking file...', { duration: 3000 });
         try {
             // enable warning
             window.addEventListener('beforeunload', handleBeforeUnload);
 
             // Unlock
             try {
-                //toast steps
                 const resp = await axios.post('/documents/unlock', {
                     document_id: id
                 });
 
-                sleep(2000);
-                toast.success('Unlocking process started.', { id: toastId });
+                if (resp.data.success) {
+                    toast.dismiss(toastId);
+                    
+                    // Start simulated progress tracking
+                    updateUnlockingProgress(id);
+
+                    // Update local status immediately
+                    setLocalDocs(prev => prev.map(doc => 
+                        doc.document_id === id ? { ...doc, status: resp.data.status } : doc
+                    ));
+                }
 
             } finally {
                 // disable warning after request finishes
@@ -205,17 +276,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         // when status changes to 'decrypted'
     };
 
-    // Auto-download when a document becomes 'decrypted'
-    useEffect(() => {
-        localDocs.forEach(doc => {
-            if (doc.status === 'decrypted' && !showKeepFileModal && selectedDocId !== doc.document_id) {
-                // Trigger modal and download
-                window.location.href = `/documents/download/${doc.document_id}`;
-                setShowKeepFileModal(doc.document_id);
-                setSelectedDocId(doc.document_id);
-            }
-        });
-    }, [localDocs]);
+    // The auto-download is now handled directly in the polling effect for better reliability
 
     //handleFileInfo
     const handleFileInfo = async (id) => {
@@ -304,7 +365,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
             }
             totalStorage={totalStorage}
             storageLimit={storageLimit}
-            hasProcessingDocs={localDocs.some(doc => !['stored', 'decrypted', 'failed'].includes(doc.status))}
+            hasProcessingDocs={localDocs.some(doc => unlockingProgress[doc.document_id] || !['stored', 'decrypted', 'retrieved', 'failed'].includes(doc.status))}
         >
             <Head title="My Documents"/>
 
@@ -313,12 +374,14 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                 <div className="h-full overflow-y-auto">
                     <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
                         {localDocs.map(doc => {
-                            const isProcessing = !['stored', 'decrypted', 'failed'].includes(doc.status);
+                            const isUnlocking = !!unlockingProgress[doc.document_id];
+                            const isProcessing = isUnlocking || !['stored', 'decrypted', 'retrieved', 'failed'].includes(doc.status);
+                            const processType = isUnlocking ? "Unlocking" : "Locking";
                             
                             return (
                                 <div
                                     key={doc.document_id}
-                                    title={isProcessing ? "Locking file is ongoing..." : ""}
+                                    title={isProcessing ? `${processType} file is ongoing...` : ""}
                                     className={"group relative w-full p-4 bg-white rounded-lg shadow transition " + 
                                         (isProcessing ? "border-2 border-indigo-100 bg-indigo-50/10 cursor-wait" : "hover:shadow-lg hover:ring-1 hover:ring-purple-600 cursor-pointer")}
                                 >
@@ -364,15 +427,15 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                         {isProcessing ? (
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs font-medium text-indigo-600 animate-pulse">
-                                                    {getStatusDisplay(doc.status)}
+                                                    {getStatusDisplay(doc.status, doc.document_id)}
                                                 </span>
                                             </div>
                                         ) : doc.status === 'failed' ? (
                                             <div className="flex items-center gap-1 group/error" 
                                                  title={typeof doc.error_message === 'object' ? JSON.stringify(doc.error_message) : doc.error_message}>
                                                 <AlertCircle className="size-3 text-red-500" />
-                                                <span className="text-xs font-medium text-red-600">
-                                                    {getStatusDisplay(doc.status)}
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
+                                                    {getStatusDisplay(doc.status, doc.document_id)}
                                                 </span>
                                             </div>
                                         ) : (
@@ -506,8 +569,8 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
 
             {showKeepFileModal && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-                    onClick={() => setShowKeepFileModal(null)}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 cursor-default"
+                    title="Please select whether to keep or delete the file to continue"
                 >
                     {/* Modal */}
                     <div
