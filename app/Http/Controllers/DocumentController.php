@@ -29,6 +29,7 @@ use App\Models\Cover;
 use App\Models\FragmentMap;
 use App\Models\StegoFile;
 use App\Models\StegoMap;
+use App\Models\Folder;
 
 
 
@@ -41,6 +42,8 @@ class DocumentController extends Controller
      */
     public function index()
     {
+        $user = Auth::user();
+
         $documents = Document::where('user_id', Auth::id())
             ->latest()
             ->get([
@@ -54,10 +57,13 @@ class DocumentController extends Controller
                 'created_at'
             ]);
 
-        $user = Auth::user();
+        $folders = \App\Models\Folder::where('user_id', Auth::id())
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('MyDocuments', [
             'documents' => $documents,
+            'folders' => $folders,
             'totalStorage' => $user->storage_used,
             'storageLimit' => $user->storage_limit,
         ]);
@@ -689,5 +695,33 @@ class DocumentController extends Controller
                 'error_message' => ['File fetch error', $e->getMessage()]
             ]);
         }
+    }
+
+    public function moveDocument(Request $request, $id)
+    {
+        $request->validate([
+            'folder_id' => 'nullable|exists:folders,folder_id'
+        ]);
+
+        $document = Document::where('document_id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        if ($request->folder_id) {
+            Folder::where('folder_id', $request->folder_id)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
+
+            $document->folder_id = $request->folder_id;
+        } else {
+            $document->folder_id = null;
+        }
+
+        $document->save();
+
+        return response()->json([
+            'message' => 'Document moved successfully',
+            'document' => $document
+        ]);
     }
 }

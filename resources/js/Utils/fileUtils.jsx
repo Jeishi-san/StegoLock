@@ -9,21 +9,25 @@ export const formatBytes = (bytes) => {
 };
 
 export const formatDate = (date) => {
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return 'Invalid Date';
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  }).format(date);
+  }).format(d);
 };
 
 export const formatDateTime = (date) => {
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return 'Invalid Date';
   return new Intl.DateTimeFormat('en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: 'numeric',
-  }).format(date);
+  }).format(d);
 };
 
 export const getFileIcon = (type) => {

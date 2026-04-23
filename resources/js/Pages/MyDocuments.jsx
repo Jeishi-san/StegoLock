@@ -1,5 +1,5 @@
 import { Shield, FileText, Star, MoreVertical,
-    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle } from 'lucide-react';
+    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle, FolderOpen, FolderTree } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatBytes, formatDate } from '@/Utils/fileUtils';
 import { Inertia } from '@inertiajs/inertia';
@@ -19,13 +19,15 @@ import {
     size
 } from '@floating-ui/react';
 
-export default function MyDocuments({ documents, totalStorage, storageLimit }) {
+
+export default function MyDocuments({ documents, folders, totalStorage, storageLimit }) {
 
     const menuRef = useRef(null);
 
     const [localDocs, setLocalDocs] = useState(documents);
     const [openMenuId, setOpenMenuId] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showMoveModal, setShowMoveModal] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState(null);
     const [showKeepFileModal, setShowKeepFileModal] = useState(null);
     const [unlockingProgress, setUnlockingProgress] = useState(() => {
@@ -283,6 +285,27 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         router.get('/documents/getFileInfo', { id });
     };
 
+    // handleMove
+    const openMoveModal = (id) => {
+        setOpenMenuId(null);
+        setSelectedDocId(id);
+        setShowMoveModal(true);
+    };
+
+    const handleMove = async (folderId) => {
+        const toastId = toast.loading('Moving document...');
+        try {
+            await axios.put(`/documents/${selectedDocId}/move`, {
+                folder_id: folderId
+            });
+            toast.success('Document moved successfully', { id: toastId });
+            setShowMoveModal(false);
+            router.reload();
+        } catch (err) {
+            toast.error('Failed to move document', { id: toastId });
+        }
+    };
+
     // openDeleteModal
     const openDeleteModal = (id) => {
             setOpenMenuId(null);
@@ -483,7 +506,9 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                             </button>
 
                                             {/* Move */}
-                                            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
+                                            <button
+                                                onClick={() => openMoveModal(doc.document_id)}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
                                                 <FolderInput className="w-4 h-4 text-gray-600" />
                                                 Move File
                                             </button>
@@ -563,6 +588,41 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                             </button>
                         </div>
 
+                    </div>
+                </div>
+            )}
+
+            {showMoveModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMoveModal(false)}>
+                    <div className="bg-white rounded-xl shadow-xl w-80 p-6" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="text-lg font-semibold text-gray-800 mb-4">Move to Folder</h2>
+                        <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                            <button
+                                onClick={() => handleMove(null)}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition text-left"
+                            >
+                                <FolderOpen className="size-5 text-gray-400" />
+                                <span className="text-sm text-gray-700">Root Directory</span>
+                            </button>
+                            {folders.map(folder => (
+                                <button
+                                    key={folder.folder_id}
+                                    onClick={() => handleMove(folder.folder_id)}
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition text-left"
+                                >
+                                    <FolderTree className="size-5 text-indigo-500" />
+                                    <span className="text-sm text-gray-700 truncate">{folder.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                onClick={() => setShowMoveModal(false)}
+                                className="px-4 py-2 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
+                            >
+                                Cancel
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -13,6 +13,7 @@ class Document extends Model
 
     protected $fillable = [
         'user_id',
+        'folder_id',
         'filename',
         'file_type',
         'file_hash',
@@ -39,6 +40,11 @@ class Document extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function folder()
+    {
+        return $this->belongsTo(Folder::class, 'folder_id', 'folder_id');
     }
 
     public function fragments()

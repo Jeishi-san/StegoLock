@@ -1,7 +1,7 @@
 import { FolderOpen, Star, HardDrive, Shield, Lock, Unlock, Plus, ChevronDown, Upload, Users, FolderTree } from 'lucide-react';
 import { useState } from 'react';
 import { formatBytes } from '@/Utils/fileUtils';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, usePage, router } from '@inertiajs/react';
 
 import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
@@ -153,7 +153,7 @@ export function Sidebar({
                             />
                             <MenuButton icon={Plus}
                                         label="New Folder"
-                                        onClick={onNewFolderClick}
+                                        onClick={onNewFolderClick || (() => router.visit(route('myFolders')))}
                             />
                         </div>
                         </>
@@ -189,8 +189,8 @@ export function Sidebar({
                             My Documents
                         </NavLink>
                         <NavLink
-                            href={route('folder')}
-                            active={route().current('folders')}
+                            href={route('myFolders')}
+                            active={route().current('myFolders')}
                             icon={FolderTree}
                         >
                             My Folders
@@ -201,7 +201,7 @@ export function Sidebar({
                             <div className="w-full border-t border-gray-300"></div>
                         </div>
 
-                        <NavLink
+                        {/* <NavLink
                             href={route('folder')}
                             active={route().current('/folders')}
                             icon={FolderOpen}
@@ -217,7 +217,7 @@ export function Sidebar({
                             href={route('folder')}
                             active={route().current('/folders')}
                             icon={Star}
-                        >Starred</NavLink>
+                        >Starred</NavLink> */}
                     </div>
 
                 </div>
