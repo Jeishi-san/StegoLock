@@ -56,6 +56,10 @@ class DocumentController extends Controller
                 $doc->starred = $doc->isStarredBy(Auth::user());
                 return $doc;
             });
+            ])->map(function ($doc) {
+                $doc->starred = $doc->isStarredBy(Auth::user());
+                return $doc;
+            });
 
         $user = Auth::user();
 
