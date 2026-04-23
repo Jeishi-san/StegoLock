@@ -27,7 +27,8 @@ class Document extends Model
         'status',
         'fragment_count',
         'in_cloud_size',
-        'error_message'
+        'error_message',
+        'is_starred'
     ];
 
     protected $casts = [
@@ -35,6 +36,7 @@ class Document extends Model
         'encrypted_size' => 'integer',
         'fragment_count' => 'integer',
         'in_cloud_size' => 'integer',
+        'is_starred' => 'boolean',
     ];
 
     public function user()

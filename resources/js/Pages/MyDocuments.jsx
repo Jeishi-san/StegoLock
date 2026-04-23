@@ -378,6 +378,24 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
         const resp = await axios.post('/covers/scan');
     };
 
+    // handleToggleStar
+    const handleToggleStar = async (id) => {
+        try {
+            const resp = await axios.post(route('documents.star.toggle'), {
+                document_id: id
+            });
+            
+            if (resp.data.is_starred !== undefined) {
+                setLocalDocs(prev => prev.map(doc => 
+                    doc.document_id === id ? { ...doc, is_starred: resp.data.is_starred } : doc
+                ));
+                toast.success(resp.data.message);
+            }
+        } catch (err) {
+            toast.error('Failed to update star status');
+        }
+    };
+
 
     return (
         <AuthenticatedLayout
@@ -412,8 +430,16 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
                                         <div className={"absolute top-0 right-0 p-4 transition space-x-1 z-10 " + 
                                             (openMenuId === doc.document_id ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
                                             {/* Star */}
-                                            <button>
-                                                <Star className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleToggleStar(doc.document_id);
+                                                }}
+                                            >
+                                                <Star 
+                                                    className={"size-8 hover:bg-gray-100 rounded-md p-1.5 transition " + 
+                                                        (doc.is_starred ? "text-yellow-400 fill-yellow-400" : "text-gray-400")} 
+                                                />
                                             </button>
 
                                             {/* Vertical 3-Dot Menu */}

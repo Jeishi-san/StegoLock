@@ -29,11 +29,18 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::get('/myFolders', [FolderController::class, 'index'])
         ->name('myFolders');
 
-    Route::get('/folders', [FolderController::class, 'index']);
-    Route::post('/folders', [FolderController::class, 'store']);
-    Route::put('/folders/{id}', [FolderController::class, 'update']);
-    Route::delete('/folders/{id}', [FolderController::class, 'destroy']);
-    Route::put('/documents/{id}/move', [DocumentController::class, 'moveDocument']);
+    Route::get('/allDocuments', [DocumentController::class, 'index'])
+        ->name('allDocuments');
+
+    Route::get('/sharedDocuments', [DocumentController::class, 'index'])
+        ->name('sharedDocuments');
+        
+    Route::get('/starredDocuments', [StarredController::class, 'index'])
+        ->name('starredDocuments');
+
+    
+
+    
 });
 
 Route::middleware('auth')->group(function () {
@@ -63,6 +70,17 @@ Route::middleware('auth')->group(function () {
         ->name('documents.keep');
 
     Route::get('/documents/getFileInfo/{id}', [DocumentController::class, 'getStorageInfo']);
+
+    Route::post('/documents/star/toggle', [StarredController::class, 'toggleStar'])
+        ->name('documents.star.toggle');
+
+
+    // Folder Management
+    Route::get('/folders', [FolderController::class, 'index']);
+    Route::post('/folders', [FolderController::class, 'store']);
+    Route::put('/folders/{id}', [FolderController::class, 'update']);
+    Route::delete('/folders/{id}', [FolderController::class, 'destroy']);
+    Route::put('/documents/{id}/move', [DocumentController::class, 'moveDocument']);
 
 });
 
