@@ -449,7 +449,6 @@ class ProcessSteganoJob implements ShouldQueue
                     ]);
 
                     // Update storage tracking immediately
-                    $user->increment('storage_used', $sFile->stego_size);
                     $document->increment('in_cloud_size', $sFile->stego_size);
                 }
 
@@ -458,6 +457,8 @@ class ProcessSteganoJob implements ShouldQueue
                 // Cleanup stego file after successful upload
                 if (file_exists($path)) @unlink($path);
             });
+
+            $user->refreshStorageUsed();
 
             // Mark stego map as completed after full batch upload
             $newStegoMap->update(['status' => 'completed']);

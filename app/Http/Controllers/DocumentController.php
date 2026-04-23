@@ -43,6 +43,7 @@ class DocumentController extends Controller
     public function index()
     {
         $user = Auth::user();
+        $user->refreshStorageUsed();
 
         $documents = Document::where('user_id', Auth::id())
             ->latest()
@@ -368,9 +369,7 @@ class DocumentController extends Controller
             }
 
             // 3. Storage Cleanup (only if cloud files were present or recorded)
-            if ($document->in_cloud_size > 0) {
-                $user->decrement('storage_used', $document->in_cloud_size);
-            }
+            $user->refreshStorageUsed();
 
             // 4. Cleanup local decrypted file if it exists
             $localPath = 'temp/decrypted/' . $document->filename;

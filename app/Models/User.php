@@ -54,4 +54,21 @@ class User extends Authenticatable
             'storage_limit' => 'integer',
         ];
     }
+
+    /**
+     * Get the documents for the user.
+     */
+    public function documents()
+    {
+        return $this->hasMany(Document::class);
+    }
+
+    /**
+     * Recalculate and update the storage_used column based on the sum of in_cloud_size of all user's documents.
+     */
+    public function refreshStorageUsed(): void
+    {
+        $totalUsed = $this->documents()->sum('in_cloud_size');
+        $this->update(['storage_used' => $totalUsed]);
+    }
 }
