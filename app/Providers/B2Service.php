@@ -52,8 +52,14 @@ class B2Service
         });
     }
 
-    public function getUploadUrl()
+    private ?array $cachedUploadUrl = null;
+
+    public function getUploadUrl($forceFresh = false)
     {
+        if (!$forceFresh && $this->cachedUploadUrl) {
+            return $this->cachedUploadUrl;
+        }
+
         $auth = $this->getAuth();
 
         /** @var \Illuminate\Http\Client\Response $response */
@@ -63,7 +69,8 @@ class B2Service
             'bucketId' => env('B2_BUCKET_ID'),
         ]);
 
-        return $response->json();
+        $this->cachedUploadUrl = $response->json();
+        return $this->cachedUploadUrl;
     }
 
     public function uploadFile($file)
@@ -129,17 +136,45 @@ class B2Service
             'timeout' => 0,
         ]);
 
-        $response = $client->request('POST', $store['uploadUrl'], [
-        'headers' => [
-            'Authorization' => $store['authorizationToken'],
-            'X-Bz-File-Name' => $fileName,
-            'Content-Type' => 'b2/x-auto',
-            'X-Bz-Content-Sha1' => $sha1,
-        ],
-        'body' => fopen($filePath, 'r'),
-    ]);
+        try {
+            $response = $client->request('POST', $store['uploadUrl'], [
+                'headers' => [
+                    'Authorization' => $store['authorizationToken'],
+                    'X-Bz-File-Name' => $fileName,
+                    'Content-Type' => 'b2/x-auto',
+                    'X-Bz-Content-Sha1' => $sha1,
+                ],
+                'body' => fopen($filePath, 'r'),
+            ]);
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            // If 401 or other error, maybe the upload URL expired. 
+            // We could retry with $forceFresh = true here, but for simplicity let's just throw.
+            throw $e;
+        }
 
         return json_decode($response->getBody(), true);
+    }
+
+    public function findFileByName(string $fileName)
+    {
+        $auth = $this->getAuth();
+
+        /** @var \Illuminate\Http\Client\Response $response */
+        $response = Http::withHeaders([
+            'Authorization' => $auth['token'],
+        ])->post($auth['apiUrl'] . '/b2api/v2/b2_list_file_names', [
+            'bucketId' => env('B2_BUCKET_ID'),
+            'startFileName' => $fileName,
+            'maxFileCount' => 1,
+            'prefix' => $fileName,
+        ]);
+
+        if (!$response->successful()) {
+            return null;
+        }
+
+        $data = $response->json();
+        return $data['files'][0] ?? null;
     }
 
     public function listFiles() //300 files limit

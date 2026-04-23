@@ -95,6 +95,11 @@ class DocumentController extends Controller
                 'error_message' => $e->getMessage()
             ]);
 
+            // Cleanup the temp upload file if it exists and encryption failed
+            if ($request->temp_path && Storage::exists($request->temp_path)) {
+                Storage::delete($request->temp_path);
+            }
+
             return [
                 'isLocked' => false,
                 'error' => 'Document could not be locked: ' . $e->getMessage()
@@ -232,10 +237,15 @@ class DocumentController extends Controller
             // Update document with failure info
             $document->update([
                 'status' => 'failed',
-                'error_message' => ['Encryption failed', $e->getMessage()]
+                'error_message' => 'Encryption failed: ' . $e->getMessage()
             ]);
 
-            //return back()->with('error', $document->error_message);
+            // Ensure the temp upload file is deleted on failure
+            if (Storage::exists($temp_filePath)) {
+                Storage::delete($temp_filePath);
+            }
+
+            throw $e; // Rethrow to let the caller handle it
         }
     }
 
@@ -312,22 +322,26 @@ class DocumentController extends Controller
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
-        $is_stored_OR_decrypted = false;
-        if (in_array($document->status, ['stored', 'decrypted', 'retrieved'])) {
-            $is_stored_OR_decrypted = true;
+        $is_deletable = false;
+        if (in_array($document->status, ['stored', 'decrypted', 'retrieved', 'failed'])) {
+            $is_deletable = true;
         }
 
-        if ($is_stored_OR_decrypted === false) {
-            abort(400, 'File not stored');
+        if ($is_deletable === false) {
+            abort(400, 'File not in a deletable state');
         }
 
-        $stegoMap = StegoMap::where('document_id', $document->document_id)->firstOrFail();
-        $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)
-            ->select('cloud_file_id', 'filename', 'stego_file_id')
-            ->get()
-            ->toArray();
+        $stegoMap = StegoMap::where('document_id', $document->document_id)->first();
+        $stegoFiles = [];
+        
+        if ($stegoMap) {
+            $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)
+                ->select('cloud_file_id', 'filename', 'stego_file_id')
+                ->get()
+                ->toArray();
+        }
 
-        if(empty($stegoFiles)) {
+        if(empty($stegoFiles) && !in_array($document->status, ['failed', 'uploaded', 'encrypted', 'fragmented', 'mapped'])) {
             return response()->json(['error' => 'No stego files found'], 404);
         }
 
