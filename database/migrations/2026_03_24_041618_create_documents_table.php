@@ -23,6 +23,10 @@ return new class extends Migration
 
             $table->unsignedBigInteger('encrypted_size')->nullable();
             $table->string('dk_salt')->nullable();
+            $table->text('encrypted_dek')->nullable();
+            $table->string('dek_nonce')->nullable();
+            $table->string('dek_tag')->nullable();
+            $table->string('dek_hash')->nullable();
 
             $table->enum('status', [
                 'uploaded',

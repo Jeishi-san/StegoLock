@@ -12,7 +12,8 @@ export default function AuthenticatedLayout({
     header,
     children,
     totalStorage,
-    storageLimit
+    storageLimit,
+    hasProcessingDocs = false
  }) {
 
     const user = usePage().props.auth.user;
@@ -24,7 +25,7 @@ export default function AuthenticatedLayout({
             <Sidebar
                 totalStorage={totalStorage}
                 storageLimit={storageLimit}
-
+                hasProcessingDocs={hasProcessingDocs}
             />
 
             {/* RIGHT SIDE */}

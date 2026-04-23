@@ -30,7 +30,7 @@ use App\Models\FragmentMap;
 use App\Models\StegoFile;
 use App\Models\StegoMap;
 
-use App\Jobs\ExtractFragmentJob;
+
 
 class DocumentController extends Controller
 {
@@ -66,58 +66,40 @@ class DocumentController extends Controller
     /**
      * Starts the locking and securing process of the document
      */
+    /**
+     * Starts the locking and securing process of the document
+     */
     public function lock(Request $request) {
         $document = Document::findOrFail($request->document_id);
-        $isLocked = false;
 
-        $encrypted_path = $this->encrypt($document->document_id, $request->temp_path);
-        $segmented = $this->segment($document->document_id, $encrypted_path);
+        try {
+            // 1. Encrypt (Sychronous because it needs session master_key)
+            $encryptedPath = $this->encrypt($document->document_id, $request->temp_path);
 
-        //fetch cover files from cloud
-        $b2 = new B2Service();
-        $files = $b2->listFiles();
-        $cloudFiles = collect($files['files'])
-            ->map(function ($file) {
-                return [
-                    'id' => $file['fileId'],
-                    'fileName' => $file['fileName'],
-                ];
-            })
-            ->values()
-            ->toArray();
-
-        $mapId = "";
-
-        $localCovers = [];
-        //after successful segmentation
-        if ($segmented) {
-            $mapId = $this->mapFragmentsToCovers($document->document_id);
-
-            $maxAttempts = 3;
-            $attempt = 0;
-
-            do {
-                $fetchedData = $this->fetchCoverFiles(strval($mapId), $cloudFiles);
-                $attempt++;
-
-                if ($fetchedData['matched']) {
-                    break;
-                }
-
-            } while ($attempt < $maxAttempts);
-
-            if (!$fetchedData['matched']) {
-                throw new \Exception("Cover mismatch after {$attempt} attempts");
+            if (!$encryptedPath) {
+                throw new \Exception("Encryption failed");
             }
 
-            $localCovers[] = $fetchedData['localCovers'];
+            // 2. Dispatch the rest to the background
+            \App\Jobs\ProcessSteganoJob::dispatch($document->document_id, $encryptedPath);
 
-            $embedded = $this->embedFragments($mapId, $cloudFiles, $localCovers);
-            // $isLocked = true;
-            return $embedded;
-        } else return ['isLocked' => $isLocked, 'error' => 'Document could not be locked'];
+            return [
+                'isLocked' => true,
+                'status' => 'processing',
+                'success' => 'Document encryption started. The rest will be processed in the background.'
+            ];
 
-        return ['isLocked' => $isLocked, 'success' => 'Document locked successfully'];
+        } catch (\Throwable $e) {
+            $document->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage()
+            ]);
+
+            return [
+                'isLocked' => false,
+                'error' => 'Document could not be locked: ' . $e->getMessage()
+            ];
+        }
     }
 
     /**
@@ -187,38 +169,55 @@ class DocumentController extends Controller
             // 1. Read the uploaded plaintext file
             $plaintext = file_get_contents(Storage::path($temp_filePath));
 
-            // 2. Generate a random document key salt (32 bytes)
-            $dk_salt = random_bytes(Constant::DK_SALT_LEN);
+            // 2. Generate a random Document Key (DEK)
+            $dek = random_bytes(32);
+            $dek_hash = hash('sha256', $dek);
 
-            // 3. Get master key from session
+            // 3. Get master key from session for wrapping
             $masterKey = session('master_key');
             if (!$masterKey) {
                 throw new \Exception('Master key not found in session.');
             }
 
-            // 4. Derive the document key using HKDF | Output length: 32 bytes (256-bit key)
-            $documentKey = hash_hkdf('sha256', $masterKey, 32, 'document-enc-key', $dk_salt);
+            // 4. Generate wrapping metadata
+            $dk_salt = random_bytes(Constant::DK_SALT_LEN);
+            $wrapping_key = hash_hkdf('sha256', $masterKey, 32, 'dek-wrapping-key', $dk_salt);
+            $dek_nonce = random_bytes(Constant::NONCE_LEN);
+            $dek_tag = '';
 
-            // 5. AES-256-GCM encryption
-            $nonce = random_bytes(Constant::NONCE_LEN); // 96-bit recommended IV/nonce
-            $tag = '';
+            // 5. Wrap the DEK
+            $encrypted_dek = openssl_encrypt(
+                $dek,
+                'aes-256-gcm',
+                $wrapping_key,
+                OPENSSL_RAW_DATA,
+                $dek_nonce,
+                $dek_tag
+            );
+
+            // 6. AES-256-GCM encryption of the file using the raw DEK
+            $file_nonce = random_bytes(Constant::NONCE_LEN);
+            $file_tag = '';
             $ciphertext = openssl_encrypt(
                 $plaintext,
                 'aes-256-gcm',
-                $documentKey,
+                $dek,
                 OPENSSL_RAW_DATA,
-                $nonce,
-                $tag
+                $file_nonce,
+                $file_tag
             );
 
-            // 5. Save encrypted file (store nonce/IV + tag + ciphertext)
+            // 7. Save encrypted file (store file_nonce + file_tag + ciphertext)
             $encPath = 'temp/encrypted/' . pathinfo(basename(''.$temp_filePath), PATHINFO_FILENAME) . '.stegolock';
+            Storage::put($encPath, $file_nonce . $file_tag . $ciphertext);
 
-            Storage::put($encPath, $nonce . $tag . $ciphertext);
-
-            //6. Update the database with encryption info
+            // 8. Update the database with encryption and wrapping info
             $document->update([
                 'dk_salt' => base64_encode($dk_salt),
+                'encrypted_dek' => base64_encode($encrypted_dek),
+                'dek_nonce' => base64_encode($dek_nonce),
+                'dek_tag' => base64_encode($dek_tag),
+                'dek_hash' => $dek_hash,
                 'encrypted_size' => strlen($ciphertext),
                 'status' => 'encrypted'
             ]);
@@ -239,6 +238,15 @@ class DocumentController extends Controller
             //return back()->with('error', $document->error_message);
         }
     }
+
+
+
+
+    /**
+     * Fetch cover files from the cloud and create cover file copies in local storage for embedding
+     */
+
+
 
 
 
@@ -566,22 +574,37 @@ class DocumentController extends Controller
             $tag = substr($data, $nonceLen, $tagLen);
             $ciphertext = substr($data, $nonceLen + $tagLen);
 
-            // 3. Re-derive document key
+            // 3. Unwrap the Document Key (DEK)
             $dk_salt = base64_decode($document->dk_salt);
+            $wrapping_key = hash_hkdf('sha256', $masterKey, 32, 'dek-wrapping-key', $dk_salt);
 
-            $documentKey = hash_hkdf(
-                'sha256',
-                $masterKey,
-                32,
-                'document-enc-key',
-                $dk_salt
+            $dek_nonce = base64_decode($document->dek_nonce);
+            $dek_tag = base64_decode($document->dek_tag);
+            $encrypted_dek = base64_decode($document->encrypted_dek);
+
+            $dek = openssl_decrypt(
+                $encrypted_dek,
+                'aes-256-gcm',
+                $wrapping_key,
+                OPENSSL_RAW_DATA,
+                $dek_nonce,
+                $dek_tag
             );
 
-            // 4. Decrypt
+            if ($dek === false) {
+                throw new \Exception('Failed to unwrap Document Key. Wrong master key?');
+            }
+
+            // 4. Verify DEK Integrity
+            if (hash('sha256', $dek) !== $document->dek_hash) {
+                throw new \Exception('Document Key integrity check failed.');
+            }
+
+            // 5. Decrypt File using the unwrapped DEK
             $plaintext = openssl_decrypt(
                 $ciphertext,
                 'aes-256-gcm',
-                $documentKey,
+                $dek,
                 OPENSSL_RAW_DATA,
                 $nonce,
                 $tag
@@ -749,7 +772,8 @@ class DocumentController extends Controller
         $document = Document::findOrFail($id);
 
         return response()->json([
-            'status' => $document->status
+            'status' => $document->status,
+            'error_message' => $document->error_message,
         ]);
     }
 

@@ -1,5 +1,5 @@
-import { Shield, FileText, Star, MoreVertical, Upload,
-    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2 } from 'lucide-react';
+import { Shield, FileText, Star, MoreVertical,
+    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatBytes, formatDate } from '@/Utils/fileUtils';
 import { Inertia } from '@inertiajs/inertia';
@@ -23,6 +23,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
 
     const menuRef = useRef(null);
 
+    const [localDocs, setLocalDocs] = useState(documents);
     const [openMenuId, setOpenMenuId] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState(null);
@@ -31,6 +32,75 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
     const [isUploading, setIsUploading] = useState(false);
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Update localDocs when props change (initial load or manual reload)
+    useEffect(() => {
+        setLocalDocs(documents);
+    }, [documents]);
+
+    // Polling logic for all processing documents
+    useEffect(() => {
+        const processingDocs = localDocs.filter(doc => 
+            !['stored', 'decrypted', 'failed'].includes(doc.status)
+        );
+
+        if (processingDocs.length === 0) return;
+
+        const interval = setInterval(async () => {
+            const updatedDocs = await Promise.all(
+                localDocs.map(async (doc) => {
+                    if (!['stored', 'decrypted', 'failed'].includes(doc.status)) {
+                        try {
+                            const { data } = await axios.get(`/documents/status/${doc.document_id}`);
+                            return { ...doc, ...data };
+                        } catch (e) {
+                            console.error("Failed to fetch status for", doc.document_id);
+                            return doc;
+                        }
+                    }
+                    return doc;
+                })
+            );
+
+            // Check if anything actually changed to avoid unnecessary re-renders
+            if (JSON.stringify(updatedDocs) !== JSON.stringify(localDocs)) {
+                
+                // Detect newly finished documents
+                updatedDocs.forEach((doc, index) => {
+                    if (doc.status === 'stored' && localDocs[index].status !== 'stored') {
+                        toast.success(`${doc.filename} is locked successfully`);
+                    }
+                });
+
+                setLocalDocs(updatedDocs);
+                
+                // If any document just finished, reload to update storage info etc.
+                const justFinished = updatedDocs.find((doc, index) => 
+                    (doc.status === 'stored' || doc.status === 'decrypted') && 
+                    localDocs[index].status !== doc.status
+                );
+                if (justFinished) {
+                    router.reload({ only: ['totalStorage', 'storageLimit'] });
+                }
+            }
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [localDocs]);
+
+    const getStatusDisplay = (status) => {
+        switch (status) {
+            case 'uploaded': return 'Initializing...';
+            case 'encrypted': return 'Encrypting file...';
+            case 'fragmented': return 'Embedding file...';
+            case 'mapped': return 'Embedding file...';
+            case 'embedded': return 'Storing files...';
+            case 'extracted': return 'Extracting fragments...';
+            case 'reconstructed': return 'Assembling file...';
+            case 'failed': return 'Processing failed';
+            default: return status.charAt(0).toUpperCase() + status.slice(1);
+        }
+    };
 
     const toggleMenu = (id) => {
         setOpenMenuId(prev => (prev === id ? null : id));
@@ -124,7 +194,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                 });
 
                 sleep(2000);
-                toast.success('File ready for download.', { id: toastId });
+                toast.success('Unlocking process started.', { id: toastId });
 
             } finally {
                 // disable warning after request finishes
@@ -134,25 +204,24 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         } catch (err) {
             console.log('Error: ',err);
             console.log('Unlock response:', err.response?.data);
+            toast.error('Unlock failed', { id: toastId });
         }
-
-        const interval = setInterval(async () => {
-            const { data } = await axios.get(`/documents/status/${id}`);
-
-            if (data.status === 'decrypted') {
-                clearInterval(interval);
-                window.location.href = `/documents/download/${id}`;
-                setShowKeepFileModal(id);
-                setSelectedDocId(id);
-            }
-
-            if (data.status === 'failed') {
-                clearInterval(interval);
-                alert('Decryption failed');
-            }
-
-        }, 2000); // check every 2 seconds
+        
+        // The global polling effect will handle the download redirection 
+        // when status changes to 'decrypted'
     };
+
+    // Auto-download when a document becomes 'decrypted'
+    useEffect(() => {
+        localDocs.forEach(doc => {
+            if (doc.status === 'decrypted' && !showKeepFileModal && selectedDocId !== doc.document_id) {
+                // Trigger modal and download
+                window.location.href = `/documents/download/${doc.document_id}`;
+                setShowKeepFileModal(doc.document_id);
+                setSelectedDocId(doc.document_id);
+            }
+        });
+    }, [localDocs]);
 
     //handleFileInfo
     const handleFileInfo = async (id) => {
@@ -241,45 +310,54 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
             }
             totalStorage={totalStorage}
             storageLimit={storageLimit}
+            hasProcessingDocs={localDocs.some(doc => !['stored', 'decrypted', 'failed'].includes(doc.status))}
         >
             <Head title="My Documents"/>
 
             {/* GRID VIEW (DEFAULT) */}
-            {documents.length > 0 ? (
+            {localDocs.length > 0 ? (
                 <div className="h-full overflow-y-auto">
                     <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
-                        {documents.map(doc => {
+                        {localDocs.map(doc => {
+                            const isProcessing = !['stored', 'decrypted', 'failed'].includes(doc.status);
+                            
                             return (
                                 <div
                                     key={doc.document_id}
-                                    className="group relative w-full p-4 bg-white rounded-lg shadow hover:shadow-lg hover:ring-1 hover:ring-purple-600 transition"
+                                    title={isProcessing ? "Locking file is ongoing..." : ""}
+                                    className={"group relative w-full p-4 bg-white rounded-lg shadow transition " + 
+                                        (isProcessing ? "border-2 border-indigo-100 bg-indigo-50/10 cursor-wait" : "hover:shadow-lg hover:ring-1 hover:ring-purple-600 cursor-pointer")}
                                 >
-                                    <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition space-x-1">
-                                        {/* Star */}
-                                        <button>
-                                            <Star className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
-                                        </button>
+                                    {!isProcessing && (
+                                        <div className={"absolute top-0 right-0 p-4 transition space-x-1 z-10 " + 
+                                            (openMenuId === doc.document_id ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
+                                            {/* Star */}
+                                            <button>
+                                                <Star className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
+                                            </button>
 
-                                        {/* Vertical 3-Dot Menu */}
-                                        <button
-                                            ref={(node) => {
-                                                if (openMenuId === doc.document_id) {
-                                                    refs.setReference(node);
-                                                }
-                                            }}
-                                            onClick={() => !isProcessing(doc.status) && toggleMenu(doc.document_id)}
-                                            className={isProcessing(doc.status) ? 'opacity-50 cursor-not-allowed' : ''}
-                                            disabled={isProcessing(doc.status)}
-                                        >
-                                            <MoreVertical className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
-                                        </button>
-                                    </div>
+                                            {/* Vertical 3-Dot Menu */}
+                                            <button
+                                                ref={(node) => {
+                                                    if (openMenuId === doc.document_id) {
+                                                        refs.setReference(node);
+                                                    }
+                                                }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleMenu(doc.document_id);
+                                                }}
+                                            >
+                                                <MoreVertical className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
+                                            </button>
+                                        </div>
+                                    )}
 
-                                    <div className="relative inline-block">
+                                    <div className="relative">
                                         <FileText className={"size-14 rounded-xl p-2 " + getFileColor(doc.file_type)} />
-                                        {isProcessing(doc.status) && (
-                                            <div className="absolute inset-0 flex items-center justify-center bg-white/60 rounded-xl">
-                                                <Loader2 className="size-6 text-purple-600 animate-spin" />
+                                        {isProcessing && (
+                                            <div className="absolute -top-1 -right-1 bg-white rounded-full p-1 shadow-sm">
+                                                <Loader2 className="size-5 text-indigo-600 animate-spin" />
                                             </div>
                                         )}
                                     </div>
@@ -288,16 +366,26 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                         {doc.filename}
                                     </h3>
 
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-sm text-gray-500">
-                                            {isProcessing(doc.status) ? (
-                                                <span className="flex items-center gap-1.5 text-purple-600 font-medium italic">
-                                                     {doc.status}...
+                                    <div className="flex justify-between items-center min-h-[20px]">
+                                        {isProcessing ? (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-medium text-indigo-600 animate-pulse">
+                                                    {getStatusDisplay(doc.status)}
                                                 </span>
-                                            ) : (
-                                                formatBytes(doc.in_cloud_size)
-                                            )}
-                                        </p>
+                                            </div>
+                                        ) : doc.status === 'failed' ? (
+                                            <div className="flex items-center gap-1 group/error" 
+                                                 title={typeof doc.error_message === 'object' ? JSON.stringify(doc.error_message) : doc.error_message}>
+                                                <AlertCircle className="size-3 text-red-500" />
+                                                <span className="text-xs font-medium text-red-600">
+                                                    {getStatusDisplay(doc.status)}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-500">
+                                                {formatBytes(doc.in_cloud_size || doc.original_size)}
+                                            </p>
+                                        )}
 
                                         <p className="text-sm text-gray-500">
                                             {formatDate(new Date(doc.created_at))}

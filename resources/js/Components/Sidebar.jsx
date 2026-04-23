@@ -26,6 +26,7 @@ export function Sidebar({
   onUploadClick,
   onManageStorageClick,
   onNewFolderClick,
+  hasProcessingDocs = false,
 }) {
 
     const user = usePage().props.auth.user;
@@ -35,6 +36,9 @@ export function Sidebar({
     const [showNewMenu, setShowNewMenu] = useState(false);
 
     const [isUploading, setIsUploading] = useState(false);
+
+    // Any ongoing process (either local or background)
+    const isProcessOngoing = isUploading || hasProcessingDocs;
 
 
     const storagePercentage = (totalStorage / storageLimit) * 100;
@@ -139,13 +143,13 @@ export function Sidebar({
                         />
                         <div className="absolute w-full mt-14 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
                             <MenuButton icon={Upload}
-                                        label="Lock a File"
+                                        label={isProcessOngoing ? "Processing ongoing..." : "Lock a File"}
                                         onClick={() => {
-                                            if (isUploading) return;
+                                            if (isProcessOngoing) return;
                                             setShowNewMenu(false);
                                             setShowUploadModal(true);
                                         }}
-                                        className={isUploading ? 'text-slate-300' : ''}
+                                        className={isProcessOngoing ? 'text-gray-400 cursor-not-allowed bg-gray-50' : ''}
                             />
                             <MenuButton icon={Plus}
                                         label="New Folder"
