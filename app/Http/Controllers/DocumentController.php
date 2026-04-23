@@ -29,12 +29,12 @@ use App\Models\Cover;
 use App\Models\FragmentMap;
 use App\Models\StegoFile;
 use App\Models\StegoMap;
+use App\Models\User;
 
 
 
 class DocumentController extends Controller
 {
-    protected $primaryKey = 'document_id';
 
     /**
      *
@@ -52,10 +52,6 @@ class DocumentController extends Controller
                 'status',
                 'fragment_count',
                 'created_at'
-            ])->map(function ($doc) {
-                $doc->starred = $doc->isStarredBy(Auth::user());
-                return $doc;
-            });
             ])->map(function ($doc) {
                 $doc->starred = $doc->isStarredBy(Auth::user());
                 return $doc;
@@ -187,7 +183,7 @@ class DocumentController extends Controller
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
-        $sharedUser = User::where('email', $request->email)->firstOrFail();
+        $sharedUser = \App\Models\User::where('email', $request->email)->firstOrFail();
 
         if ($sharedUser->id === Auth::id()) {
             return response()->json([
@@ -208,12 +204,6 @@ class DocumentController extends Controller
     }
 
     /**
-<<<<<<< Updated upstream
-     * Starts the locking and securing process of the document
-     */
-    /**
-=======
->>>>>>> Stashed changes
      * Starts the locking and securing process of the document
      */
     public function lock(Request $request) {

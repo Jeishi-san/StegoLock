@@ -9,10 +9,21 @@ export function ShareFileModal({ document: doc, onClose, currentUserEmail }) {
 
   const handleShare = async () => {
     setIsSharing(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    toast.success(`File shared with ${email}`);
-    setIsSharing(false);
-    onClose();
+    
+    try {
+      const response = await axios.post('/documents/share', {
+        document_id: doc.document_id,
+        email: email
+      });
+      
+      toast.success(`File shared with ${email}`);
+      setIsSharing(false);
+      onClose();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to share file';
+      toast.error(errorMessage);
+      setIsSharing(false);
+    }
   };
 
   const handleConfirm = () => {

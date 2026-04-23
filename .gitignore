@@ -24,3 +24,11 @@ Homestead.yaml
 Thumbs.db
 # /python_backend
 /python_backend/drafts,testings/credentials/service_account.json
+
+# Kilo Code Files
+.kilocode
+.kilocodemodes
+.kilotodo
+.kiloconfig
+.kilostate
+.md/

@@ -2,12 +2,11 @@ import { Shield, FileText, Star, MoreVertical,
     Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatBytes, formatDate } from '@/Utils/fileUtils';
-import { Inertia } from '@inertiajs/inertia';
 import { Head } from '@inertiajs/react';
-import { useForm } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
+import { ShareFileModal } from '@/Components/modals/ShareFileModal';
 
 // ADD THIS
 import {
@@ -15,8 +14,7 @@ import {
     offset,
     flip,
     shift,
-    autoUpdate,
-    size
+    autoUpdate
 } from '@floating-ui/react';
 
 export default function MyDocuments({ documents, totalStorage, storageLimit }) {
@@ -30,6 +28,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
     const [showKeepFileModal, setShowKeepFileModal] = useState(null);
 
     const [isUploading, setIsUploading] = useState(false);
+    const [selectedShareDoc, setSelectedShareDoc] = useState(null);
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -294,22 +293,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         }
     };
 
-    const handleToggleStar = async (docId) => {
-        try {
-            const resp = await axios.post('/documents/toggle-star', {
-                document_id: docId
-            });
-            
-            if (resp.data.starred) {
-                toast.success('Added to starred');
-            } else {
-                toast.success('Removed from starred');
-            }
-            router.reload();
-        } catch (err) {
-            toast.error('Failed to update star status');
-        }
-    };
+
 
     const handleToggleStar = async (docId) => {
         try {
@@ -328,6 +312,10 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         }
     };
 
+    const handleShare = (doc) => {
+        setOpenMenuId(null);
+        setSelectedShareDoc(doc);
+    };
 
     // scan cover files
     const scanCovers =  async() => {
@@ -366,8 +354,8 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                         <div className={"absolute top-0 right-0 p-4 transition space-x-1 z-10 " + 
                                             (openMenuId === doc.document_id ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
                                             {/* Star */}
-                                            <button>
-                                                <Star className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
+                                            <button onClick={() => handleToggleStar(doc.document_id)}>
+                                                <Star className={`size-8 hover:bg-gray-100 rounded-md p-1.5 ${doc.starred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'}`} />
                                             </button>
 
                                             {/* Vertical 3-Dot Menu */}
@@ -468,7 +456,10 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                             <div className="border-t" />
 
                                             {/* Share */}
-                                            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
+                                            <button
+                                                onClick={() => handleShare(doc)}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50"
+                                            >
                                                 <Share2 className="w-4 h-4 text-gray-600" />
                                                 Share File
                                             </button>
@@ -497,6 +488,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                         })}
                     </div>
                 </div>
+
             ) : (
                 <div className="flex-1 flex items-center justify-center p-8">
                     <div className="text-center">
@@ -602,6 +594,13 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
 
                     </div>
                 </div>
+            )}
+
+            {selectedShareDoc && (
+                <ShareFileModal 
+                    document={selectedShareDoc} 
+                    onClose={() => setSelectedShareDoc(null)}
+                />
             )}
 
         </AuthenticatedLayout>

@@ -14,11 +14,16 @@ return new class extends Migration
         Schema::create('document_user', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('document_id')->constrained()->cascadeOnDelete();
+            $table->unsignedBigInteger('document_id');
             $table->boolean('starred')->default(false);
             $table->foreignId('shared_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('permission')->default('view');
             $table->timestamps();
+
+            $table->foreign('document_id')
+                ->references('document_id')
+                ->on('documents')
+                ->cascadeOnDelete();
 
             $table->unique(['user_id', 'document_id']);
         });
