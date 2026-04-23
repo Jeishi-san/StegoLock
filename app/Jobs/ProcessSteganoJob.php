@@ -428,19 +428,24 @@ class ProcessSteganoJob implements ShouldQueue
             ]);
 
             $stegoFileInfos = [];
-            foreach ($stegoMap as $stego) {
-                $info = $b2->storeFile($stego['stegoFile']);
-                $stegoPath = 'locked/' . basename($stego['stegoFile']);
+            $stegoFilePaths = collect($stegoMap)->pluck('stegoFile')->toArray();
+            $uploadResults = $b2->storeFilesBatch($stegoFilePaths, 10, function($path, $info) {
+                $stegoPath = 'locked/' . basename($path);
                 $this->uploadedCloudFiles[] = ['id' => $info['fileId'], 'path' => $stegoPath];
+            });
+
+            foreach ($stegoMap as $stego) {
+                $path = $stego['stegoFile'];
+                $info = $uploadResults[$path];
                 
-                unlink($stego['stegoFile']);
+                if (file_exists($path)) unlink($path);
 
                 $sFile = StegoFile::create([
                     'stego_map_id' => $newStegoMap->stego_map_id,
                     'cloud_file_id' => $info['fileId'],
                     'fragment_id' => $stego['fragmentId'],
                     'offset' => $stego['offset'],
-                    'filename' => basename($stego['stegoFile']),
+                    'filename' => basename($path),
                     'stego_size' => $info['contentLength'],
                     'status' => 'embedded',
                 ]);
