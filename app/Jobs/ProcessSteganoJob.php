@@ -22,6 +22,8 @@ class ProcessSteganoJob implements ShouldQueue
 
     protected $documentId;
     protected $encryptedPath;
+    protected array $uploadedCloudFiles = []; // Track cloud file IDs for cleanup
+    protected array $createdTempFiles = [];    // Track local temp files for cleanup
 
     /**
      * Create a new job instance.
@@ -53,24 +55,12 @@ class ProcessSteganoJob implements ShouldQueue
             }
 
             // 3. Fetch Covers
-            $b2 = new B2Service();
-            $files = $b2->listFiles();
-            $cloudFiles = collect($files['files'])
-                ->map(function ($file) {
-                    return [
-                        'id' => $file['fileId'],
-                        'fileName' => $file['fileName'],
-                    ];
-                })
-                ->values()
-                ->toArray();
-
             $maxAttempts = 3;
             $attempt = 0;
             $fetchedData = ['matched' => false];
 
             do {
-                $fetchedData = $this->fetchCoverFiles($mapId, $cloudFiles);
+                $fetchedData = $this->fetchCoverFiles($mapId);
                 $attempt++;
                 if ($fetchedData['matched']) {
                     break;
@@ -82,7 +72,7 @@ class ProcessSteganoJob implements ShouldQueue
             }
 
             // 4. Embedding
-            $this->embedFragments($mapId, $cloudFiles, $fetchedData['localCovers']);
+            $this->embedFragments($mapId, $fetchedData['localCovers']);
 
             // 5. Cleanup encrypted file
             if (Storage::exists($this->encryptedPath)) {
@@ -103,18 +93,35 @@ class ProcessSteganoJob implements ShouldQueue
      */
     private function cleanupOnFailure(int $documentId)
     {
-        // 1. Delete fragments from DB
-        Fragment::where('document_id', $documentId)->delete();
+        $b2 = new B2Service();
 
-        // 2. Delete fragment maps
+        // 1. Cloud Storage Cleanup (PRIORITY)
+        // Delete files from B2 that were uploaded during this job execution
+        foreach ($this->uploadedCloudFiles as $fileId) {
+            try {
+                $b2->deleteFile($fileId['id'], $fileId['path']);
+            } catch (\Exception $e) {
+                // Log or ignore if already deleted
+            }
+        }
+
+        // 2. Database Cleanup (Relies on cascading deletes, but we manually purge heavy blobs)
+        Fragment::where('document_id', $documentId)->delete();
         FragmentMap::where('document_id', $documentId)->delete();
 
-        // 3. Delete initial encrypted file if it exists
+        // 3. Local Temp File Cleanup
+        foreach ($this->createdTempFiles as $filePath) {
+            if (file_exists($filePath)) {
+                @unlink($filePath);
+            }
+        }
+
+        // 4. Delete initial encrypted file if it exists
         if (Storage::exists($this->encryptedPath)) {
             Storage::delete($this->encryptedPath);
         }
 
-        // 4. Cleanup temp directories (safely)
+        // 5. Broad (safe) cleanup of temp directories
         $this->safeDeleteDirectory(storage_path('app/private/temp/bin'));
         $this->safeDeleteDirectory(storage_path('app/private/temp/cloud'));
         $this->safeDeleteDirectory(storage_path('app/private/temp/covers'));
@@ -202,7 +209,7 @@ class ProcessSteganoJob implements ShouldQueue
                 'status' => 'failed',
                 'error_message' => 'Segmentation failed: ' . $e->getMessage()
             ]);
-            return false;
+            throw $e; // Rethrow to trigger cleanupOnFailure
         }
     }
 
@@ -287,8 +294,8 @@ class ProcessSteganoJob implements ShouldQueue
             return $map->map_id;
 
         } catch (\Throwable $e) {
-            $document->update(['status' => 'failed', 'error_message' => 'Mapping failed500: ' . $e->getMessage()]);
-            return null;
+            $document->update(['status' => 'failed', 'error_message' => 'Mapping failed: ' . $e->getMessage()]);
+            throw $e; // Rethrow to trigger cleanupOnFailure
         }
     }
 
@@ -318,6 +325,7 @@ class ProcessSteganoJob implements ShouldQueue
 
         Storage::disk('local')->put("temp/covers/{$fileName}", $content);
         $filePath = storage_path('app/private/temp/covers/' . $fileName);
+        $this->createdTempFiles[] = $filePath;
 
         return Cover::create([
             'cover_id' => (string) Str::uuid(),
@@ -330,7 +338,7 @@ class ProcessSteganoJob implements ShouldQueue
         ]);
     }
 
-    private function fetchCoverFiles(string $mapId, array $cloudFiles)
+    private function fetchCoverFiles(string $mapId)
     {
         $b2 = new B2Service();
         if (!file_exists(storage_path('app/private/temp/covers/'))) {
@@ -340,25 +348,36 @@ class ProcessSteganoJob implements ShouldQueue
         $map = FragmentMap::findOrFail($mapId);
         $mappedCovers = $map->fragments_in_covers;
         $document = Document::findOrFail($map->document_id);
-        $cloudMap = collect($cloudFiles)->keyBy('fileName');
         $localCovers = [];
+        $uniqueCoversToDownload = collect($mappedCovers)->pluck('cover_id')->unique();
 
-        foreach ($mappedCovers as $mappedCover) {
-            $cover = Cover::findOrFail($mappedCover['cover_id']);
+        foreach ($uniqueCoversToDownload as $coverId) {
+            $cover = Cover::findOrFail($coverId);
             $coverTempPath = storage_path('app/private/temp/covers/' . $cover->filename);
             $key = $this->getCoverFolder($cover->type) . trim(strval($cover->filename));
 
-            if (!$cloudMap->has($key)) {
-                if (file_exists($coverTempPath)) {
-                    $localCovers[] = $coverTempPath;
-                    continue;
+            if (!file_exists($coverTempPath)) {
+                $file = $b2->findFileByName($key);
+                if (!$file) {
+                    throw new \Exception("Cover file not found in cloud: {$key}");
                 }
-                throw new \Exception("Cover file missing from cloud and local: {$key} (Expected local path: {$coverTempPath})");
+                
+                $content = $b2->readfile($file['fileId']);
+                if (file_put_contents($coverTempPath, $content) === false) {
+                    throw new \Exception("Failed to write cover file to local storage: {$coverTempPath}");
+                }
+                $this->createdTempFiles[] = $coverTempPath;
             }
+        }
 
-            $file = $cloudMap[$key];
-            $content = $b2->readfile($file['id']);
-            file_put_contents($coverTempPath, $content);
+        // Now populate localCovers for ALL mapped fragments (including duplicates)
+        foreach ($mappedCovers as $mappedCover) {
+            $cover = Cover::findOrFail($mappedCover['cover_id']);
+            $coverTempPath = storage_path('app/private/temp/covers/' . $cover->filename);
+            
+            if (!file_exists($coverTempPath)) {
+                throw new \Exception("Cover file verified but missing for fragment: {$cover->filename}");
+            }
             $localCovers[] = $coverTempPath;
         }
 
@@ -368,7 +387,7 @@ class ProcessSteganoJob implements ShouldQueue
         ];
     }
 
-    private function embedFragments(string $mapId, array $cloudFiles, array $localCovers)
+    private function embedFragments(string $mapId, array $localCovers)
     {
         $map = FragmentMap::findOrFail($mapId);
         $document = Document::findOrFail($map->document_id);
@@ -379,7 +398,7 @@ class ProcessSteganoJob implements ShouldQueue
 
         try {
             foreach ($mapping as $m) {
-                $stegoMap[] = $this->embed($m['fragment_id'], $m['cover_id'], $cloudFiles, $localCovers);
+                $stegoMap[] = $this->embed($m['fragment_id'], $m['cover_id'], $localCovers);
             }
 
             $document->update(['status' => 'embedded']);
@@ -393,6 +412,9 @@ class ProcessSteganoJob implements ShouldQueue
             $stegoFileInfos = [];
             foreach ($stegoMap as $stego) {
                 $info = $b2->storeFile($stego['stegoFile']);
+                $stegoPath = 'locked/' . basename($stego['stegoFile']);
+                $this->uploadedCloudFiles[] = ['id' => $info['fileId'], 'path' => $stegoPath];
+                
                 unlink($stego['stegoFile']);
 
                 $sFile = StegoFile::create([
@@ -417,7 +439,7 @@ class ProcessSteganoJob implements ShouldQueue
         }
     }
 
-    private function embed(string $fragmentId, string $coverId, array $cloudFiles, array $localCovers)
+    private function embed(string $fragmentId, string $coverId, array $localCovers)
     {
         $cover = Cover::findOrFail($coverId);
         if (!file_exists(storage_path('app/private/temp/bin'))) mkdir(storage_path('app/private/temp/bin'), 0755, true);
@@ -439,8 +461,14 @@ class ProcessSteganoJob implements ShouldQueue
             throw new \Exception("Cover file '{$cover->filename}' not found in local temp storage. Available files: [{$expectedFiles}]");
         }
 
+        if (!file_exists($coverFile)) {
+            throw new \Exception("Cover file '{$cover->filename}' path found but file does not exist on disk: {$coverFile}");
+        }
+
         $stegoFile = storage_path('app/private/temp/cloud/'. $fileName);
         $binaryFile = storage_path('app/private/temp/bin/'. $fileName . '.bin');
+        $this->createdTempFiles[] = $stegoFile;
+        $this->createdTempFiles[] = $binaryFile;
 
         $fragment = Fragment::findOrFail($fragmentId);
         file_put_contents($binaryFile, base64_decode($fragment->blob));
@@ -459,11 +487,14 @@ class ProcessSteganoJob implements ShouldQueue
         $offset = (int) end($output);
 
         if (isset($cover->metadata['info'])) $cover->forceDelete();
-        if (file_exists($coverFile)) unlink($coverFile);
+        // REMOVED: Premature unlink of coverFile and binaryFile here. 
+        // Binary file can be deleted as it's fragment-specific, but coverFile might be shared.
+        // Actually, binaryFile is fragment-specific, so unlinking it is fine.
         if (file_exists($binaryFile)) unlink($binaryFile);
 
         return ['fragmentId' => $fragmentId, 'stegoFile' => $stegoFile, 'offset' => $offset];
     }
+
 
     private function getExtension(string $coverType): string
     {
