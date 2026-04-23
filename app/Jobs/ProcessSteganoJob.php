@@ -93,10 +93,13 @@ class ProcessSteganoJob implements ShouldQueue
      */
     private function cleanupOnFailure(int $documentId)
     {
-        $b2 = new B2Service();
+        // 1. Database Cleanup - REMOVED as per user request to keep records for manual deletion
+        // Fragment::where('document_id', $documentId)->delete();
+        // FragmentMap::where('document_id', $documentId)->delete();
 
-        // 1. Cloud Storage Cleanup (PRIORITY)
-        // Delete files from B2 that were uploaded during this job execution
+        // 2. Cloud Storage Cleanup - REMOVED as per user request to keep files for manual deletion
+        /*
+        $b2 = new B2Service();
         foreach ($this->uploadedCloudFiles as $fileId) {
             try {
                 $b2->deleteFile($fileId['id'], $fileId['path']);
@@ -104,12 +107,9 @@ class ProcessSteganoJob implements ShouldQueue
                 // Log or ignore if already deleted
             }
         }
+        */
 
-        // 2. Database Cleanup (Relies on cascading deletes, but we manually purge heavy blobs)
-        Fragment::where('document_id', $documentId)->delete();
-        FragmentMap::where('document_id', $documentId)->delete();
-
-        // 3. Local Temp File Cleanup
+        // 3. Local Temp File Cleanup (KEEP)
         foreach ($this->createdTempFiles as $filePath) {
             if (file_exists($filePath)) {
                 @unlink($filePath);
@@ -421,39 +421,46 @@ class ProcessSteganoJob implements ShouldQueue
 
             $document->update(['status' => 'embedded']);
 
+            // Create StegoMap with 'pending' status
             $newStegoMap = StegoMap::create([
                 'stego_map_id' => (string) Str::uuid(),
                 'document_id' => $document->document_id,
-                'status' => 'completed',
+                'status' => 'pending',
             ]);
 
-            $stegoFileInfos = [];
             $stegoFilePaths = collect($stegoMap)->pluck('stegoFile')->toArray();
-            $uploadResults = $b2->storeFilesBatch($stegoFilePaths, 10, function($path, $info) {
+            
+            // Upload files and create records INCREMENTALLY
+            $uploadResults = $b2->storeFilesBatch($stegoFilePaths, 10, function($path, $info) use ($newStegoMap, $stegoMap, $user, $document) {
                 $stegoPath = 'locked/' . basename($path);
+                
+                // Find matching fragment info from the local $stegoMap array
+                $match = collect($stegoMap)->first(fn($s) => $s['stegoFile'] === $path);
+                
+                if ($match) {
+                    $sFile = StegoFile::create([
+                        'stego_map_id' => $newStegoMap->stego_map_id,
+                        'cloud_file_id' => $info['fileId'],
+                        'fragment_id' => $match['fragmentId'],
+                        'offset' => $match['offset'],
+                        'filename' => basename($path),
+                        'stego_size' => $info['contentLength'],
+                        'status' => 'embedded',
+                    ]);
+
+                    // Update storage tracking immediately
+                    $user->increment('storage_used', $sFile->stego_size);
+                    $document->increment('in_cloud_size', $sFile->stego_size);
+                }
+
                 $this->uploadedCloudFiles[] = ['id' => $info['fileId'], 'path' => $stegoPath];
+                
+                // Cleanup stego file after successful upload
+                if (file_exists($path)) @unlink($path);
             });
 
-            foreach ($stegoMap as $stego) {
-                $path = $stego['stegoFile'];
-                $info = $uploadResults[$path];
-                
-                if (file_exists($path)) unlink($path);
-
-                $sFile = StegoFile::create([
-                    'stego_map_id' => $newStegoMap->stego_map_id,
-                    'cloud_file_id' => $info['fileId'],
-                    'fragment_id' => $stego['fragmentId'],
-                    'offset' => $stego['offset'],
-                    'filename' => basename($path),
-                    'stego_size' => $info['contentLength'],
-                    'status' => 'embedded',
-                ]);
-
-                $user->increment('storage_used', $sFile->stego_size);
-                $document->increment('in_cloud_size', $sFile->stego_size);
-            }
-
+            // Mark stego map as completed after full batch upload
+            $newStegoMap->update(['status' => 'completed']);
             $document->update(['status' => 'stored']);
 
         } catch (\Throwable $e) {

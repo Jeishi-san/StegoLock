@@ -330,84 +330,68 @@ class DocumentController extends Controller
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
-        $is_deletable = false;
-        if (in_array($document->status, ['stored', 'decrypted', 'retrieved', 'failed'])) {
-            $is_deletable = true;
-        }
-
-        if ($is_deletable === false) {
+        // 1. Check if deletable status
+        $deletableStatuses = ['stored', 'decrypted', 'retrieved', 'failed', 'uploaded', 'encrypted', 'fragmented', 'mapped', 'embedded'];
+        if (!in_array($document->status, $deletableStatuses)) {
             abort(400, 'File not in a deletable state');
         }
 
-        $stegoMap = StegoMap::where('document_id', $document->document_id)->first();
-        $stegoFiles = [];
-        
-        if ($stegoMap) {
-            $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)
-                ->select('cloud_file_id', 'filename', 'stego_file_id')
-                ->get()
-                ->toArray();
-        }
-
-        if(empty($stegoFiles) && !in_array($document->status, ['failed', 'uploaded', 'encrypted', 'fragmented', 'mapped'])) {
-            return response()->json(['error' => 'No stego files found'], 404);
-        }
-
         try {
+            $stegoMap = StegoMap::where('document_id', $document->document_id)->first();
+            $stegoFiles = [];
+            
+            if ($stegoMap) {
+                $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)
+                    ->select('cloud_file_id', 'filename', 'stego_file_id')
+                    ->get()
+                    ->toArray();
+            }
 
-        /**
-         * Three-Layer Deletion Process
-         * Layer 1: Retry - handling temporary failures -> $this->deleteWithRetry($b2, $file)
-         * Layer 2: Deterministic result collection -> foreach ($stegoFiles as $file)
-         * Layer 3: Decision logic -> if (!empty($failedFiles))
-         */
-            $b2 = new B2Service();
+            // 2. Delete cloud files if they exist
+            if (!empty($stegoFiles)) {
+                $b2 = new B2Service();
+                $failedFiles = [];
 
-            $deletedFiles = [];
-            $failedFiles = [];
+                foreach ($stegoFiles as $file) {
+                    $deleted = $this->deleteWithRetry($b2, $file);
+                    if (!$deleted) {
+                        $failedFiles[] = $file['stego_file_id'];
+                    }
+                }
 
-            foreach ($stegoFiles as $file) {
-
-                $contentLength = $b2->getFileInfo($file['cloud_file_id'])['contentLength'];
-
-                $deleted = $this->deleteWithRetry($b2, $file);
-
-                if ($deleted) {
-                    $deletedFiles[] = $file['stego_file_id'];
-
-                } else {
-                    $failedFiles[] = $file['stego_file_id'];
+                if (!empty($failedFiles)) {
+                    return response()->json([
+                        'message' => 'Some files failed to delete from cloud storage. Deletion aborted to prevent storage leakage.',
+                        'failed' => $failedFiles
+                    ], 500);
                 }
             }
 
-            if (!empty($failedFiles)) {
-
-                return response()->json([
-                    'message' => 'Some files failed to delete',
-                    'deleted' => $deletedFiles,
-                    'failed' => $failedFiles
-                ], 500);
+            // 3. Storage Cleanup (only if cloud files were present or recorded)
+            if ($document->in_cloud_size > 0) {
+                $user->decrement('storage_used', $document->in_cloud_size);
             }
 
-            $user->decrement('storage_used', $document->in_cloud_size);
-
-            // Cleanup local decrypted file if it exists
+            // 4. Cleanup local decrypted file if it exists
             $localPath = 'temp/decrypted/' . $document->filename;
             if (Storage::exists($localPath)) {
                 Storage::delete($localPath);
             }
 
-            // delete DB records
+            // 5. Delete DB record (Cascade delete handles fragments, stego_maps, stego_files)
             $document->forceDelete();
 
-            return response()->json(['message' => 'File deleted successfully']);
-        } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+            return response()->json(['message' => 'Document and associated cloud files deleted successfully']);
 
-        return $deletedFiles;
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Deletion failed: ' . $e->getMessage()], 500);
+        }
     }
 
+    /**
+     * Deletes a file from B2 with retry logic
+     * @return bool
+     */
     private function deleteWithRetry($b2, $file)
     {
         $maxRetries = 3;
@@ -425,11 +409,14 @@ class DocumentController extends Controller
                 }
 
             } catch (\Exception $e) {
-                return response()->json(['Delete retry error' => $e->getMessage()]);
+                // Log the error but continue to retry
+                \Illuminate\Support\Facades\Log::error("B2 Delete Attempt {$attempt} failed: " . $e->getMessage());
             }
 
             $attempt++;
-            sleep(1); // simple backoff (can improve later)
+            if ($attempt < $maxRetries) {
+                sleep(1); 
+            }
 
         } while ($attempt < $maxRetries);
 
