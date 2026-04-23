@@ -22,4 +22,5 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
-/python_backend
+# /python_backend
+/python_backend/drafts,testings/credentials/service_account.json
