@@ -15,6 +15,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Models\DocumentActivity;
 
 class ProcessSteganoJob implements ShouldQueue
 {
@@ -79,11 +80,25 @@ class ProcessSteganoJob implements ShouldQueue
                 Storage::delete($this->encryptedPath);
             }
 
+            DocumentActivity::create([
+                'document_id' => $this->documentId,
+                'user_id' => $document->user_id,
+                'action' => 'locking_completed',
+                'metadata' => ['filename' => $document->filename]
+            ]);
+
         } catch (\Throwable $e) {
             $this->cleanupOnFailure($this->documentId);
             $document->update([
                 'status' => 'failed',
                 'error_message' => $e->getMessage()
+            ]);
+
+            DocumentActivity::create([
+                'document_id' => $this->documentId,
+                'user_id' => $document->user_id,
+                'action' => 'locking_failed',
+                'metadata' => ['error' => $e->getMessage()]
             ]);
         }
     }

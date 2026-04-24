@@ -50,23 +50,27 @@ class ProcessUnlockJob implements ShouldQueue
             
             // 2. Assemble Fragments
             // Extraction is done. Update to 'extracted' so UI shows "Assembling file..."
-            $document->update(['status' => 'extracted']);
+            $this->updateStatus('extracted');
             
             $stegolock_file = $this->assemble($document, $extracted);
 
             // 3. Decrypt
-            // Assembly is done. Update to 'reconstructed' so UI shows "Decrypting file..."
-            $document->update(['status' => 'reconstructed']);
+            // assembly is done. Update to 'reconstructed' so UI shows "Decrypting file..."
+            $this->updateStatus('reconstructed');
             
             $this->decrypt($document, $stegolock_file);
-            $document->update(['status' => 'decrypted']);
+            $this->updateStatus('decrypted');
 
         } catch (\Throwable $e) {
-            $document->update([
-                'status' => 'failed',
-                'error_message' => 'Unlocking failed: ' . $e->getMessage()
-            ]);
+            $this->updateStatus('failed', 'Unlocking failed: ' . $e->getMessage());
             $this->cleanupOnFailure($document);
+
+            DocumentActivity::create([
+                'document_id' => $this->documentId,
+                'user_id' => $this->userId ?? $document->user_id,
+                'action' => 'unlocking_failed',
+                'metadata' => ['error' => $e->getMessage()]
+            ]);
         }
     }
 
@@ -308,7 +312,7 @@ class ProcessUnlockJob implements ShouldQueue
             throw new \Exception('Decryption failed. Possible tampering or wrong key.');
         }
 
-        $tempDecDir = 'temp/decrypted';
+        $tempDecDir = 'temp/decrypted/' . ($this->userId ?? $document->user_id) . '/' . $document->document_id;
         if (!Storage::exists($tempDecDir)) {
             Storage::makeDirectory($tempDecDir);
         }
@@ -330,6 +334,30 @@ class ProcessUnlockJob implements ShouldQueue
         
         // Also cleanup any reconstructed files for this document if possible
         // (Though we use random names, we could potentially track them or just let them be cleaned up by a periodic task)
+    }
+
+    private function updateStatus($status, $errorMessage = null)
+    {
+        $document = Document::find($this->documentId);
+        if (!$document) return;
+
+        // If it's a share, update the share record
+        if ($this->userId && $document->user_id !== $this->userId) {
+            $share = DocumentShare::where('document_id', $this->documentId)
+                ->where('recipient_id', $this->userId)
+                ->first();
+            if ($share) {
+                $share->update([
+                    'processing_status' => $status,
+                    // If we had an error field in shares, we'd use it too
+                ]);
+            }
+        } else {
+            // Otherwise it's the owner
+            $data = ['status' => $status];
+            if ($errorMessage) $data['error_message'] = $errorMessage;
+            $document->update($data);
+        }
     }
 
     private function safeDeleteDirectory($path)

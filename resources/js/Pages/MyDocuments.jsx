@@ -1,5 +1,5 @@
 import { Shield, FileText, Star, MoreVertical,
-    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle, FolderOpen, FolderTree, ArrowLeft } from 'lucide-react';
+    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle, FolderOpen, FolderTree, ArrowLeft, Users, History } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatBytes, formatDate } from '@/Utils/fileUtils';
 import { Inertia } from '@inertiajs/inertia';
@@ -10,6 +10,7 @@ import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import Tooltip from '@/Components/Tooltip';
 import { ShareFileModal } from '@/Components/modals/ShareFileModal';
+import { FileInfoModal } from '@/Components/modals/FileInfoModal';
 
 // ADD THIS
 import {
@@ -33,6 +34,8 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
     const [showShareModal, setShowShareModal] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState(null);
     const [selectedDocForShare, setSelectedDocForShare] = useState(null);
+    const [selectedDocForInfo, setSelectedDocForInfo] = useState(null);
+    const [showInfoModal, setShowInfoModal] = useState(false);
     const [showKeepFileModal, setShowKeepFileModal] = useState(null);
     const [unlockingProgress, setUnlockingProgress] = useState(() => {
         const saved = localStorage.getItem('stegolock_unlocking_progress');
@@ -98,10 +101,14 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                 // Detect newly finished documents
                 updatedDocs.forEach((doc, index) => {
                     const prevStatus = localDocs[index]?.status;
+                    const isMyProcess = !!unlockingProgress[doc.document_id];
+
                     if (doc.status === 'stored' && prevStatus && prevStatus !== 'stored' && !['decrypted', 'retrieved'].includes(prevStatus)) {
                         toast.success(`${doc.filename} is locked successfully`);
                     }
-                    if (doc.status === 'decrypted' && prevStatus && prevStatus !== 'decrypted') {
+                    
+                    // ONLY trigger unlock success if THIS user initiated it
+                    if (doc.status === 'decrypted' && prevStatus && prevStatus !== 'decrypted' && isMyProcess) {
                         toast.success(`${doc.filename} is unlocked successfully`);
                     }
                 });
@@ -109,10 +116,12 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                 setLocalDocs(updatedDocs);
                 
                 // If any document just finished, reload to update storage info etc.
-                const justFinished = updatedDocs.find((doc, index) => 
-                    (doc.status === 'stored' || doc.status === 'decrypted') && 
-                    localDocs[index].status !== doc.status
-                );
+                const justFinished = updatedDocs.find((doc, index) => {
+                    const prevStatus = localDocs[index].status;
+                    const isMyProcess = !!unlockingProgress[doc.document_id];
+                    return (doc.status === 'stored' || (doc.status === 'decrypted' && isMyProcess)) && 
+                           prevStatus !== doc.status;
+                });
 
                 if (justFinished) {
                     router.reload({ only: ['totalStorage', 'storageLimit'] });
@@ -134,10 +143,10 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
         // Handle Simulated Progress for Unlocking
         if (unlockingProgress[docId]) {
             const elapsed = Date.now() - unlockingProgress[docId];
-            if (elapsed < 2000) return 'Fetching stego files';
-            if (elapsed < 4000) return 'Extracting fragments';
-            if (elapsed < 6000) return 'Reconstructing file';
-            return 'Decrypting file';
+            if (elapsed < 2000) return 'Fetching stego files...';
+            if (elapsed < 4000) return 'Extracting fragments...';
+            if (elapsed < 6000) return 'Reconstructing file...';
+            return 'Decrypting file...';
         }
 
         switch (status) {
@@ -285,8 +294,10 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
     // The auto-download is now handled directly in the polling effect for better reliability
 
     //handleFileInfo
-    const handleFileInfo = async (id) => {
-        router.get('/documents/getFileInfo', { id });
+    const handleFileInfo = (doc) => {
+        setOpenMenuId(null);
+        setSelectedDocForInfo(doc);
+        setShowInfoModal(true);
     };
 
     // handleMove
@@ -484,6 +495,11 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                                                 <Loader2 className="size-5 text-indigo-600 animate-spin" />
                                             </div>
                                         )}
+                                        {doc.shares_count > 0 && !isProcessing && (
+                                            <div className="absolute -bottom-1 -right-1 bg-indigo-600 rounded-full p-1 shadow-sm border-2 border-white" title={`Shared with ${doc.shares_count} people`}>
+                                                <Users className="size-3 text-white" />
+                                            </div>
+                                        )}
                                     </div>
 
                                     <h3 className="text-md font-semibold text-gray-800 my-3 truncate" title={doc.filename}>
@@ -492,10 +508,15 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
 
                                     <div className="flex justify-between items-center min-h-[20px]">
                                         {isProcessing ? (
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-medium text-indigo-600 animate-pulse">
-                                                    {getStatusDisplay(doc.status, doc.document_id)}
-                                                </span>
+                                            <div className="flex flex-col w-full mt-2 gap-1.5">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] font-bold text-indigo-600 tracking-wider animate-pulse">
+                                                        {getStatusDisplay(doc.status, doc.document_id)}
+                                                    </span>
+                                                </div>
+                                                <div className="w-full bg-indigo-100 rounded-full h-1 overflow-hidden">
+                                                    <div className="bg-indigo-600 h-full animate-progress" style={{width: '30%'}}></div>
+                                                </div>
                                             </div>
                                         ) : doc.status === 'failed' ? (
                                             <Tooltip content={doc.error_message ? (typeof doc.error_message === 'object' ? JSON.stringify(doc.error_message) : doc.error_message) : "Error occurred during processing"}>
@@ -577,7 +598,7 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
 
                                             {/* Info */}
                                             <button
-                                                onClick={() => handleFileInfo(doc.document_id)}
+                                                onClick={() => handleFileInfo(doc)}
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
                                                 <Info className="w-4 h-4 text-gray-600" />
                                                 File Info
@@ -724,6 +745,13 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                 <ShareFileModal 
                     document={selectedDocForShare}
                     onClose={() => setShowShareModal(false)}
+                />
+            )}
+
+            {showInfoModal && (
+                <FileInfoModal 
+                    document={selectedDocForInfo}
+                    onClose={() => setShowInfoModal(false)}
                 />
             )}
 

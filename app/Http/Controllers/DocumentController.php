@@ -31,6 +31,7 @@ use App\Models\StegoFile;
 use App\Models\StegoMap;
 use App\Models\Folder;
 use App\Models\DocumentShare;
+use App\Models\DocumentActivity;
 use App\Services\CryptoService;
 
 
@@ -55,23 +56,12 @@ class DocumentController extends Controller
         $folderId = $request->folder_id;
 
         // Fetch owned documents
-        $query = Document::where('user_id', Auth::id())
+        $query = Document::withCount('shares')
+            ->where('user_id', Auth::id())
             ->where('folder_id', $folderId)
             ->latest();
 
-        $documents = $query->get([
-                'document_id',
-                'filename',
-                'file_type',
-                'original_size',
-                'in_cloud_size',
-                'status',
-                'fragment_count',
-                'created_at',
-                'error_message',
-                'is_starred',
-                'folder_id'
-            ])
+        $documents = $query->get()
             ->map(function ($doc) {
                 $doc->is_owner = true;
                 return $doc;
@@ -117,20 +107,10 @@ class DocumentController extends Controller
         $user = Auth::user();
         $user->refreshStorageUsed();
 
-        $documents = Document::where('user_id', Auth::id())
+        $documents = Document::withCount('shares')
+            ->where('user_id', Auth::id())
             ->latest()
-            ->get([
-                'document_id',
-                'filename',
-                'file_type',
-                'original_size',
-                'in_cloud_size',
-                'status',
-                'fragment_count',
-                'created_at',
-                'error_message',
-                'is_starred'
-            ])
+            ->get()
             ->map(function ($doc) {
                 $doc->is_owner = true;
                 return $doc;
@@ -201,7 +181,11 @@ class DocumentController extends Controller
         $pendingShares = DocumentShare::with(['document', 'sender'])
             ->where('recipient_id', Auth::id())
             ->where('status', 'pending')
-            ->get();
+            ->get()
+            ->map(function ($share) {
+                $share->is_expired = $share->expires_at && $share->expires_at->isPast();
+                return $share;
+            });
 
         // Fetch shares sent by the user, grouped by document
         $sentShares = DocumentShare::with(['document', 'recipient'])
@@ -262,6 +246,13 @@ class DocumentController extends Controller
 
             // 2. Dispatch the rest to the background
             \App\Jobs\ProcessSteganoJob::dispatch($document->document_id, $encryptedPath);
+
+            DocumentActivity::create([
+                'document_id' => $document->document_id,
+                'user_id' => Auth::id(),
+                'action' => 'locking_started',
+                'metadata' => ['filename' => $document->filename]
+            ]);
 
             return [
                 'isLocked' => true,
@@ -450,10 +441,21 @@ class DocumentController extends Controller
         $isOwner = $document->user_id === Auth::id();
         if (!$isOwner) {
             // Check if it's an accepted share
-            DocumentShare::where('document_id', $document->document_id)
+            $share = DocumentShare::where('document_id', $document->document_id)
                 ->where('recipient_id', Auth::id())
                 ->where('status', 'accepted')
                 ->firstOrFail();
+
+            if ($share->expires_at && $share->expires_at->isPast()) {
+                abort(403, 'This share has expired.');
+            }
+
+            // Log activity for the recipient unlocking the file
+            DocumentActivity::create([
+                'document_id' => $document->document_id,
+                'user_id' => Auth::id(),
+                'action' => 'unlocked'
+            ]);
         }
 
         if (!in_array($document->status, ['stored', 'decrypted', 'retrieved'])) {
@@ -471,7 +473,7 @@ class DocumentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Unlocking file',
-            'status' => 'stored'
+            'status' => $isOwner ? $document->status : ($share->processing_status ?? 'stored')
         ]);
     }
 
@@ -481,19 +483,32 @@ class DocumentController extends Controller
     public function download($id)
     {
         $document = Document::findOrFail($id);
+        $userId = Auth::id();
+        $status = $document->status;
 
-        if ($document->status !== 'decrypted') {
+        if ($document->user_id !== $userId) {
+            $share = DocumentShare::where('document_id', $id)
+                ->where('recipient_id', $userId)
+                ->firstOrFail();
+            $status = $share->processing_status;
+        }
+
+        if ($status !== 'decrypted' && $status !== 'retrieved') {
             abort(400, 'File not ready');
         }
 
-        $path = 'temp/decrypted/' . $document->filename;
+        $path = 'temp/decrypted/' . $userId . '/' . $document->document_id . '/' . $document->filename;
 
         if (!Storage::exists($path)) {
             abort(404, 'File missing');
         }
 
         // Update status to retrieved
-        $document->update(['status' => 'retrieved']);
+        if ($document->user_id !== $userId) {
+            $share->update(['processing_status' => 'retrieved']);
+        } else {
+            $document->update(['status' => 'retrieved']);
+        }
 
         return Storage::download($path, $document->filename);
     }
@@ -557,6 +572,12 @@ class DocumentController extends Controller
             }
 
             // 5. Delete DB record (Cascade delete handles fragments, stego_maps, stego_files)
+            DocumentActivity::create([
+                'document_id' => $document->document_id,
+                'user_id' => Auth::id(),
+                'action' => 'deleted',
+                'metadata' => ['filename' => $document->filename]
+            ]);
             $document->forceDelete();
 
             return response()->json(['message' => 'Document and associated cloud files deleted successfully']);
@@ -604,6 +625,20 @@ class DocumentController extends Controller
     public function getStatus($id)
     {
         $document = Document::findOrFail($id);
+        
+        // If recipient, get status from shares table
+        if ($document->user_id !== Auth::id()) {
+            $share = DocumentShare::where('document_id', $id)
+                ->where('recipient_id', Auth::id())
+                ->first();
+            
+            if ($share && $share->processing_status) {
+                return response()->json([
+                    'status' => $share->processing_status,
+                    'error_message' => null, // We could add this to shares table too if needed
+                ]);
+            }
+        }
 
         return response()->json([
             'status' => $document->status,
@@ -618,17 +653,26 @@ class DocumentController extends Controller
         ]);
 
         $document = Document::findOrFail($request->document_id);
+        $userId = Auth::id();
 
-        abort_if(!in_array($document->status, ['decrypted', 'retrieved']), 400, 'Invalid state');
+        // Check if recipient
+        if ($document->user_id !== $userId) {
+            $share = DocumentShare::where('document_id', $document->document_id)
+                ->where('recipient_id', $userId)
+                ->firstOrFail();
+            
+            abort_if(!in_array($share->processing_status, ['decrypted', 'retrieved']), 400, 'Invalid state');
 
-        $document->update([
-            'status' => 'stored'
-        ]);
+            $share->update(['processing_status' => null]);
+        } else {
+            abort_if(!in_array($document->status, ['decrypted', 'retrieved']), 400, 'Invalid state');
+            $document->update(['status' => 'stored']);
+        }
 
-        // Cleanup local decrypted file
-        $localPath = 'temp/decrypted/' . $document->filename;
+        // Cleanup local decrypted file for THIS user
+        $localPath = 'temp/decrypted/' . $userId . '/' . $document->document_id . '/' . $document->filename;
         if (Storage::exists($localPath)) {
-            Storage::delete($localPath);
+            Storage::deleteDirectory('temp/decrypted/' . $userId . '/' . $document->document_id);
         }
 
         return [
@@ -648,14 +692,20 @@ class DocumentController extends Controller
     {
         $request->validate([
             'document_id' => 'required|exists:documents,document_id',
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email',
         ]);
 
         $document = Document::where('document_id', $request->document_id)
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
-        $recipient = \App\Models\User::where('email', $request->email)->firstOrFail();
+        $recipient = \App\Models\User::where('email', $request->email)->first();
+
+        if (!$recipient) {
+            return response()->json([
+                'error' => "The user with email '{$request->email}' was not found. Please ensure they have an account on Stegolock before sharing."
+            ], 404);
+        }
 
         if ($recipient->id === Auth::id()) {
             return response()->json(['error' => 'You cannot share a document with yourself.'], 422);
@@ -683,21 +733,31 @@ class DocumentController extends Controller
         $systemKey = $this->parseKey(config('app.share_key') ?? config('app.key'));
         $wrapped = $this->cryptoService->wrapDek($dek, $systemKey);
 
-        // 3. Create or update the share
-        DocumentShare::updateOrCreate(
-            [
+        // 3. Create or update the share and log activity in transaction
+        \Illuminate\Support\Facades\DB::transaction(function() use ($document, $recipient, $wrapped) {
+            DocumentShare::updateOrCreate(
+                [
+                    'document_id' => $document->document_id,
+                    'recipient_id' => $recipient->id,
+                ],
+                [
+                    'sender_id' => Auth::id(),
+                    'encrypted_dek' => base64_encode($wrapped['encrypted_dek']),
+                    'dek_nonce' => base64_encode($wrapped['nonce']),
+                    'dek_tag' => base64_encode($wrapped['tag']),
+                    'dk_salt' => base64_encode($wrapped['salt']),
+                    'status' => 'pending',
+                    'expires_at' => now()->addHours(24),
+                ]
+            );
+
+            DocumentActivity::create([
                 'document_id' => $document->document_id,
-                'recipient_id' => $recipient->id,
-            ],
-            [
-                'sender_id' => Auth::id(),
-                'encrypted_dek' => base64_encode($wrapped['encrypted_dek']),
-                'dek_nonce' => base64_encode($wrapped['nonce']),
-                'dek_tag' => base64_encode($wrapped['tag']),
-                'dk_salt' => base64_encode($wrapped['salt']),
-                'status' => 'pending',
-            ]
-        );
+                'user_id' => Auth::id(),
+                'action' => 'shared',
+                'metadata' => ['recipient_email' => $recipient->email, 'recipient_name' => $recipient->name]
+            ]);
+        });
 
         return response()->json(['message' => 'Document shared successfully with ' . $recipient->name]);
     }
@@ -712,6 +772,10 @@ class DocumentController extends Controller
             ->where('recipient_id', Auth::id())
             ->where('status', 'pending')
             ->firstOrFail();
+
+        if ($share->expires_at && $share->expires_at->isPast()) {
+            return response()->json(['error' => 'This share invitation has expired.'], 403);
+        }
 
         $masterKey = session('master_key');
         if (!$masterKey) {
@@ -744,6 +808,13 @@ class DocumentController extends Controller
             'status' => 'accepted',
         ]);
 
+        // 4. Log Activity
+        DocumentActivity::create([
+            'document_id' => $share->document_id,
+            'user_id' => Auth::id(),
+            'action' => 'accepted'
+        ]);
+
         return response()->json(['message' => 'Share accepted successfully.']);
     }
 
@@ -755,12 +826,26 @@ class DocumentController extends Controller
         ]);
 
         if ($request->share_id) {
-            DocumentShare::where('share_id', $request->share_id)
+            $share = DocumentShare::where('share_id', $request->share_id)
                 ->where(function ($q) {
                     $q->where('sender_id', Auth::id())
                       ->orWhere('recipient_id', Auth::id());
                 })
-                ->delete();
+                ->firstOrFail();
+            
+            \Illuminate\Support\Facades\DB::transaction(function() use ($share) {
+                DocumentActivity::create([
+                    'document_id' => $share->document_id,
+                    'user_id' => Auth::id(),
+                    'action' => 'removed',
+                    'metadata' => [
+                        'target_user_id' => $share->recipient_id, 
+                        'target_user_email' => $share->recipient ? $share->recipient->email : 'Unknown'
+                    ]
+                ]);
+
+                $share->delete();
+            });
             return response()->json(['message' => 'Access removed.']);
         }
 
@@ -768,12 +853,28 @@ class DocumentController extends Controller
             // If I'm the owner/sender, remove all shares
             DocumentShare::where('document_id', $request->document_id)
                 ->where('sender_id', Auth::id())
-                ->delete();
+                ->each(function($share) {
+                    DocumentActivity::create([
+                        'document_id' => $share->document_id,
+                        'user_id' => Auth::id(),
+                        'action' => 'removed',
+                        'metadata' => ['target_user_id' => $share->recipient_id]
+                    ]);
+                    $share->delete();
+                });
                 
             // If I'm the recipient, remove just my share
             DocumentShare::where('document_id', $request->document_id)
                 ->where('recipient_id', Auth::id())
-                ->delete();
+                ->each(function($share) {
+                     DocumentActivity::create([
+                        'document_id' => $share->document_id,
+                        'user_id' => Auth::id(),
+                        'action' => 'removed',
+                        'metadata' => ['self' => true]
+                    ]);
+                    $share->delete();
+                });
 
             return response()->json(['message' => 'Access removed.']);
         }
@@ -1047,5 +1148,49 @@ class DocumentController extends Controller
         }
 
         abort(404, 'Document not found or access denied');
+    }
+    public function getActivity($id)
+    {
+        $document = Document::where('document_id', $id)
+            ->where(function ($q) {
+                $q->where('user_id', Auth::id())
+                  ->orWhereIn('document_id', function ($sq) {
+                      $sq->select('document_id')
+                        ->from('document_shares')
+                        ->where('recipient_id', Auth::id())
+                        ->where('status', 'accepted');
+                  });
+            })
+            ->firstOrFail();
+
+        $activities = DocumentActivity::with('user:id,name,email')
+            ->where('document_id', $id)
+            ->latest()
+            ->get();
+
+        return response()->json($activities);
+    }
+
+    public function getRecipients($id)
+    {
+        $document = Document::where('document_id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $shares = DocumentShare::with('recipient:id,name,email')
+            ->where('document_id', $id)
+            ->get()
+            ->map(function ($share) {
+                return [
+                    'share_id' => $share->share_id,
+                    'user' => $share->recipient,
+                    'status' => $share->status,
+                    'is_expired' => $share->expires_at && $share->expires_at->isPast(),
+                    'expires_at' => $share->expires_at,
+                    'created_at' => $share->created_at,
+                ];
+            });
+
+        return response()->json($shares);
     }
 }

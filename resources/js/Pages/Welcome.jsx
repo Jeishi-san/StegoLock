@@ -91,18 +91,6 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     alt="StegoLock Security Model"
                                     className="relative z-10 w-full max-w-lg mx-auto rounded-3xl shadow-2xl border border-white/50"
                                 />
-                                {/* Floating stats or elements */}
-                                <div className="absolute -bottom-6 -left-6 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 hidden md:block animate-bounce-slow">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-green-100 p-2 rounded-lg">
-                                            <CheckCircle className="size-5 text-green-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 font-medium">Encryption</p>
-                                            <p className="text-sm font-bold text-gray-900">AES-256 GCM</p>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -268,7 +256,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                             <h4 className="font-bold text-gray-900 mb-6">Technologies</h4>
                             <ul className="space-y-4 text-gray-500">
                                 <li className="flex items-center gap-2 text-sm"><div className="size-1 bg-indigo-400 rounded-full"></div> AES-256 GCM</li>
-                                <li className="flex items-center gap-2 text-sm"><div className="size-1 bg-indigo-400 rounded-full"></div> RSA / KDF</li>
+                                <li className="flex items-center gap-2 text-sm"><div className="size-1 bg-indigo-400 rounded-full"></div> KDF</li>
                                 <li className="flex items-center gap-2 text-sm"><div className="size-1 bg-indigo-400 rounded-full"></div> Steganography</li>
                             </ul>
                         </div>

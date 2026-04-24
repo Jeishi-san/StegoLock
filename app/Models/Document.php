@@ -58,4 +58,9 @@ class Document extends Model
     {
         return $this->hasMany(DocumentShare::class, 'document_id', 'document_id');
     }
+
+    public function activities()
+    {
+        return $this->hasMany(DocumentActivity::class, 'document_id', 'document_id');
+    }
 }

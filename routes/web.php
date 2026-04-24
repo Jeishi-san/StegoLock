@@ -89,6 +89,8 @@ Route::middleware('auth')->group(function () {
         ->name('documents.share.accept');
     Route::post('/documents/share/remove', [DocumentController::class, 'removeAccess'])
         ->name('documents.share.remove');
+    Route::get('/documents/activity/{id}', [DocumentController::class, 'getActivity']);
+    Route::get('/documents/recipients/{id}', [DocumentController::class, 'getRecipients']);
 
 });
 

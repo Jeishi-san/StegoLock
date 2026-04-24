@@ -18,7 +18,12 @@ class DocumentShare extends Model
         'dek_tag',
         'dk_salt',
         'status',
+        'processing_status',
         'expires_at',
+    ];
+
+    protected $casts = [
+        'expires_at' => 'datetime',
     ];
 
     public function document()
