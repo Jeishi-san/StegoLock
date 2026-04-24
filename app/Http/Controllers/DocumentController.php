@@ -30,17 +30,89 @@ use App\Models\FragmentMap;
 use App\Models\StegoFile;
 use App\Models\StegoMap;
 use App\Models\Folder;
+use App\Models\DocumentShare;
+use App\Services\CryptoService;
 
 
 
 class DocumentController extends Controller
 {
     protected $primaryKey = 'document_id';
+    protected $cryptoService;
+
+    public function __construct(CryptoService $cryptoService)
+    {
+        $this->cryptoService = $cryptoService;
+    }
 
     /**
      * Returns json containing the current user's documents, totalStorage, and storageLimit
      */
-    public function index()
+    public function index(Request $request)
+    {
+        $user = Auth::user();
+        $user->refreshStorageUsed();
+        $folderId = $request->folder_id;
+
+        // Fetch owned documents
+        $query = Document::where('user_id', Auth::id())
+            ->where('folder_id', $folderId)
+            ->latest();
+
+        $documents = $query->get([
+                'document_id',
+                'filename',
+                'file_type',
+                'original_size',
+                'in_cloud_size',
+                'status',
+                'fragment_count',
+                'created_at',
+                'error_message',
+                'is_starred',
+                'folder_id'
+            ])
+            ->map(function ($doc) {
+                $doc->is_owner = true;
+                return $doc;
+            });
+
+        // If folder_id is provided, also fetch shared documents in this folder
+        if ($folderId) {
+            $sharedDocs = DocumentShare::with('document')
+                ->where('recipient_id', Auth::id())
+                ->where('folder_id', $folderId)
+                ->where('status', 'accepted')
+                ->get()
+                ->map(function ($share) {
+                    $doc = $share->document;
+                    $doc->is_owner = false;
+                    $doc->is_shared = true;
+                    $doc->folder_id = $share->folder_id;
+                    $doc->share_id = $share->share_id;
+                    return $doc;
+                });
+            
+            $documents = $documents->concat($sharedDocs)->sortByDesc('created_at')->values();
+        }
+
+        $folders = \App\Models\Folder::where('user_id', Auth::id())
+            ->orderBy('name')
+            ->get();
+
+        $currentFolder = $folderId ? \App\Models\Folder::find($folderId) : null;
+
+        return Inertia::render('MyDocuments', [
+            'documents' => $documents,
+            'folders' => $folders,
+            'currentFolder' => $currentFolder,
+            'totalStorage' => $user->storage_used,
+            'storageLimit' => $user->storage_limit,
+            'title' => $currentFolder ? $currentFolder->name : 'My Documents'
+        ]);
+    }
+
+    public function allDocumentsIndex()
     {
         $user = Auth::user();
         $user->refreshStorageUsed();
@@ -58,14 +130,113 @@ class DocumentController extends Controller
                 'created_at',
                 'error_message',
                 'is_starred'
-            ]);
+            ])
+            ->map(function ($doc) {
+                $doc->is_owner = true;
+                return $doc;
+            });
+
+        // Fetch documents shared with the user
+        $sharedDocs = Document::whereIn('document_id', function ($query) {
+                $query->select('document_id')
+                    ->from('document_shares')
+                    ->where('recipient_id', Auth::id())
+                    ->where('status', 'accepted');
+            })
+            ->latest()
+            ->get([
+                'document_id',
+                'filename',
+                'file_type',
+                'original_size',
+                'in_cloud_size',
+                'status',
+                'fragment_count',
+                'created_at',
+                'error_message',
+                'is_starred'
+            ])
+            ->map(function ($doc) {
+                $doc->is_owner = false;
+                $doc->is_shared = true;
+                return $doc;
+            });
+
+        $allDocuments = $documents->concat($sharedDocs)->sortByDesc('created_at')->values();
 
         $folders = \App\Models\Folder::where('user_id', Auth::id())
             ->orderBy('name')
             ->get();
 
         return Inertia::render('MyDocuments', [
-            'documents' => $documents,
+            'documents' => $allDocuments,
+            'folders' => $folders,
+            'totalStorage' => $user->storage_used,
+            'storageLimit' => $user->storage_limit,
+            'title' => 'All Documents'
+        ]);
+    }
+
+    public function sharedIndex()
+    {
+        $user = Auth::user();
+        $user->refreshStorageUsed();
+
+        // Fetch accepted shared documents
+        $acceptedShares = Document::whereIn('document_id', function ($query) {
+                $query->select('document_id')
+                    ->from('document_shares')
+                    ->where('recipient_id', Auth::id())
+                    ->where('status', 'accepted');
+            })
+            ->latest()
+            ->get()
+            ->map(function ($doc) {
+                $doc->is_owner = false;
+                $doc->is_shared = true;
+                return $doc;
+            });
+
+        // Fetch pending shares
+        $pendingShares = DocumentShare::with(['document', 'sender'])
+            ->where('recipient_id', Auth::id())
+            ->where('status', 'pending')
+            ->get();
+
+        // Fetch shares sent by the user, grouped by document
+        $sentShares = DocumentShare::with(['document', 'recipient'])
+            ->where('sender_id', Auth::id())
+            ->latest()
+            ->get()
+            ->groupBy('document_id')
+            ->map(function ($shares) {
+                $doc = $shares->first()->document;
+                return [
+                    'document_id' => $doc->document_id,
+                    'filename' => $doc->filename,
+                    'file_type' => $doc->file_type,
+                    'created_at' => $doc->created_at,
+                    'recipients' => $shares->map(function ($share) {
+                        return [
+                            'share_id' => $share->share_id,
+                            'name' => $share->recipient->name,
+                            'email' => $share->recipient->email,
+                            'status' => $share->status,
+                            'shared_at' => $share->created_at,
+                        ];
+                    })
+                ];
+            })
+            ->values();
+
+        $folders = \App\Models\Folder::where('user_id', Auth::id())
+            ->orderBy('name')
+            ->get();
+
+        return Inertia::render('SharedDocuments', [
+            'documents' => $acceptedShares,
+            'pendingShares' => $pendingShares,
+            'sentShares' => $sentShares,
             'folders' => $folders,
             'totalStorage' => $user->storage_used,
             'storageLimit' => $user->storage_limit,
@@ -276,6 +447,15 @@ class DocumentController extends Controller
     {
         $document = Document::findOrFail($request->document_id);
 
+        $isOwner = $document->user_id === Auth::id();
+        if (!$isOwner) {
+            // Check if it's an accepted share
+            DocumentShare::where('document_id', $document->document_id)
+                ->where('recipient_id', Auth::id())
+                ->where('status', 'accepted')
+                ->firstOrFail();
+        }
+
         if (!in_array($document->status, ['stored', 'decrypted', 'retrieved'])) {
             abort(400, 'Invalid document status for unlocking');
         }
@@ -286,13 +466,12 @@ class DocumentController extends Controller
         }
 
         // Dispatch the unlocking process to the background
-        // Base64 encode the key to avoid JSON encoding errors with binary data
-        \App\Jobs\ProcessUnlockJob::dispatch($document->document_id, base64_encode($masterKey));
+        \App\Jobs\ProcessUnlockJob::dispatch($document->document_id, base64_encode($masterKey), Auth::id());
 
         return response()->json([
             'success' => true,
             'message' => 'Unlocking file',
-            'status' => 'stored' // It stays stored while fetching
+            'status' => 'stored'
         ]);
     }
 
@@ -455,6 +634,151 @@ class DocumentController extends Controller
         return [
             'message' => 'Document kept successfully'
         ];
+    }
+
+    private function parseKey($key)
+    {
+        if (str_starts_with($key, 'base64:')) {
+            return base64_decode(substr($key, 7));
+        }
+        return $key;
+    }
+
+    public function share(Request $request)
+    {
+        $request->validate([
+            'document_id' => 'required|exists:documents,document_id',
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $document = Document::where('document_id', $request->document_id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $recipient = \App\Models\User::where('email', $request->email)->firstOrFail();
+
+        if ($recipient->id === Auth::id()) {
+            return response()->json(['error' => 'You cannot share a document with yourself.'], 422);
+        }
+
+        $masterKey = session('master_key');
+        if (!$masterKey) {
+            return response()->json(['error' => 'Master key not found in session.'], 403);
+        }
+
+        // 1. Unwrap the DEK using Owner's Master Key
+        $dek = $this->cryptoService->unwrapDek(
+            base64_decode($document->encrypted_dek),
+            $masterKey,
+            base64_decode($document->dek_nonce),
+            base64_decode($document->dek_tag),
+            base64_decode($document->dk_salt)
+        );
+
+        if (!$dek) {
+             return response()->json(['error' => 'Failed to unwrap document key.'], 500);
+        }
+
+        // 2. Wrap the DEK using the System Share Key
+        $systemKey = $this->parseKey(config('app.share_key') ?? config('app.key'));
+        $wrapped = $this->cryptoService->wrapDek($dek, $systemKey);
+
+        // 3. Create or update the share
+        DocumentShare::updateOrCreate(
+            [
+                'document_id' => $document->document_id,
+                'recipient_id' => $recipient->id,
+            ],
+            [
+                'sender_id' => Auth::id(),
+                'encrypted_dek' => base64_encode($wrapped['encrypted_dek']),
+                'dek_nonce' => base64_encode($wrapped['nonce']),
+                'dek_tag' => base64_encode($wrapped['tag']),
+                'dk_salt' => base64_encode($wrapped['salt']),
+                'status' => 'pending',
+            ]
+        );
+
+        return response()->json(['message' => 'Document shared successfully with ' . $recipient->name]);
+    }
+
+    public function acceptShare(Request $request)
+    {
+        $request->validate([
+            'document_id' => 'required|exists:documents,document_id',
+        ]);
+
+        $share = DocumentShare::where('document_id', $request->document_id)
+            ->where('recipient_id', Auth::id())
+            ->where('status', 'pending')
+            ->firstOrFail();
+
+        $masterKey = session('master_key');
+        if (!$masterKey) {
+            return response()->json(['error' => 'Master key not found in session.'], 403);
+        }
+
+        // 1. Unwrap with System Key
+        $systemKey = $this->parseKey(config('app.share_key') ?? config('app.key'));
+        $dek = $this->cryptoService->unwrapDek(
+            base64_decode($share->encrypted_dek),
+            $systemKey,
+            base64_decode($share->dek_nonce),
+            base64_decode($share->dek_tag),
+            base64_decode($share->dk_salt)
+        );
+
+        if (!$dek) {
+             return response()->json(['error' => 'Failed to unwrap document key.'], 500);
+        }
+
+        // 2. Re-wrap with User B's Master Key
+        $wrapped = $this->cryptoService->wrapDek($dek, $masterKey);
+
+        // 3. Update share status and wrapped DEK
+        $share->update([
+            'encrypted_dek' => base64_encode($wrapped['encrypted_dek']),
+            'dek_nonce' => base64_encode($wrapped['nonce']),
+            'dek_tag' => base64_encode($wrapped['tag']),
+            'dk_salt' => base64_encode($wrapped['salt']),
+            'status' => 'accepted',
+        ]);
+
+        return response()->json(['message' => 'Share accepted successfully.']);
+    }
+
+    public function removeAccess(Request $request)
+    {
+        $request->validate([
+            'document_id' => 'nullable|exists:documents,document_id',
+            'share_id' => 'nullable|exists:document_shares,share_id',
+        ]);
+
+        if ($request->share_id) {
+            DocumentShare::where('share_id', $request->share_id)
+                ->where(function ($q) {
+                    $q->where('sender_id', Auth::id())
+                      ->orWhere('recipient_id', Auth::id());
+                })
+                ->delete();
+            return response()->json(['message' => 'Access removed.']);
+        }
+
+        if ($request->document_id) {
+            // If I'm the owner/sender, remove all shares
+            DocumentShare::where('document_id', $request->document_id)
+                ->where('sender_id', Auth::id())
+                ->delete();
+                
+            // If I'm the recipient, remove just my share
+            DocumentShare::where('document_id', $request->document_id)
+                ->where('recipient_id', Auth::id())
+                ->delete();
+
+            return response()->json(['message' => 'Access removed.']);
+        }
+
+        return response()->json(['error' => 'Invalid request.'], 422);
     }
 
 
@@ -691,25 +1015,37 @@ class DocumentController extends Controller
             'folder_id' => 'nullable|exists:folders,folder_id'
         ]);
 
+        $userId = Auth::id();
+
+        // 1. Check if user owns the document
         $document = Document::where('document_id', $id)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
+            ->where('user_id', $userId)
+            ->first();
 
-        if ($request->folder_id) {
-            Folder::where('folder_id', $request->folder_id)
-                ->where('user_id', Auth::id())
-                ->firstOrFail();
-
+        if ($document) {
             $document->folder_id = $request->folder_id;
-        } else {
-            $document->folder_id = null;
+            $document->save();
+            return response()->json([
+                'message' => 'Document moved successfully',
+                'document' => $document
+            ]);
         }
 
-        $document->save();
+        // 2. Check if user is a recipient of a share for this document
+        $share = DocumentShare::where('document_id', $id)
+            ->where('recipient_id', $userId)
+            ->where('status', 'accepted')
+            ->first();
 
-        return response()->json([
-            'message' => 'Document moved successfully',
-            'document' => $document
-        ]);
+        if ($share) {
+            $share->folder_id = $request->folder_id;
+            $share->save();
+            return response()->json([
+                'message' => 'Shared document moved successfully',
+                'share' => $share
+            ]);
+        }
+
+        abort(404, 'Document not found or access denied');
     }
 }

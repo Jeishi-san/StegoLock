@@ -53,4 +53,9 @@ class Document extends Model
     {
         return $this->hasMany(Fragment::class, 'document_id', 'document_id');
     }
+
+    public function shares()
+    {
+        return $this->hasMany(DocumentShare::class, 'document_id', 'document_id');
+    }
 }

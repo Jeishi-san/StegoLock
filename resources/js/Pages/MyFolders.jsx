@@ -137,7 +137,10 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
                                         </Dropdown>
                                     </div>
 
-                                    <div className="flex flex-col items-center justify-center py-4">
+                                    <div 
+                                        className="flex flex-col items-center justify-center py-4 cursor-pointer"
+                                        onClick={() => router.visit(`/myDocuments?folder_id=${folder.folder_id}`)}
+                                    >
                                         <FolderOpen className="size-16 text-indigo-500 mb-2" />
                                         <h3 className="text-md font-semibold text-gray-800 truncate w-full text-center">
                                             {folder.name}

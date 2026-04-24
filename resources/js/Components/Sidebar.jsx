@@ -209,9 +209,18 @@ export function Sidebar({
 
                         <NavLink
                             href={route('sharedDocuments')}
-                            active={route().current('/sharedDocuments')}
+                            active={route().current('sharedDocuments')}
                             icon={Users}
-                        >Shared With Me</NavLink>
+                        >
+                            <div className="flex items-center justify-between w-full">
+                                <span>Shared With Me</span>
+                                {usePage().props.pendingSharesCount > 0 && (
+                                    <span className="flex items-center justify-center size-5 text-[10px] font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
+                                        {usePage().props.pendingSharesCount}
+                                    </span>
+                                )}
+                            </div>
+                        </NavLink>
 
                         <NavLink
                             href={route('starredDocuments')}

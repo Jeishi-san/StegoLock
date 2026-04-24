@@ -64,6 +64,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Shares sent by the user.
+     */
+    public function sentShares()
+    {
+        return $this->hasMany(DocumentShare::class, 'sender_id');
+    }
+
+    /**
+     * Shares received by the user.
+     */
+    public function receivedShares()
+    {
+        return $this->hasMany(DocumentShare::class, 'recipient_id');
+    }
+
+    /**
      * Recalculate and update the storage_used column based on the sum of in_cloud_size of all user's documents.
      */
     public function refreshStorageUsed(): void

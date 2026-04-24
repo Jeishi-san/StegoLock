@@ -1,5 +1,5 @@
 import { Shield, FileText, Star, MoreVertical,
-    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle, FolderOpen, FolderTree } from 'lucide-react';
+    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle, FolderOpen, FolderTree, ArrowLeft } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatBytes, formatDate } from '@/Utils/fileUtils';
 import { Inertia } from '@inertiajs/inertia';
@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import Tooltip from '@/Components/Tooltip';
+import { ShareFileModal } from '@/Components/modals/ShareFileModal';
 
 // ADD THIS
 import {
@@ -21,7 +22,7 @@ import {
 } from '@floating-ui/react';
 
 
-export default function MyDocuments({ documents, folders, totalStorage, storageLimit }) {
+export default function MyDocuments({ documents, folders, currentFolder, totalStorage, storageLimit, title = "My Documents" }) {
 
     const menuRef = useRef(null);
 
@@ -29,7 +30,9 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
     const [openMenuId, setOpenMenuId] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showMoveModal, setShowMoveModal] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState(null);
+    const [selectedDocForShare, setSelectedDocForShare] = useState(null);
     const [showKeepFileModal, setShowKeepFileModal] = useState(null);
     const [unlockingProgress, setUnlockingProgress] = useState(() => {
         const saved = localStorage.getItem('stegolock_unlocking_progress');
@@ -355,21 +358,24 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
 
     // after download
     const keepFile = async () => {
+        const doc = localDocs.find(d => d.document_id === selectedDocId);
+        const filename = doc ? doc.filename : 'File';
+
         //toast steps
-        const toastId = toast.loading('Keeping file...');
+        const toastId = toast.loading(`Keeping ${filename}...`);
 
         try {
             const resp = await axios.post('/documents/keep', {
                 document_id: selectedDocId
             });
 
-            sleep(2000);
-            toast.success('File kept.', { id: toastId });
+            await sleep(2000);
+            toast.success(`${filename} is kept.`, { id: toastId });
 
             setShowKeepFileModal(null);
             setSelectedDocId(null);
         } catch (err) {
-            toast.error('Failed to keep file.', { id: toastId });
+            toast.error(`Failed to keep ${filename}.`, { id: toastId });
         }
     };
 
@@ -401,9 +407,20 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    My Documents
-                </h2>
+                <div className="flex items-center gap-4">
+                    {currentFolder && (
+                        <button 
+                            onClick={() => router.visit(route('myFolders'))}
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            title="Back to folders"
+                        >
+                            <ArrowLeft className="size-6 text-gray-600" />
+                        </button>
+                    )}
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                        {currentFolder ? currentFolder.name : title}
+                    </h2>
+                </div>
             }
             totalStorage={totalStorage}
             storageLimit={storageLimit}
@@ -511,7 +528,7 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
                                                 top: y ?? 0,
                                                 left: x ?? 0
                                             }}
-                                            className="w-36 bg-white border rounded-xl shadow-lg z-50 overflow-hidden"
+                                            className="w-48 bg-white border rounded-xl shadow-lg z-50 overflow-hidden py-1"
                                         >
 
                                             {/* Retrieve / Download */}
@@ -544,10 +561,19 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
                                             <div className="border-t" />
 
                                             {/* Share */}
-                                            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
-                                                <Share2 className="w-4 h-4 text-gray-600" />
-                                                Share File
-                                            </button>
+                                            {doc.is_owner && (
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedDocForShare(doc);
+                                                        setShowShareModal(true);
+                                                        setOpenMenuId(null);
+                                                    }}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
+                                                    <Share2 className="w-4 h-4 text-gray-600" />
+                                                    Share File
+                                                </button>
+                                            )}
 
                                             {/* Info */}
                                             <button
@@ -692,6 +718,13 @@ export default function MyDocuments({ documents, folders, totalStorage, storageL
 
                     </div>
                 </div>
+            )}
+
+            {showShareModal && (
+                <ShareFileModal 
+                    document={selectedDocForShare}
+                    onClose={() => setShowShareModal(false)}
+                />
             )}
 
         </AuthenticatedLayout>

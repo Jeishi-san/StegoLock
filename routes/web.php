@@ -29,10 +29,10 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::get('/myFolders', [FolderController::class, 'index'])
         ->name('myFolders');
 
-    Route::get('/allDocuments', [DocumentController::class, 'index'])
+    Route::get('/allDocuments', [DocumentController::class, 'allDocumentsIndex'])
         ->name('allDocuments');
 
-    Route::get('/sharedDocuments', [DocumentController::class, 'index'])
+    Route::get('/sharedDocuments', [DocumentController::class, 'sharedIndex'])
         ->name('sharedDocuments');
         
     Route::get('/starredDocuments', [StarredController::class, 'index'])
@@ -81,6 +81,14 @@ Route::middleware('auth')->group(function () {
     Route::put('/folders/{id}', [FolderController::class, 'update']);
     Route::delete('/folders/{id}', [FolderController::class, 'destroy']);
     Route::put('/documents/{id}/move', [DocumentController::class, 'moveDocument']);
+
+    // Document Sharing
+    Route::post('/documents/share', [DocumentController::class, 'share'])
+        ->name('documents.share');
+    Route::post('/documents/share/accept', [DocumentController::class, 'acceptShare'])
+        ->name('documents.share.accept');
+    Route::post('/documents/share/remove', [DocumentController::class, 'removeAccess'])
+        ->name('documents.share.remove');
 
 });
 
