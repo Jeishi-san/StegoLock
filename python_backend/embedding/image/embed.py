@@ -17,9 +17,10 @@ def get_image_safe_capacity(image_path):
     """
     img = Image.open(image_path)
     width, height = img.size
+    channels = len(img.getbands()) # RGB=3, RGBA=4
 
-    # Total bits in LSB RGB embedding
-    total_bits = width * height * 3
+    # Total bits in LSB embedding
+    total_bits = width * height * channels
 
     # Convert to bytes
     total_bytes = total_bits // 8
@@ -33,46 +34,48 @@ def get_image_safe_capacity(image_path):
 def embed(image_path, output_path, data_bytes):
     # Open image
     img = Image.open(image_path)
-    img = img.convert('RGB')
-
-    pixels = list(img.getdata())
+    # Support both RGB and RGBA
+    if img.mode not in ['RGB', 'RGBA']:
+        img = img.convert('RGB')
+    
+    mode = img.mode
+    channels = len(img.getbands())
+    width, height = img.size
 
     # Add delimiter
     DELIMITER = b'###END###'
-    data_bytes += DELIMITER
-    binary_data = to_binary(data_bytes)
+    full_payload = data_bytes + DELIMITER
+    binary_data = to_binary(full_payload)
+    data_len = len(binary_data)
 
     # Check payload against safe capacity
+    # Important: Subtract delimiter size from safe_bytes check or include it in length
     _, _, safe_bytes = get_image_safe_capacity(image_path)
+    
     if len(data_bytes) > safe_bytes:
         raise Exception(f"Payload too large! Max safe size: {safe_bytes} bytes")
 
-    binary_data = to_binary(data_bytes)
-    data_len = len(binary_data)
+    px = img.load()
     data_index = 0
-    new_pixels = []
 
-    # Embed each bit into LSB of R, G, B
-    for pixel in pixels:
-        r, g, b = pixel
+    # Embed each bit into LSB of each channel
+    for y in range(height):
+        for x in range(width):
+            if data_index >= data_len:
+                break
+            
+            pixel = list(px[x, y])
+            for c in range(channels):
+                if data_index < data_len:
+                    pixel[c] = (pixel[c] & ~1) | int(binary_data[data_index])
+                    data_index += 1
+            
+            px[x, y] = tuple(pixel)
+        
+        if data_index >= data_len:
+            break
 
-        if data_index < data_len:
-            r = (r & ~1) | int(binary_data[data_index])
-            data_index += 1
-
-        if data_index < data_len:
-            g = (g & ~1) | int(binary_data[data_index])
-            data_index += 1
-
-        if data_index < data_len:
-            b = (b & ~1) | int(binary_data[data_index])
-            data_index += 1
-
-        new_pixels.append((r, g, b))
-
-    img.putdata(new_pixels)
     img.save(output_path)
-
     print(0) #offset: to be stored in the map of fragment to cover metadata
 
 # CLI execution

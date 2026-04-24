@@ -54,4 +54,37 @@ class User extends Authenticatable
             'storage_limit' => 'integer',
         ];
     }
+
+    /**
+     * Get the documents for the user.
+     */
+    public function documents()
+    {
+        return $this->hasMany(Document::class);
+    }
+
+    /**
+     * Shares sent by the user.
+     */
+    public function sentShares()
+    {
+        return $this->hasMany(DocumentShare::class, 'sender_id');
+    }
+
+    /**
+     * Shares received by the user.
+     */
+    public function receivedShares()
+    {
+        return $this->hasMany(DocumentShare::class, 'recipient_id');
+    }
+
+    /**
+     * Recalculate and update the storage_used column based on the sum of in_cloud_size of all user's documents.
+     */
+    public function refreshStorageUsed(): void
+    {
+        $totalUsed = $this->documents()->sum('in_cloud_size');
+        $this->update(['storage_used' => $totalUsed]);
+    }
 }

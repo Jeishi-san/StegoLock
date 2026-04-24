@@ -11,6 +11,8 @@ use App\Providers\B2Service;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
+use App\Models\DocumentShare;
+use App\Services\CryptoService;
 use Illuminate\Support\Str;
 
 class ProcessUnlockJob implements ShouldQueue
@@ -19,14 +21,16 @@ class ProcessUnlockJob implements ShouldQueue
 
     protected $documentId;
     protected $base64MasterKey;
+    protected $userId;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(int $documentId, string $base64MasterKey)
+    public function __construct(int $documentId, string $base64MasterKey, int $userId = null)
     {
         $this->documentId = $documentId;
         $this->base64MasterKey = $base64MasterKey;
+        $this->userId = $userId;
     }
 
     /**
@@ -266,24 +270,26 @@ class ProcessUnlockJob implements ShouldQueue
         $tag = substr($data, $nonceLen, $tagLen);
         $ciphertext = substr($data, $nonceLen + $tagLen);
 
-        $dk_salt = base64_decode($document->dk_salt);
-        $masterKey = base64_decode($this->base64MasterKey);
-        $wrapping_key = hash_hkdf('sha256', $masterKey, 32, 'dek-wrapping-key', $dk_salt);
+        $cryptoService = new CryptoService();
 
-        $dek_nonce = base64_decode($document->dek_nonce);
-        $dek_tag = base64_decode($document->dek_tag);
-        $encrypted_dek = base64_decode($document->encrypted_dek);
+        // Determine if we use document's key or share's key
+        $keySource = $document;
+        if ($this->userId && $document->user_id !== $this->userId) {
+            $keySource = DocumentShare::where('document_id', $document->document_id)
+                ->where('recipient_id', $this->userId)
+                ->where('status', 'accepted')
+                ->firstOrFail();
+        }
 
-        $dek = openssl_decrypt(
-            $encrypted_dek,
-            'aes-256-gcm',
-            $wrapping_key,
-            OPENSSL_RAW_DATA,
-            $dek_nonce,
-            $dek_tag
+        $dek = $cryptoService->unwrapDek(
+            base64_decode($keySource->encrypted_dek),
+            base64_decode($this->base64MasterKey),
+            base64_decode($keySource->dek_nonce),
+            base64_decode($keySource->dek_tag),
+            base64_decode($keySource->dk_salt)
         );
 
-        if ($dek === false) {
+        if ($dek === null) {
             throw new \Exception('Failed to unwrap Document Key. Wrong master key?');
         }
 
@@ -291,16 +297,14 @@ class ProcessUnlockJob implements ShouldQueue
             throw new \Exception('Document Key integrity check failed.');
         }
 
-        $plaintext = openssl_decrypt(
+        $plaintext = $cryptoService->decrypt(
             $ciphertext,
-            'aes-256-gcm',
             $dek,
-            OPENSSL_RAW_DATA,
             $nonce,
             $tag
         );
 
-        if ($plaintext === false) {
+        if ($plaintext === null) {
             throw new \Exception('Decryption failed. Possible tampering or wrong key.');
         }
 

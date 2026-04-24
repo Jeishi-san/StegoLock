@@ -38,6 +38,9 @@ class HandleInertiaRequests extends Middleware
                     'created_at',
                 ]),
             ],
+            'pendingSharesCount' => $request->user() 
+                ? \App\Models\DocumentShare::where('recipient_id', $request->user()->id)->where('status', 'pending')->count()
+                : 0,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

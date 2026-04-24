@@ -1,21 +1,38 @@
-import { Shield, Upload } from 'lucide-react';
+import { Shield, FileText, Star, MoreVertical,
+    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle, FolderOpen, FolderTree, ArrowLeft } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { formatBytes, formatDate } from '@/Utils/fileUtils';
+import { Inertia } from '@inertiajs/inertia';
 import { Head } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useForm } from '@inertiajs/react';
+import { useState, useEffect, useRef } from 'react';
+import { router } from '@inertiajs/react';
+import { toast } from 'sonner';
+import Tooltip from '@/Components/Tooltip';
 import { ShareFileModal } from '@/Components/modals/ShareFileModal';
-import { DeleteConfirmModal } from '@/Components/modals/DeleteConfirmModal';
-import DocumentCard from '@/Components/DocumentCard';
-import { useDocumentActions } from '@/hooks/useDocumentActions';
-import { useDocumentStatusPolling } from '@/hooks/useDocumentStatusPolling';
 
-export default function MyDocuments({ documents, totalStorage, storageLimit }) {
+// ADD THIS
+import {
+    useFloating,
+    offset,
+    flip,
+    shift,
+    autoUpdate,
+    size
+} from '@floating-ui/react';
+
+
+export default function MyDocuments({ documents, folders, currentFolder, totalStorage, storageLimit, title = "My Documents" }) {
 
     const menuRef = useRef(null);
 
     const [localDocs, setLocalDocs] = useState(documents);
     const [openMenuId, setOpenMenuId] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState(null);
+    const [selectedDocForShare, setSelectedDocForShare] = useState(null);
     const [showKeepFileModal, setShowKeepFileModal] = useState(null);
     const [unlockingProgress, setUnlockingProgress] = useState(() => {
         const saved = localStorage.getItem('stegolock_unlocking_progress');
@@ -134,7 +151,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
             case 'reconstructed': return 'Decrypting file...';
             case 'decrypted': return 'Decrypted';
             case 'retrieved': return 'Retrieved';
-            case 'failed': return 'Processing failed';
+            case 'failed': return 'Error';
             default: return status.charAt(0).toUpperCase() + status.slice(1);
         }
     };
@@ -272,6 +289,27 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         router.get('/documents/getFileInfo', { id });
     };
 
+    // handleMove
+    const openMoveModal = (id) => {
+        setOpenMenuId(null);
+        setSelectedDocId(id);
+        setShowMoveModal(true);
+    };
+
+    const handleMove = async (folderId) => {
+        const toastId = toast.loading('Moving document...');
+        try {
+            await axios.put(`/documents/${selectedDocId}/move`, {
+                folder_id: folderId
+            });
+            toast.success('Document moved successfully', { id: toastId });
+            setShowMoveModal(false);
+            router.reload();
+        } catch (err) {
+            toast.error('Failed to move document', { id: toastId });
+        }
+    };
+
     // openDeleteModal
     const openDeleteModal = (id) => {
             setOpenMenuId(null);
@@ -320,21 +358,24 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
 
     // after download
     const keepFile = async () => {
+        const doc = localDocs.find(d => d.document_id === selectedDocId);
+        const filename = doc ? doc.filename : 'File';
+
         //toast steps
-        const toastId = toast.loading('Keeping file...');
+        const toastId = toast.loading(`Keeping ${filename}...`);
 
         try {
             const resp = await axios.post('/documents/keep', {
                 document_id: selectedDocId
             });
 
-            sleep(2000);
-            toast.success('File kept.', { id: toastId });
+            await sleep(2000);
+            toast.success(`${filename} is kept.`, { id: toastId });
 
             setShowKeepFileModal(null);
             setSelectedDocId(null);
         } catch (err) {
-            toast.error('Failed to keep file.', { id: toastId });
+            toast.error(`Failed to keep ${filename}.`, { id: toastId });
         }
     };
 
@@ -344,13 +385,42 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
         const resp = await axios.post('/covers/scan');
     };
 
+    // handleToggleStar
+    const handleToggleStar = async (id) => {
+        try {
+            const resp = await axios.post(route('documents.star.toggle'), {
+                document_id: id
+            });
+            
+            if (resp.data.is_starred !== undefined) {
+                setLocalDocs(prev => prev.map(doc => 
+                    doc.document_id === id ? { ...doc, is_starred: resp.data.is_starred } : doc
+                ));
+                toast.success(resp.data.message);
+            }
+        } catch (err) {
+            toast.error('Failed to update star status');
+        }
+    };
+
 
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    My Documents
-                </h2>
+                <div className="flex items-center gap-4">
+                    {currentFolder && (
+                        <button 
+                            onClick={() => router.visit(route('myFolders'))}
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            title="Back to folders"
+                        >
+                            <ArrowLeft className="size-6 text-gray-600" />
+                        </button>
+                    )}
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                        {currentFolder ? currentFolder.name : title}
+                    </h2>
+                </div>
             }
             totalStorage={totalStorage}
             storageLimit={storageLimit}
@@ -360,7 +430,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
 
             {/* GRID VIEW (DEFAULT) */}
             {localDocs.length > 0 ? (
-                <div className="h-full overflow-y-auto" id="document-area">
+                <div className="h-full overflow-y-auto">
                     <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
                         {localDocs.map(doc => {
                             const isUnlocking = !!unlockingProgress[doc.document_id];
@@ -370,7 +440,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                             return (
                                 <div
                                     key={doc.document_id}
-                                    title={isProcessing ? `${processType} file is ongoing...` : ""}
+                                    title={isProcessing ? `${processType} file is ongoing...` : undefined}
                                     className={"group relative w-full p-4 bg-white rounded-lg shadow transition " + 
                                         (isProcessing ? "border-2 border-indigo-100 bg-indigo-50/10 cursor-wait" : "hover:shadow-lg hover:ring-1 hover:ring-purple-600 cursor-pointer")}
                                 >
@@ -378,8 +448,16 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                         <div className={"absolute top-0 right-0 p-4 transition space-x-1 z-10 " + 
                                             (openMenuId === doc.document_id ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
                                             {/* Star */}
-                                            <button>
-                                                <Star className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleToggleStar(doc.document_id);
+                                                }}
+                                            >
+                                                <Star 
+                                                    className={"size-8 hover:bg-gray-100 rounded-md p-1.5 transition " + 
+                                                        (doc.is_starred ? "text-yellow-400 fill-yellow-400" : "text-gray-400")} 
+                                                />
                                             </button>
 
                                             {/* Vertical 3-Dot Menu */}
@@ -420,13 +498,14 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                                 </span>
                                             </div>
                                         ) : doc.status === 'failed' ? (
-                                            <div className="flex items-center gap-1 group/error" 
-                                                 title={typeof doc.error_message === 'object' ? JSON.stringify(doc.error_message) : doc.error_message}>
-                                                <AlertCircle className="size-3 text-red-500" />
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
-                                                    {getStatusDisplay(doc.status, doc.document_id)}
-                                                </span>
-                                            </div>
+                                            <Tooltip content={doc.error_message ? (typeof doc.error_message === 'object' ? JSON.stringify(doc.error_message) : doc.error_message) : "Error occurred during processing"}>
+                                                <div className="flex items-center gap-1 group/error">
+                                                    <AlertCircle className="size-3 text-red-500" />
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
+                                                        {getStatusDisplay(doc.status, doc.document_id)}
+                                                    </span>
+                                                </div>
+                                            </Tooltip>
                                         ) : (
                                             <p className="text-sm text-gray-500">
                                                 {formatBytes(doc.in_cloud_size || doc.original_size)}
@@ -449,7 +528,7 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                                 top: y ?? 0,
                                                 left: x ?? 0
                                             }}
-                                            className="w-36 bg-white border rounded-xl shadow-lg z-50 overflow-hidden"
+                                            className="w-48 bg-white border rounded-xl shadow-lg z-50 overflow-hidden py-1"
                                         >
 
                                             {/* Retrieve / Download */}
@@ -472,7 +551,9 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                             </button>
 
                                             {/* Move */}
-                                            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
+                                            <button
+                                                onClick={() => openMoveModal(doc.document_id)}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
                                                 <FolderInput className="w-4 h-4 text-gray-600" />
                                                 Move File
                                             </button>
@@ -480,10 +561,19 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                                             <div className="border-t" />
 
                                             {/* Share */}
-                                            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
-                                                <Share2 className="w-4 h-4 text-gray-600" />
-                                                Share File
-                                            </button>
+                                            {doc.is_owner && (
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedDocForShare(doc);
+                                                        setShowShareModal(true);
+                                                        setOpenMenuId(null);
+                                                    }}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
+                                                    <Share2 className="w-4 h-4 text-gray-600" />
+                                                    Share File
+                                                </button>
+                                            )}
 
                                             {/* Info */}
                                             <button
@@ -509,7 +599,6 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                         })}
                     </div>
                 </div>
-
             ) : (
                 <div className="flex-1 flex items-center justify-center p-8">
                     <div className="text-center">
@@ -521,39 +610,94 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                     </div>
                 </div>
             )}
+            {showDeleteModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                    onClick={cancelDelete}
+                >
+                    {/* Modal */}
+                    <div className="bg-white rounded-xl shadow-xl w-80 p-6" onClick={(e) => e.stopPropagation()}>
 
-            {/* Delete Confirmation Modal */}
-            <DeleteConfirmModal
-                show={showDeleteModal}
-                onClose={cancelDelete}
-                onConfirm={confirmDelete}
-            />
+                        <h2 className="text-lg font-semibold text-gray-800 mb-2">
+                            Delete File
+                        </h2>
 
-            {/* Share Modal */}
-            {selectedShareDoc && (
-                <ShareFileModal
-                    document={selectedShareDoc}
-                    show={!!selectedShareDoc}
-                    onClose={() => setSelectedShareDoc(null)}
-                />
+                        <p className="text-sm text-gray-500 mb-6">
+                            Are you sure you want to delete this file? This action cannot be undone.
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={cancelDelete}
+                                className="px-4 py-2 text-sm rounded-md bg-gray-100 hover:bg-gray-200"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={confirmDelete}
+                                className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700"
+                            >
+                                Delete
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
             )}
 
-            {/* Keep File Modal */}
+            {showMoveModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMoveModal(false)}>
+                    <div className="bg-white rounded-xl shadow-xl w-80 p-6" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="text-lg font-semibold text-gray-800 mb-4">Move to Folder</h2>
+                        <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                            <button
+                                onClick={() => handleMove(null)}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition text-left"
+                            >
+                                <FolderOpen className="size-5 text-gray-400" />
+                                <span className="text-sm text-gray-700">Root Directory</span>
+                            </button>
+                            {folders.map(folder => (
+                                <button
+                                    key={folder.folder_id}
+                                    onClick={() => handleMove(folder.folder_id)}
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition text-left"
+                                >
+                                    <FolderTree className="size-5 text-indigo-500" />
+                                    <span className="text-sm text-gray-700 truncate">{folder.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                onClick={() => setShowMoveModal(false)}
+                                className="px-4 py-2 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showKeepFileModal && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 cursor-default"
                     title="Please select whether to keep or delete the file to continue"
                 >
+                    {/* Modal */}
                     <div
                         className="bg-white rounded-xl shadow-xl w-80 p-6"
                         onClick={(e) => e.stopPropagation()}
                     >
+
                         <h2 className="text-lg font-semibold text-gray-800 mb-2">
                             File Unlocked
                         </h2>
 
                         <p className="text-sm text-gray-500 mb-6">
-                            Do you want to keep the locked file on the system or remove it?
+                            Do you want to keep the unlocked file on the system or remove it?
                         </p>
 
                         <div className="flex justify-end gap-3">
@@ -565,19 +709,30 @@ export default function MyDocuments({ documents, totalStorage, storageLimit }) {
                             </button>
 
                             <button
-                                onClick={() => {
-                                    openDeleteModal(showKeepFileModal);
-                                    setShowKeepFileModal(null);
-                                }}
+                                onClick={handleDeleteFromKeepModal}
                                 className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700"
                             >
                                 Delete File
                             </button>
                         </div>
+
                     </div>
                 </div>
+            )}
+
+            {showShareModal && (
+                <ShareFileModal 
+                    document={selectedDocForShare}
+                    onClose={() => setShowShareModal(false)}
+                />
             )}
 
         </AuthenticatedLayout>
     );
 }
+
+/**
+ * Unlock Icon
+ * File Successfully Unlocked
+ *
+ */

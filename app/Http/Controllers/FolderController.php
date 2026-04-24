@@ -33,19 +33,31 @@ class FolderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'parent_id' => 'nullable|exists:folders,id',
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) use ($request) {
+                    $exists = Folder::where('user_id', Auth::id())
+                        ->where('parent_id', $request->parent_id)
+                        ->where('name', $value)
+                        ->exists();
+                    if ($exists) {
+                        $fail('A folder with this name already exists in this location.');
+                    }
+                },
+            ],
+            'parent_id' => 'nullable|exists:folders,folder_id',
         ]);
 
         // safety check: ensure parent belongs to same user
         if ($request->parent_id) {
-            $parent = Folder::where('id', $request->parent_id)
+            Folder::where('folder_id', $request->parent_id)
                 ->where('user_id', Auth::id())
                 ->firstOrFail();
         }
 
         $folder = Folder::create([
-            'id' => (string) Str::uuid(),
             'user_id' => Auth::id(),
             'name' => $request->name,
             'parent_id' => $request->parent_id,
@@ -56,13 +68,27 @@ class FolderController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-        ]);
-
-        $folder = Folder::where('id', $id)
+        $folder = Folder::where('folder_id', $id)
             ->where('user_id', Auth::id())
             ->firstOrFail();
+
+        $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) use ($request, $folder) {
+                    $exists = Folder::where('user_id', Auth::id())
+                        ->where('parent_id', $folder->parent_id)
+                        ->where('name', $value)
+                        ->where('folder_id', '!=', $folder->folder_id)
+                        ->exists();
+                    if ($exists) {
+                        $fail('A folder with this name already exists in this location.');
+                    }
+                },
+            ],
+        ]);
 
         $folder->update([
             'name' => $request->name,
@@ -73,53 +99,20 @@ class FolderController extends Controller
 
     public function destroy($id)
     {
-        $folder = Folder::where('id', $id)
+        $folder = Folder::where('folder_id', $id)
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
-        $hasChildren = Folder::where('parent_id', $id)->exists();
+        // Move subfolders to root
+        Folder::where('parent_id', $id)->update(['parent_id' => null]);
 
-        if ($hasChildren) {
-            return response()->json([
-                'message' => 'Folder is not empty'
-            ], 400);
-        }
+        // Move documents to root
+        Document::where('folder_id', $id)->update(['folder_id' => null]);
 
         $folder->delete();
 
         return response()->json([
-            'message' => 'Deleted successfully'
-        ]);
-    }
-
-
-
-
-    public function moveDocument(Request $request, $id)
-    {
-        $request->validate([
-            'folder_id' => 'nullable|exists:folders,id'
-        ]);
-
-        $document = Document::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
-
-        if ($request->folder_id) {
-            Folder::where('id', $request->folder_id)
-                ->where('user_id', Auth::id())
-                ->firstOrFail();
-
-            $document->folder_id = $request->folder_id;
-        } else {
-            $document->folder_id = null;
-        }
-
-        $document->save();
-
-        return response()->json([
-            'message' => 'Document moved successfully',
-            'document' => $document
+            'message' => 'Folder deleted successfully'
         ]);
     }
 }

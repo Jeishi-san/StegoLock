@@ -29,15 +29,18 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::get('/myFolders', [FolderController::class, 'index'])
         ->name('myFolders');
 
-    Route::get('/starred', [DocumentController::class, 'starred'])
-        ->name('starred');
+    Route::get('/allDocuments', [DocumentController::class, 'allDocumentsIndex'])
+        ->name('allDocuments');
 
-    Route::get('/shared-with-me', [DocumentController::class, 'sharedWithMe'])
-        ->name('sharedWithMe');
+    Route::get('/sharedDocuments', [DocumentController::class, 'sharedIndex'])
+        ->name('sharedDocuments');
+        
+    Route::get('/starredDocuments', [StarredController::class, 'index'])
+        ->name('starredDocuments');
 
-    //     Route::get('/folder', function () {
-    //     return Inertia::render('Folder');
-    // })->name('folder');
+    
+
+    
 });
 
 Route::middleware('auth')->group(function () {
@@ -68,13 +71,24 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/documents/getFileInfo/{id}', [DocumentController::class, 'getStorageInfo']);
 
+    Route::post('/documents/star/toggle', [StarredController::class, 'toggleStar'])
+        ->name('documents.star.toggle');
 
 
+    // Folder Management
     Route::get('/folders', [FolderController::class, 'index']);
     Route::post('/folders', [FolderController::class, 'store']);
     Route::put('/folders/{id}', [FolderController::class, 'update']);
     Route::delete('/folders/{id}', [FolderController::class, 'destroy']);
     Route::put('/documents/{id}/move', [DocumentController::class, 'moveDocument']);
+
+    // Document Sharing
+    Route::post('/documents/share', [DocumentController::class, 'share'])
+        ->name('documents.share');
+    Route::post('/documents/share/accept', [DocumentController::class, 'acceptShare'])
+        ->name('documents.share.accept');
+    Route::post('/documents/share/remove', [DocumentController::class, 'removeAccess'])
+        ->name('documents.share.remove');
 
 });
 

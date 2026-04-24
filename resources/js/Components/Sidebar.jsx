@@ -1,7 +1,7 @@
 import { FolderOpen, Star, HardDrive, Shield, Lock, Unlock, Plus, ChevronDown, Upload, Users, FolderTree } from 'lucide-react';
 import { useState } from 'react';
 import { formatBytes } from '@/Utils/fileUtils';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, usePage, router } from '@inertiajs/react';
 
 import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
@@ -143,7 +143,7 @@ export function Sidebar({
                         />
                         <div className="absolute w-full mt-14 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
                             <MenuButton icon={Upload}
-                                        label={isProcessOngoing ? "Processing ongoing..." : "Lock a File"}
+                                        label={isProcessOngoing ? "Currently locking a file..." : "Lock a File"}
                                         onClick={() => {
                                             if (isProcessOngoing) return;
                                             setShowNewMenu(false);
@@ -153,7 +153,7 @@ export function Sidebar({
                             />
                             <MenuButton icon={Plus}
                                         label="New Folder"
-                                        onClick={onNewFolderClick}
+                                        onClick={onNewFolderClick || (() => router.visit(route('myFolders')))}
                             />
                         </div>
                         </>
@@ -201,17 +201,32 @@ export function Sidebar({
                             <div className="w-full border-t border-gray-300"></div>
                         </div>
 
-                         <NavLink
-                             href={route('starred')}
-                             active={route().current('starred')}
-                             icon={Star}
-                         >Starred</NavLink>
+                        <NavLink
+                            href={route('allDocuments')}
+                            active={route().current('allDocuments')}
+                            icon={FolderOpen}
+                        >All Documents</NavLink>
 
-                         <NavLink
-                             href={route('sharedWithMe')}
-                             active={route().current('sharedWithMe')}
-                             icon={Users}
-                         >Shared With Me</NavLink>
+                        <NavLink
+                            href={route('sharedDocuments')}
+                            active={route().current('sharedDocuments')}
+                            icon={Users}
+                        >
+                            <div className="flex items-center justify-between w-full">
+                                <span>Shared With Me</span>
+                                {usePage().props.pendingSharesCount > 0 && (
+                                    <span className="flex items-center justify-center size-5 text-[10px] font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
+                                        {usePage().props.pendingSharesCount}
+                                    </span>
+                                )}
+                            </div>
+                        </NavLink>
+
+                        <NavLink
+                            href={route('starredDocuments')}
+                            active={route().current('starredDocuments')}
+                            icon={Star}
+                        >Starred</NavLink>
                     </div>
 
                 </div>

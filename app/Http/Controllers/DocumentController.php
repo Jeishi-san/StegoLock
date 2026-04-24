@@ -29,18 +29,94 @@ use App\Models\Cover;
 use App\Models\FragmentMap;
 use App\Models\StegoFile;
 use App\Models\StegoMap;
-use App\Models\User;
+use App\Models\Folder;
+use App\Models\DocumentShare;
+use App\Services\CryptoService;
 
 
 
 class DocumentController extends Controller
 {
+    protected $primaryKey = 'document_id';
+    protected $cryptoService;
+
+    public function __construct(CryptoService $cryptoService)
+    {
+        $this->cryptoService = $cryptoService;
+    }
 
     /**
-     *
+     * Returns json containing the current user's documents, totalStorage, and storageLimit
      */
-    public function index()
+    public function index(Request $request)
     {
+        $user = Auth::user();
+        $user->refreshStorageUsed();
+        $folderId = $request->folder_id;
+
+        // Fetch owned documents
+        $query = Document::where('user_id', Auth::id())
+            ->where('folder_id', $folderId)
+            ->latest();
+
+        $documents = $query->get([
+                'document_id',
+                'filename',
+                'file_type',
+                'original_size',
+                'in_cloud_size',
+                'status',
+                'fragment_count',
+                'created_at',
+                'error_message',
+                'is_starred',
+                'folder_id'
+            ])
+            ->map(function ($doc) {
+                $doc->is_owner = true;
+                return $doc;
+            });
+
+        // If folder_id is provided, also fetch shared documents in this folder
+        if ($folderId) {
+            $sharedDocs = DocumentShare::with('document')
+                ->where('recipient_id', Auth::id())
+                ->where('folder_id', $folderId)
+                ->where('status', 'accepted')
+                ->get()
+                ->map(function ($share) {
+                    $doc = $share->document;
+                    $doc->is_owner = false;
+                    $doc->is_shared = true;
+                    $doc->folder_id = $share->folder_id;
+                    $doc->share_id = $share->share_id;
+                    return $doc;
+                });
+            
+            $documents = $documents->concat($sharedDocs)->sortByDesc('created_at')->values();
+        }
+
+        $folders = \App\Models\Folder::where('user_id', Auth::id())
+            ->orderBy('name')
+            ->get();
+
+        $currentFolder = $folderId ? \App\Models\Folder::find($folderId) : null;
+
+        return Inertia::render('MyDocuments', [
+            'documents' => $documents,
+            'folders' => $folders,
+            'currentFolder' => $currentFolder,
+            'totalStorage' => $user->storage_used,
+            'storageLimit' => $user->storage_limit,
+            'title' => $currentFolder ? $currentFolder->name : 'My Documents'
+        ]);
+    }
+
+    public function allDocumentsIndex()
+    {
+        $user = Auth::user();
+        $user->refreshStorageUsed();
+
         $documents = Document::where('user_id', Auth::id())
             ->latest()
             ->get([
@@ -52,158 +128,124 @@ class DocumentController extends Controller
                 'status',
                 'fragment_count',
                 'created_at',
-                'encryption_mode'
-            ])->map(function ($doc) {
-                $doc->starred = $doc->isStarredBy(Auth::user());
+                'error_message',
+                'is_starred'
+            ])
+            ->map(function ($doc) {
+                $doc->is_owner = true;
                 return $doc;
             });
 
-        $user = Auth::user();
+        // Fetch documents shared with the user
+        $sharedDocs = Document::whereIn('document_id', function ($query) {
+                $query->select('document_id')
+                    ->from('document_shares')
+                    ->where('recipient_id', Auth::id())
+                    ->where('status', 'accepted');
+            })
+            ->latest()
+            ->get([
+                'document_id',
+                'filename',
+                'file_type',
+                'original_size',
+                'in_cloud_size',
+                'status',
+                'fragment_count',
+                'created_at',
+                'error_message',
+                'is_starred'
+            ])
+            ->map(function ($doc) {
+                $doc->is_owner = false;
+                $doc->is_shared = true;
+                return $doc;
+            });
+
+        $allDocuments = $documents->concat($sharedDocs)->sortByDesc('created_at')->values();
+
+        $folders = \App\Models\Folder::where('user_id', Auth::id())
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('MyDocuments', [
-            'documents' => $documents,
+            'documents' => $allDocuments,
+            'folders' => $folders,
             'totalStorage' => $user->storage_used,
             'storageLimit' => $user->storage_limit,
+            'title' => 'All Documents'
         ]);
     }
 
-    /**
-     *
-     */
-    public function starred()
+    public function sharedIndex()
     {
-        $documents = Document::whereHas('sharedWith', function ($query) {
-            $query->where('user_id', Auth::id())
-                ->where('starred', true);
-        })
-        ->orWhere(function ($query) {
-            $query->where('user_id', Auth::id())
-                ->whereHas('sharedWith', function ($q) {
-                    $q->where('user_id', Auth::id())
-                        ->where('starred', true);
-                });
-        })
-        ->latest()
-        ->get([
-            'document_id',
-            'filename',
-            'file_type',
-            'original_size',
-            'in_cloud_size',
-            'status',
-            'fragment_count',
-            'created_at',
-            'user_id'
-        ])->map(function ($doc) {
-            $doc->starred = true;
-            $doc->owner_name = $doc->user->name;
-            return $doc;
-        });
-
         $user = Auth::user();
+        $user->refreshStorageUsed();
 
-        return Inertia::render('Starred', [
-            'documents' => $documents,
+        // Fetch accepted shared documents
+        $acceptedShares = Document::whereIn('document_id', function ($query) {
+                $query->select('document_id')
+                    ->from('document_shares')
+                    ->where('recipient_id', Auth::id())
+                    ->where('status', 'accepted');
+            })
+            ->latest()
+            ->get()
+            ->map(function ($doc) {
+                $doc->is_owner = false;
+                $doc->is_shared = true;
+                return $doc;
+            });
+
+        // Fetch pending shares
+        $pendingShares = DocumentShare::with(['document', 'sender'])
+            ->where('recipient_id', Auth::id())
+            ->where('status', 'pending')
+            ->get();
+
+        // Fetch shares sent by the user, grouped by document
+        $sentShares = DocumentShare::with(['document', 'recipient'])
+            ->where('sender_id', Auth::id())
+            ->latest()
+            ->get()
+            ->groupBy('document_id')
+            ->map(function ($shares) {
+                $doc = $shares->first()->document;
+                return [
+                    'document_id' => $doc->document_id,
+                    'filename' => $doc->filename,
+                    'file_type' => $doc->file_type,
+                    'created_at' => $doc->created_at,
+                    'recipients' => $shares->map(function ($share) {
+                        return [
+                            'share_id' => $share->share_id,
+                            'name' => $share->recipient->name,
+                            'email' => $share->recipient->email,
+                            'status' => $share->status,
+                            'shared_at' => $share->created_at,
+                        ];
+                    })
+                ];
+            })
+            ->values();
+
+        $folders = \App\Models\Folder::where('user_id', Auth::id())
+            ->orderBy('name')
+            ->get();
+
+        return Inertia::render('SharedDocuments', [
+            'documents' => $acceptedShares,
+            'pendingShares' => $pendingShares,
+            'sentShares' => $sentShares,
+            'folders' => $folders,
             'totalStorage' => $user->storage_used,
             'storageLimit' => $user->storage_limit,
         ]);
     }
 
     /**
-     *
+     * Starts the locking and securing process of the document
      */
-    public function sharedWithMe()
-    {
-        $documents = Document::whereHas('sharedWith', function ($query) {
-            $query->where('user_id', Auth::id())
-                ->whereNotNull('shared_by');
-        })
-        ->latest()
-        ->get([
-            'document_id',
-            'filename',
-            'file_type',
-            'original_size',
-            'in_cloud_size',
-            'status',
-            'fragment_count',
-            'created_at',
-            'user_id'
-        ])->map(function ($doc) {
-            $doc->owner_name = $doc->user->name;
-            $doc->starred = $doc->isStarredBy(Auth::user());
-            return $doc;
-        });
-
-        $user = Auth::user();
-
-        return Inertia::render('SharedWithMe', [
-            'documents' => $documents,
-            'totalStorage' => $user->storage_used,
-            'storageLimit' => $user->storage_limit,
-        ]);
-    }
-
-    /**
-     * Toggle star for document
-     */
-    public function toggleStar(Request $request)
-    {
-        $request->validate([
-            'document_id' => 'required|exists:documents,document_id'
-        ]);
-
-        $document = Document::findOrFail($request->document_id);
-
-        $pivot = $document->sharedWith()->firstOrCreate(
-            ['user_id' => Auth::id()],
-            ['shared_by' => null]
-        );
-
-        $current = $pivot->pivot->starred;
-        $document->sharedWith()->updateExistingPivot(Auth::id(), [
-            'starred' => !$current
-        ]);
-
-        return response()->json([
-            'starred' => !$current
-        ]);
-    }
-
-    /**
-     * Share document with user
-     */
-    public function share(Request $request)
-    {
-        $request->validate([
-            'document_id' => 'required|exists:documents,document_id',
-            'email' => 'required|email|exists:users,email'
-        ]);
-
-        $document = Document::where('id', $request->document_id)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
-
-        $sharedUser = \App\Models\User::where('email', $request->email)->firstOrFail();
-
-        if ($sharedUser->id === Auth::id()) {
-            return response()->json([
-                'message' => 'Cannot share document with yourself'
-            ], 400);
-        }
-
-        $document->sharedWith()->syncWithoutDetaching([
-            $sharedUser->id => [
-                'shared_by' => Auth::id(),
-                'permission' => 'view'
-            ]
-        ]);
-
-        return response()->json([
-            'message' => 'Document shared successfully'
-        ]);
-    }
-
     /**
      * Starts the locking and securing process of the document
      */
@@ -405,6 +447,15 @@ class DocumentController extends Controller
     {
         $document = Document::findOrFail($request->document_id);
 
+        $isOwner = $document->user_id === Auth::id();
+        if (!$isOwner) {
+            // Check if it's an accepted share
+            DocumentShare::where('document_id', $document->document_id)
+                ->where('recipient_id', Auth::id())
+                ->where('status', 'accepted')
+                ->firstOrFail();
+        }
+
         if (!in_array($document->status, ['stored', 'decrypted', 'retrieved'])) {
             abort(400, 'Invalid document status for unlocking');
         }
@@ -415,13 +466,12 @@ class DocumentController extends Controller
         }
 
         // Dispatch the unlocking process to the background
-        // Base64 encode the key to avoid JSON encoding errors with binary data
-        \App\Jobs\ProcessUnlockJob::dispatch($document->document_id, base64_encode($masterKey));
+        \App\Jobs\ProcessUnlockJob::dispatch($document->document_id, base64_encode($masterKey), Auth::id());
 
         return response()->json([
             'success' => true,
             'message' => 'Unlocking file',
-            'status' => 'stored' // It stays stored while fetching
+            'status' => 'stored'
         ]);
     }
 
@@ -460,84 +510,66 @@ class DocumentController extends Controller
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
-        $is_deletable = false;
-        if (in_array($document->status, ['stored', 'decrypted', 'retrieved', 'failed'])) {
-            $is_deletable = true;
-        }
-
-        if ($is_deletable === false) {
+        // 1. Check if deletable status
+        $deletableStatuses = ['stored', 'decrypted', 'retrieved', 'failed', 'uploaded', 'encrypted', 'fragmented', 'mapped', 'embedded'];
+        if (!in_array($document->status, $deletableStatuses)) {
             abort(400, 'File not in a deletable state');
         }
 
-        $stegoMap = StegoMap::where('document_id', $document->document_id)->first();
-        $stegoFiles = [];
-        
-        if ($stegoMap) {
-            $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)
-                ->select('cloud_file_id', 'filename', 'stego_file_id')
-                ->get()
-                ->toArray();
-        }
-
-        if(empty($stegoFiles) && !in_array($document->status, ['failed', 'uploaded', 'encrypted', 'fragmented', 'mapped'])) {
-            return response()->json(['error' => 'No stego files found'], 404);
-        }
-
         try {
+            $stegoMap = StegoMap::where('document_id', $document->document_id)->first();
+            $stegoFiles = [];
+            
+            if ($stegoMap) {
+                $stegoFiles = StegoFile::where('stego_map_id', $stegoMap->stego_map_id)
+                    ->select('cloud_file_id', 'filename', 'stego_file_id')
+                    ->get()
+                    ->toArray();
+            }
 
-        /**
-         * Three-Layer Deletion Process
-         * Layer 1: Retry - handling temporary failures -> $this->deleteWithRetry($b2, $file)
-         * Layer 2: Deterministic result collection -> foreach ($stegoFiles as $file)
-         * Layer 3: Decision logic -> if (!empty($failedFiles))
-         */
-            $b2 = new B2Service();
+            // 2. Delete cloud files if they exist
+            if (!empty($stegoFiles)) {
+                $b2 = new B2Service();
+                $failedFiles = [];
 
-            $deletedFiles = [];
-            $failedFiles = [];
+                foreach ($stegoFiles as $file) {
+                    $deleted = $this->deleteWithRetry($b2, $file);
+                    if (!$deleted) {
+                        $failedFiles[] = $file['stego_file_id'];
+                    }
+                }
 
-            foreach ($stegoFiles as $file) {
-
-                $contentLength = $b2->getFileInfo($file['cloud_file_id'])['contentLength'];
-
-                $deleted = $this->deleteWithRetry($b2, $file);
-
-                if ($deleted) {
-                    $deletedFiles[] = $file['stego_file_id'];
-
-                } else {
-                    $failedFiles[] = $file['stego_file_id'];
+                if (!empty($failedFiles)) {
+                    return response()->json([
+                        'message' => 'Some files failed to delete from cloud storage. Deletion aborted to prevent storage leakage.',
+                        'failed' => $failedFiles
+                    ], 500);
                 }
             }
 
-            if (!empty($failedFiles)) {
+            // 3. Storage Cleanup (only if cloud files were present or recorded)
+            $user->refreshStorageUsed();
 
-                return response()->json([
-                    'message' => 'Some files failed to delete',
-                    'deleted' => $deletedFiles,
-                    'failed' => $failedFiles
-                ], 500);
-            }
-
-            $user->decrement('storage_used', $document->in_cloud_size);
-
-            // Cleanup local decrypted file if it exists
+            // 4. Cleanup local decrypted file if it exists
             $localPath = 'temp/decrypted/' . $document->filename;
             if (Storage::exists($localPath)) {
                 Storage::delete($localPath);
             }
 
-            // delete DB records
+            // 5. Delete DB record (Cascade delete handles fragments, stego_maps, stego_files)
             $document->forceDelete();
 
-            return response()->json(['message' => 'File deleted successfully']);
-        } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+            return response()->json(['message' => 'Document and associated cloud files deleted successfully']);
 
-        return $deletedFiles;
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Deletion failed: ' . $e->getMessage()], 500);
+        }
     }
 
+    /**
+     * Deletes a file from B2 with retry logic
+     * @return bool
+     */
     private function deleteWithRetry($b2, $file)
     {
         $maxRetries = 3;
@@ -555,11 +587,14 @@ class DocumentController extends Controller
                 }
 
             } catch (\Exception $e) {
-                return response()->json(['Delete retry error' => $e->getMessage()]);
+                // Log the error but continue to retry
+                \Illuminate\Support\Facades\Log::error("B2 Delete Attempt {$attempt} failed: " . $e->getMessage());
             }
 
             $attempt++;
-            sleep(1); // simple backoff (can improve later)
+            if ($attempt < $maxRetries) {
+                sleep(1); 
+            }
 
         } while ($attempt < $maxRetries);
 
@@ -599,6 +634,151 @@ class DocumentController extends Controller
         return [
             'message' => 'Document kept successfully'
         ];
+    }
+
+    private function parseKey($key)
+    {
+        if (str_starts_with($key, 'base64:')) {
+            return base64_decode(substr($key, 7));
+        }
+        return $key;
+    }
+
+    public function share(Request $request)
+    {
+        $request->validate([
+            'document_id' => 'required|exists:documents,document_id',
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $document = Document::where('document_id', $request->document_id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $recipient = \App\Models\User::where('email', $request->email)->firstOrFail();
+
+        if ($recipient->id === Auth::id()) {
+            return response()->json(['error' => 'You cannot share a document with yourself.'], 422);
+        }
+
+        $masterKey = session('master_key');
+        if (!$masterKey) {
+            return response()->json(['error' => 'Master key not found in session.'], 403);
+        }
+
+        // 1. Unwrap the DEK using Owner's Master Key
+        $dek = $this->cryptoService->unwrapDek(
+            base64_decode($document->encrypted_dek),
+            $masterKey,
+            base64_decode($document->dek_nonce),
+            base64_decode($document->dek_tag),
+            base64_decode($document->dk_salt)
+        );
+
+        if (!$dek) {
+             return response()->json(['error' => 'Failed to unwrap document key.'], 500);
+        }
+
+        // 2. Wrap the DEK using the System Share Key
+        $systemKey = $this->parseKey(config('app.share_key') ?? config('app.key'));
+        $wrapped = $this->cryptoService->wrapDek($dek, $systemKey);
+
+        // 3. Create or update the share
+        DocumentShare::updateOrCreate(
+            [
+                'document_id' => $document->document_id,
+                'recipient_id' => $recipient->id,
+            ],
+            [
+                'sender_id' => Auth::id(),
+                'encrypted_dek' => base64_encode($wrapped['encrypted_dek']),
+                'dek_nonce' => base64_encode($wrapped['nonce']),
+                'dek_tag' => base64_encode($wrapped['tag']),
+                'dk_salt' => base64_encode($wrapped['salt']),
+                'status' => 'pending',
+            ]
+        );
+
+        return response()->json(['message' => 'Document shared successfully with ' . $recipient->name]);
+    }
+
+    public function acceptShare(Request $request)
+    {
+        $request->validate([
+            'document_id' => 'required|exists:documents,document_id',
+        ]);
+
+        $share = DocumentShare::where('document_id', $request->document_id)
+            ->where('recipient_id', Auth::id())
+            ->where('status', 'pending')
+            ->firstOrFail();
+
+        $masterKey = session('master_key');
+        if (!$masterKey) {
+            return response()->json(['error' => 'Master key not found in session.'], 403);
+        }
+
+        // 1. Unwrap with System Key
+        $systemKey = $this->parseKey(config('app.share_key') ?? config('app.key'));
+        $dek = $this->cryptoService->unwrapDek(
+            base64_decode($share->encrypted_dek),
+            $systemKey,
+            base64_decode($share->dek_nonce),
+            base64_decode($share->dek_tag),
+            base64_decode($share->dk_salt)
+        );
+
+        if (!$dek) {
+             return response()->json(['error' => 'Failed to unwrap document key.'], 500);
+        }
+
+        // 2. Re-wrap with User B's Master Key
+        $wrapped = $this->cryptoService->wrapDek($dek, $masterKey);
+
+        // 3. Update share status and wrapped DEK
+        $share->update([
+            'encrypted_dek' => base64_encode($wrapped['encrypted_dek']),
+            'dek_nonce' => base64_encode($wrapped['nonce']),
+            'dek_tag' => base64_encode($wrapped['tag']),
+            'dk_salt' => base64_encode($wrapped['salt']),
+            'status' => 'accepted',
+        ]);
+
+        return response()->json(['message' => 'Share accepted successfully.']);
+    }
+
+    public function removeAccess(Request $request)
+    {
+        $request->validate([
+            'document_id' => 'nullable|exists:documents,document_id',
+            'share_id' => 'nullable|exists:document_shares,share_id',
+        ]);
+
+        if ($request->share_id) {
+            DocumentShare::where('share_id', $request->share_id)
+                ->where(function ($q) {
+                    $q->where('sender_id', Auth::id())
+                      ->orWhere('recipient_id', Auth::id());
+                })
+                ->delete();
+            return response()->json(['message' => 'Access removed.']);
+        }
+
+        if ($request->document_id) {
+            // If I'm the owner/sender, remove all shares
+            DocumentShare::where('document_id', $request->document_id)
+                ->where('sender_id', Auth::id())
+                ->delete();
+                
+            // If I'm the recipient, remove just my share
+            DocumentShare::where('document_id', $request->document_id)
+                ->where('recipient_id', Auth::id())
+                ->delete();
+
+            return response()->json(['message' => 'Access removed.']);
+        }
+
+        return response()->json(['error' => 'Invalid request.'], 422);
     }
 
 
@@ -827,5 +1007,45 @@ class DocumentController extends Controller
                 'error_message' => ['File fetch error', $e->getMessage()]
             ]);
         }
+    }
+
+    public function moveDocument(Request $request, $id)
+    {
+        $request->validate([
+            'folder_id' => 'nullable|exists:folders,folder_id'
+        ]);
+
+        $userId = Auth::id();
+
+        // 1. Check if user owns the document
+        $document = Document::where('document_id', $id)
+            ->where('user_id', $userId)
+            ->first();
+
+        if ($document) {
+            $document->folder_id = $request->folder_id;
+            $document->save();
+            return response()->json([
+                'message' => 'Document moved successfully',
+                'document' => $document
+            ]);
+        }
+
+        // 2. Check if user is a recipient of a share for this document
+        $share = DocumentShare::where('document_id', $id)
+            ->where('recipient_id', $userId)
+            ->where('status', 'accepted')
+            ->first();
+
+        if ($share) {
+            $share->folder_id = $request->folder_id;
+            $share->save();
+            return response()->json([
+                'message' => 'Shared document moved successfully',
+                'share' => $share
+            ]);
+        }
+
+        abort(404, 'Document not found or access denied');
     }
 }

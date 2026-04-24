@@ -109,17 +109,17 @@ class B2Service
     {
         $auth = $this->getAuth();
 
-        $url = $auth['downloadUrl'] . '/b2api/v3/b2_download_file_by_id?fileId=' . $fileId;
-
         /** @var \Illuminate\Http\Client\Response $response */
         $response = Http::withHeaders([
             'Authorization' => $auth['token'],
         ])->withOptions([
             'stream' => true,
-        ])->get($url);
+        ])->post($auth['apiUrl'] . '/b2api/v2/b2_download_file_by_id', [
+            'fileId' => $fileId,
+        ]);
 
         if (!$response->successful()) {
-            throw new \Exception('B2 streaming download failed: ' . $response->status());
+            throw new \Exception('B2 streaming download failed');
         }
 
         return $response;
@@ -289,23 +289,48 @@ class B2Service
         return $plaintext;
     }
 
-    public function wrong_download(string $fileId)
+    public function storeFilesBatch(array $filePaths, int $concurrency = 5, ?callable $onProgress = null)
     {
-        $auth = $this->getAuth();
+        $results = [];
+        $client = new \GuzzleHttp\Client(['timeout' => 0]);
 
-        /** @var \Illuminate\Http\Client\Response $response */
-        $response = Http::withHeaders([
-            'Authorization' => $auth['token'],
-        ])->withOptions([
-            'stream' => true,
-        ])->post($auth['apiUrl'] . '/b2api/v2/b2_download_file_by_id', [
-            'fileId' => $fileId,
-        ]);
-
-        if (!$response->successful()) {
-            throw new \Exception('B2 streaming download failed');
+        // Pre-fetch multiple upload URLs to allow truly parallel uploading to different pods
+        $uploadUrls = [];
+        for ($i = 0; $i < $concurrency; $i++) {
+            $uploadUrls[] = $this->getUploadUrl(true);
         }
 
-        return $response;
+        $requests = function () use ($filePaths, $uploadUrls, $concurrency) {
+            foreach ($filePaths as $i => $filePath) {
+                $store = $uploadUrls[$i % $concurrency];
+                $fileName = 'locked/' . basename($filePath);
+                $sha1 = sha1_file($filePath);
+
+                yield $filePath => new \GuzzleHttp\Psr7\Request('POST', $store['uploadUrl'], [
+                    'Authorization' => $store['authorizationToken'],
+                    'X-Bz-File-Name' => $fileName,
+                    'Content-Type' => 'b2/x-auto',
+                    'X-Bz-Content-Sha1' => $sha1,
+                ], fopen($filePath, 'r'));
+            }
+        };
+
+        $pool = new \GuzzleHttp\Pool($client, $requests(), [
+            'concurrency' => $concurrency,
+            'fulfilled' => function (\GuzzleHttp\Psr7\Response $response, $path) use (&$results, $onProgress) {
+                $data = json_decode($response->getBody(), true);
+                $results[$path] = $data;
+                if ($onProgress) {
+                    $onProgress($path, $data);
+                }
+            },
+            'rejected' => function ($reason, $path) {
+                throw new \Exception("Batch upload failed for {$path}: " . $reason->getMessage());
+            },
+        ]);
+
+        $pool->promise()->wait();
+
+        return $results;
     }
 }
