@@ -113,12 +113,16 @@ export function useDocumentActions({
         setShowInfoModal(true);
     };
 
-    const scanCovers = async () => {
+    const handleRename = async (docId, newName) => {
+        const toastId = toast.loading('Renaming document...');
         try {
-            await axios.post('/covers/scan');
-            toast.success('Cover files scanned successfully');
+            await axios.put(`/documents/${docId}/rename`, {
+                filename: newName
+            });
+            toast.success('Document renamed successfully', { id: toastId });
+            router.reload();
         } catch (err) {
-            toast.error('Failed to scan cover files');
+            toast.error('Failed to rename document', { id: toastId });
         }
     };
 
@@ -129,6 +133,6 @@ export function useDocumentActions({
         keepFile,
         handleToggleStar,
         handleFileInfo,
-        scanCovers
+        handleRename
     };
 }

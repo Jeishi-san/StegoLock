@@ -1,5 +1,5 @@
 import { Shield, FileText, Star, MoreVertical,
-    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle, FolderOpen, FolderTree } from 'lucide-react';
+    Unlock, Pencil, FolderInput, Share2, Info, Trash2, Lock, Loader2, AlertCircle, FolderOpen, FolderTree, X } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatBytes, formatDate } from '@/Utils/fileUtils';
 import { Inertia } from '@inertiajs/inertia';
@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import Tooltip from '@/Components/Tooltip';
+import { ConfirmModal } from '@/Components/modals/ConfirmModal';
 import {
     useFloating,
     offset,
@@ -16,6 +17,7 @@ import {
     shift,
     autoUpdate,
 } from '@floating-ui/react';
+import axios from 'axios';
 
 export default function StarredDocuments({ documents, totalStorage, storageLimit }) {
 
@@ -287,18 +289,15 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
                 </div>
             )}
 
-            {showDeleteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDeleteModal(false)}>
-                    <div className="bg-white rounded-xl shadow-xl w-80 p-6" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-lg font-semibold text-gray-800 mb-2">Delete File</h2>
-                        <p className="text-sm text-gray-500 mb-6">Are you sure? This action cannot be undone.</p>
-                        <div className="flex justify-end gap-3">
-                            <button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 text-sm rounded-md bg-gray-100 hover:bg-gray-200">Cancel</button>
-                            <button onClick={confirmDelete} className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700">Delete</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmModal 
+                show={showDeleteModal}
+                title="Delete File"
+                message="Are you sure you want to delete this file? This action cannot be undone."
+                confirmText="Delete"
+                isDanger={true}
+                onConfirm={confirmDelete}
+                onCancel={() => setShowDeleteModal(false)}
+            />
         </AuthenticatedLayout>
     );
 }

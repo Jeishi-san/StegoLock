@@ -81,6 +81,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/folders/{id}', [FolderController::class, 'update']);
     Route::delete('/folders/{id}', [FolderController::class, 'destroy']);
     Route::put('/documents/{id}/move', [DocumentController::class, 'moveDocument']);
+    Route::put('/documents/{id}/rename', [DocumentController::class, 'rename']);
 
     // Document Sharing
     Route::post('/documents/share', [DocumentController::class, 'share'])

@@ -1149,6 +1149,36 @@ class DocumentController extends Controller
 
         abort(404, 'Document not found or access denied');
     }
+
+    public function rename(Request $request, $id)
+    {
+        $request->validate([
+            'filename' => 'required|string|max:255'
+        ]);
+
+        $document = Document::where('document_id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $oldName = $document->filename;
+        $document->filename = $request->filename;
+        $document->save();
+
+        DocumentActivity::create([
+            'document_id' => $document->document_id,
+            'user_id' => Auth::id(),
+            'action' => 'renamed',
+            'metadata' => [
+                'old_name' => $oldName,
+                'new_name' => $request->filename
+            ]
+        ]);
+
+        return response()->json([
+            'message' => 'Document renamed successfully',
+            'document' => $document
+        ]);
+    }
     public function getActivity($id)
     {
         $document = Document::where('document_id', $id)

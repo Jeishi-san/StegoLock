@@ -1,4 +1,4 @@
-import { Shield, ArrowLeft, FolderOpen, FolderTree } from 'lucide-react';
+import { Shield, ArrowLeft, FolderOpen, FolderTree, Download, CheckCircle, X, Trash2, Pencil, AlertTriangle, FileText } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
@@ -15,16 +15,24 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
     const [showShareModal, setShowShareModal] = useState(false);
     const [showInfoModal, setShowInfoModal] = useState(false);
     const [showKeepFileModal, setShowKeepFileModal] = useState(null);
+    const [showRenameModal, setShowRenameModal] = useState(false);
+    const [showDownloadReadyModal, setShowDownloadReadyModal] = useState(false);
     
     const [selectedDocId, setSelectedDocId] = useState(null);
+    const [selectedDocForRename, setSelectedDocForRename] = useState(null);
+    const [renameValue, setRenameValue] = useState('');
     const [selectedDocForShare, setSelectedDocForShare] = useState(null);
     const [selectedDocForInfo, setSelectedDocForInfo] = useState(null);
 
     // Initial check for stuck files
     useEffect(() => {
         const stuckDoc = documents.find(doc => doc.status === 'retrieved' || doc.status === 'decrypted');
-        if (stuckDoc && !showKeepFileModal) {
-            setShowKeepFileModal(stuckDoc.document_id);
+        if (stuckDoc && !showKeepFileModal && !showDownloadReadyModal) {
+            if (stuckDoc.status === 'decrypted') {
+                setShowDownloadReadyModal(true);
+            } else {
+                setShowKeepFileModal(stuckDoc.document_id);
+            }
             setSelectedDocId(stuckDoc.document_id);
         }
     }, [documents]);
@@ -35,11 +43,15 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
         unlockingProgress, 
         updateUnlockingProgress 
     } = useDocumentStatusPolling(documents, (doc) => {
-        // Auto-download trigger
-        window.location.href = `/documents/download/${doc.document_id}`;
-        setShowKeepFileModal(doc.document_id);
         setSelectedDocId(doc.document_id);
+        setShowDownloadReadyModal(true);
     });
+
+    const handleDownloadAndProceed = (docId) => {
+        window.location.href = `/documents/download/${docId}`;
+        setShowDownloadReadyModal(false);
+        setShowKeepFileModal(docId);
+    };
 
     const {
         handleUnlock,
@@ -48,7 +60,7 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
         keepFile,
         handleToggleStar,
         handleFileInfo,
-        scanCovers
+        handleRename
     } = useDocumentActions({
         setLocalDocs,
         updateUnlockingProgress,
@@ -100,7 +112,11 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                                 onFileInfo={handleFileInfo}
                                 onDelete={(id) => { setSelectedDocId(id); setShowDeleteModal(true); }}
                                 onMove={(id) => { setSelectedDocId(id); setShowMoveModal(true); }}
-                                onScanCovers={scanCovers}
+                                onRename={(doc) => { 
+                                    setSelectedDocForRename(doc); 
+                                    setRenameValue(doc.filename);
+                                    setShowRenameModal(true); 
+                                }}
                             />
                         ))}
                     </div>
@@ -119,12 +135,48 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
 
             {showDeleteModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDeleteModal(false)}>
-                    <div className="bg-white rounded-xl shadow-xl w-80 p-6" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-lg font-semibold text-gray-800 mb-2">Delete File</h2>
-                        <p className="text-sm text-gray-500 mb-6">Are you sure you want to delete this file? This action cannot be undone.</p>
-                        <div className="flex justify-end gap-3">
-                            <button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 text-sm rounded-md bg-gray-100 hover:bg-gray-200">Cancel</button>
-                            <button onClick={() => confirmDelete(selectedDocId)} className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700">Delete</button>
+                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
+                        <div className="bg-red-600 p-6 text-white text-center relative">
+                            <button 
+                                onClick={() => setShowDeleteModal(false)}
+                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+                            >
+                                <X className="size-5" />
+                            </button>
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
+                                <Trash2 className="size-10 text-white" />
+                            </div>
+                            <h2 className="text-xl font-bold">Delete File</h2>
+                            <p className="text-red-100 text-sm mt-1">This action cannot be undone</p>
+                        </div>
+                        
+                        <div className="p-6">
+                            <div className="bg-red-50 rounded-xl p-4 mb-6 flex items-center gap-4 border border-red-100">
+                                <div className="bg-white p-2 rounded-lg shadow-sm">
+                                    <FileText className="size-6 text-red-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                        {localDocs.find(d => d.document_id === selectedDocId)?.filename}
+                                    </p>
+                                    <p className="text-xs text-red-500">Permanent removal</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={() => setShowDeleteModal(false)}
+                                    className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={() => confirmDelete(selectedDocId)}
+                                    className="px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors"
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -132,35 +184,86 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
 
             {showMoveModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMoveModal(false)}>
-                    <div className="bg-white rounded-xl shadow-xl w-80 p-6" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-lg font-semibold text-gray-800 mb-4">Move to Folder</h2>
-                        <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                            <button onClick={() => handleMove(selectedDocId, null)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition text-left">
-                                <FolderOpen className="size-5 text-gray-400" />
-                                <span className="text-sm text-gray-700">Root Directory</span>
+                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
+                        <div className="bg-indigo-600 p-6 text-white text-center relative">
+                            <button 
+                                onClick={() => setShowMoveModal(false)}
+                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+                            >
+                                <X className="size-5" />
                             </button>
-                            {folders.map(folder => (
-                                <button key={folder.folder_id} onClick={() => handleMove(selectedDocId, folder.folder_id)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition text-left">
-                                    <FolderTree className="size-5 text-indigo-500" />
-                                    <span className="text-sm text-gray-700 truncate">{folder.name}</span>
-                                </button>
-                            ))}
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
+                                <FolderOpen className="size-10 text-white" />
+                            </div>
+                            <h2 className="text-xl font-bold">Move to Folder</h2>
+                            <p className="text-indigo-100 text-sm mt-1">Organize your document</p>
                         </div>
-                        <div className="mt-6 flex justify-end">
-                            <button onClick={() => setShowMoveModal(false)} className="px-4 py-2 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700">Cancel</button>
+                        
+                        <div className="p-6">
+                            <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar mb-6">
+                                <button 
+                                    onClick={() => handleMove(selectedDocId, null)} 
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 group text-left"
+                                >
+                                    <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white">
+                                        <FolderOpen className="size-5 text-gray-400 group-hover:text-indigo-600" />
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-700">Root Directory</span>
+                                </button>
+                                {folders.map(folder => (
+                                    <button 
+                                        key={folder.folder_id} 
+                                        onClick={() => handleMove(selectedDocId, folder.folder_id)} 
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 group text-left"
+                                    >
+                                        <div className="p-2 bg-indigo-50 rounded-lg group-hover:bg-white">
+                                            <FolderTree className="size-5 text-indigo-500" />
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-700 truncate">{folder.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            <div className="flex justify-end">
+                                <button onClick={() => setShowMoveModal(false)} className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all">
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
             {showKeepFileModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 cursor-default">
-                    <div className="bg-white rounded-xl shadow-xl w-80 p-6" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-lg font-semibold text-gray-800 mb-2">File Unlocked</h2>
-                        <p className="text-sm text-gray-500 mb-6">Do you want to keep the unlocked file on the system or remove it?</p>
-                        <div className="flex justify-end gap-3">
-                            <button onClick={() => keepFile(selectedDocId, localDocs.find(d => d.document_id === selectedDocId)?.filename)} className="px-4 py-2 text-sm rounded-md bg-gray-100 hover:bg-gray-200">Keep File</button>
-                            <button onClick={() => { setShowDeleteModal(true); setShowKeepFileModal(null); }} className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700">Delete File</button>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowKeepFileModal(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
+                        <div className="bg-indigo-600 p-6 text-white text-center relative">
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
+                                <CheckCircle className="size-10 text-white" />
+                            </div>
+                            <h2 className="text-xl font-bold">File Retrieved</h2>
+                            <p className="text-indigo-100 text-sm mt-1">What would you like to do with the unlocked file?</p>
+                        </div>
+                        
+                        <div className="p-6">
+                            <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
+                                The file is currently decrypted on our server. You can keep it for later or delete it immediately for maximum security.
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={() => keepFile(selectedDocId, localDocs.find(d => d.document_id === selectedDocId)?.filename)}
+                                    className="px-4 py-2.5 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all"
+                                >
+                                    Keep File
+                                </button>
+                                <button 
+                                    onClick={() => { setShowDeleteModal(true); setShowKeepFileModal(null); }}
+                                    className="px-4 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-lg shadow-red-100"
+                                >
+                                    Delete File
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -172,6 +275,122 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
 
             {showInfoModal && (
                 <FileInfoModal document={selectedDocForInfo} onClose={() => setShowInfoModal(false)} />
+            )}
+            
+            {showRenameModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowRenameModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
+                        <div className="bg-indigo-600 p-6 text-white text-center relative">
+                            <button 
+                                onClick={() => setShowRenameModal(false)}
+                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+                            >
+                                <X className="size-5" />
+                            </button>
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
+                                <Pencil className="size-10 text-white" />
+                            </div>
+                            <h2 className="text-xl font-bold">Rename Document</h2>
+                            <p className="text-indigo-100 text-sm mt-1">Enter a new name for your file</p>
+                        </div>
+                        
+                        <div className="p-6">
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">New Filename</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <FileText className="size-5 text-gray-400" />
+                                        </div>
+                                        <input 
+                                            autoFocus
+                                            type="text" 
+                                            value={renameValue}
+                                            onChange={(e) => setRenameValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    handleRename(selectedDocForRename.document_id, renameValue);
+                                                    setShowRenameModal(false);
+                                                }
+                                            }}
+                                            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all font-medium text-gray-700"
+                                            placeholder="Enter new filename"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={() => setShowRenameModal(false)} className="px-4 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all">
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        handleRename(selectedDocForRename.document_id, renameValue);
+                                        setShowRenameModal(false);
+                                    }}
+                                    className="px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-100"
+                                >
+                                    Rename
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showDownloadReadyModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDownloadReadyModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
+                        <div className="bg-indigo-600 p-6 text-white text-center relative">
+                            <button 
+                                onClick={() => setShowDownloadReadyModal(false)}
+                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+                            >
+                                <X className="size-5" />
+                            </button>
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
+                                <CheckCircle className="size-10 text-white" />
+                            </div>
+                            <h2 className="text-xl font-bold">File Unlocked</h2>
+                            <p className="text-indigo-100 text-sm mt-1">Your document is ready for retrieval</p>
+                        </div>
+                        
+                        <div className="p-6">
+                            <div className="bg-gray-50 rounded-xl p-4 mb-6 flex items-center gap-4">
+                                <div className="bg-white p-2 rounded-lg shadow-sm">
+                                    <Shield className="size-6 text-indigo-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                        {localDocs.find(d => d.document_id === selectedDocId)?.filename}
+                                    </p>
+                                    <p className="text-xs text-gray-500">Decryption complete</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={() => {
+                                        const doc = localDocs.find(d => d.document_id === selectedDocId);
+                                        keepFile(selectedDocId, doc?.filename);
+                                        setShowDownloadReadyModal(false);
+                                    }}
+                                    className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={() => handleDownloadAndProceed(selectedDocId)}
+                                    className="px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Download className="size-4" />
+                                    Download
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
 
         </AuthenticatedLayout>

@@ -78,22 +78,18 @@ export function FileInfoModal({ document: doc, onClose }) {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gray-50/50">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg shadow-md shadow-indigo-200">
-              <History className="size-6 text-white" />
-            </div>
-            <div>
-                <h2 className="text-xl font-bold text-gray-900 leading-tight">File History</h2>
-                <p className="text-xs text-gray-500 font-medium truncate max-w-[250px]">{doc.filename}</p>
-            </div>
-          </div>
+        <div className="bg-indigo-600 p-6 text-white text-center relative">
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+            className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
           >
             <X className="size-5" />
           </button>
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
+            <History className="size-10 text-white" />
+          </div>
+          <h2 className="text-xl font-bold leading-tight">File History</h2>
+          <p className="text-indigo-100 text-sm mt-1 truncate px-6">{doc.filename}</p>
         </div>
 
         {/* Content */}
