@@ -261,8 +261,8 @@ export function Sidebar({
                 </div>
 
                 <button
-                    // onClick={onManageStorageClick}
-                    className="w-full flex items-center gap-2 text-gray-700 hover:bg-gray-200 px-4 py-2.5 rounded-xl transition-all font-medium"
+                    onClick={() => router.visit(route('manageStorage'))}
+                    className={`w-full flex items-center gap-2 text-gray-700 hover:bg-gray-200 px-4 py-2.5 rounded-xl transition-all font-medium ${route().current('manageStorage') ? 'bg-gray-200 shadow-inner' : ''}`}
                 >
                     <HardDrive className="size-5 text-gray-500" />
                     <span>Manage Storage</span>

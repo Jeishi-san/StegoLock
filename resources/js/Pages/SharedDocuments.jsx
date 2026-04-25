@@ -3,7 +3,7 @@ import { Shield, FileText, Star, MoreVertical,
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatBytes, formatDate } from '@/Utils/fileUtils';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import Tooltip from '@/Components/Tooltip';
 import axios from 'axios';
@@ -16,8 +16,22 @@ import {
 } from '@floating-ui/react';
 import { FileInfoModal } from '@/Components/modals/FileInfoModal';
 import { ConfirmModal } from '@/Components/modals/ConfirmModal';
+import { SearchBar } from '@/Components/SearchBar';
+import { ViewToggle } from '@/Components/ViewToggle';
+import { DocumentList } from '@/Components/DocumentList';
+import { sortDocuments } from '@/Utils/fileUtils';
+import DocumentCard from '@/Components/DocumentCard';
 
 export default function SharedDocuments({ documents, pendingShares, sentShares, folders, totalStorage, storageLimit, pendingSharesCount }) {
+    const [viewMode, setViewMode] = useState(() => localStorage.getItem('stegolock_view_mode_shared') || 'grid');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filters, setFilters] = useState({
+        fileFormat: 'all',
+        status: 'all',
+        owner: 'all',
+        sort: 'date-newest'
+    });
+
     const menuRef = useRef(null);
     const [localDocs, setLocalDocs] = useState(documents);
     const [openMenuId, setOpenMenuId] = useState(null);
@@ -114,6 +128,40 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
 
         return () => clearInterval(interval);
     }, [localDocs]);
+
+    useEffect(() => {
+        localStorage.setItem('stegolock_view_mode_shared', viewMode);
+    }, [viewMode]);
+
+    const filteredDocs = useMemo(() => {
+        let result = [...localDocs];
+
+        // Search Filter
+        if (searchQuery) {
+            result = result.filter(doc => 
+                doc.filename.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+
+        // Format Filter
+        if (filters.fileFormat !== 'all') {
+            result = result.filter(doc => doc.file_type?.toLowerCase().includes(filters.fileFormat));
+        }
+
+        // Status Filter
+        if (filters.status !== 'all') {
+            if (filters.status === 'secured') {
+                result = result.filter(doc => ['stored', 'retrieved', 'failed'].includes(doc.status));
+            } else {
+                result = result.filter(doc => doc.status === 'decrypted');
+            }
+        }
+
+        // Sort
+        result = sortDocuments(result, filters.sort);
+
+        return result;
+    }, [localDocs, searchQuery, filters]);
 
     const handleDownloadAndProceed = (docId) => {
         window.location.href = `/documents/download/${docId}`;
@@ -237,19 +285,32 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
 
     return (
         <AuthenticatedLayout
-            header={<h2 className="text-xl font-semibold text-gray-800">Shared With Me</h2>}
+            header={
+                <h2 className="text-2xl font-black tracking-tight text-gray-900">Shared With Me</h2>
+            }
+            headerActions={
+                <ViewToggle view={viewMode} onViewChange={setViewMode} />
+            }
+            subHeader={
+                <SearchBar 
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                />
+            }
             totalStorage={totalStorage}
             storageLimit={storageLimit}
         >
             <Head title="Shared With Me" />
 
-            <div className="p-6 space-y-8 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide">
-                {/* Pending Shares Section */}
-                {pendingShares.length > 0 && (
+            <div className="p-6 space-y-8 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide custom-scrollbar">
+                {/* Pending Shares Section - Only show if not searching or if results found */}
+                {pendingShares.length > 0 && !searchQuery && filters.fileFormat === 'all' && filters.status === 'all' && (
                     <section>
                         <div className="flex items-center gap-2 mb-4">
                             <Clock className="size-5 text-indigo-600" />
-                            <h3 className="text-lg font-bold text-gray-900">Pending Shares</h3>
+                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Pending Shares</h3>
                             <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">
                                 {pendingShares.length}
                             </span>
@@ -294,113 +355,62 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
 
                 {/* Accepted Documents Grid */}
                 <section>
-                    {pendingShares.length > 0 && (
+                    {pendingShares.length > 0 && !searchQuery && (
                         <div className="flex items-center gap-2 mb-4">
                             <FolderOpen className="size-5 text-gray-600" />
-                            <h3 className="text-lg font-bold text-gray-900">Shared Files</h3>
+                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Shared Files</h3>
                         </div>
                     )}
 
-                    {localDocs.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {localDocs.map(doc => (
-                                <div key={doc.document_id} className="group relative p-4 bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer border border-transparent hover:border-indigo-200">
-                                    <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition z-10">
-                                        <button
-                                            ref={(node) => openMenuId === doc.document_id && refs.setReference(node)}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setOpenMenuId(openMenuId === doc.document_id ? null : doc.document_id);
-                                            }}
-                                        >
-                                            <MoreVertical className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
-                                        </button>
-                                    </div>
-
-                                    <div className="relative mb-3">
-                                        <FileText className={"size-14 rounded-xl p-2 " + getFileColor(doc.file_type)} />
-                                        { (unlockingProgress[doc.document_id] || !['stored', 'decrypted', 'retrieved', 'failed'].includes(doc.status)) && (
-                                            <div className="absolute -top-1 -right-1 bg-white rounded-full p-1 shadow-sm">
-                                                <Loader2 className="size-5 text-indigo-600 animate-spin" />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <h3 className="text-md font-semibold text-gray-800 mb-1 truncate" title={doc.filename}>
-                                        {doc.filename}
-                                    </h3>
-                                    
-                                    <div className="flex flex-col gap-2">
-                                        { (unlockingProgress[doc.document_id] || !['stored', 'decrypted', 'retrieved', 'failed'].includes(doc.status)) ? (
-                                            <div className="flex flex-col w-full mt-1 gap-1.5">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] font-bold text-indigo-600 tracking-wider animate-pulse">
-                                                        {getStatusDisplay(doc.status, doc.document_id)}
-                                                    </span>
-                                                </div>
-                                                <div className="w-full bg-indigo-100 rounded-full h-1 overflow-hidden">
-                                                    <div className="bg-indigo-600 h-full animate-progress" style={{width: '30%'}}></div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="flex justify-between items-center text-xs text-gray-500">
-                                                <span>{formatBytes(doc.in_cloud_size || doc.original_size)}</span>
-                                                <span>{formatDate(new Date(doc.created_at))}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {openMenuId === doc.document_id && (
-                                            <div
-                                                ref={(node) => { menuRef.current = node; refs.setFloating(node); }}
-                                                style={{ position: strategy, top: y ?? 0, left: x ?? 0 }}
-                                                className="w-48 bg-white border rounded-xl shadow-lg z-50 overflow-hidden py-1"
-                                            >
-                                            <button
-                                                onClick={() => handleUnlock(doc.document_id)}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50"
-                                            >
-                                                <Unlock className="w-4 h-4 text-gray-600" />
-                                                Unlock File
-                                            </button>
-                                            <button
-                                                onClick={() => openMoveModal(doc.document_id)}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50"
-                                            >
-                                                <FolderInput className="w-4 h-4 text-gray-600" />
-                                                Move File
-                                            </button>
-                                            <button
-                                                onClick={() => { 
-                                                    setOpenMenuId(null);
-                                                    setSelectedDocForInfo(doc);
-                                                    setShowInfoModal(true);
-                                                }}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50"
-                                            >
-                                                <Info className="w-4 h-4 text-gray-600" />
-                                                File Info
-                                            </button>
-                                            <div className="border-t" />
-                                            <button
-                                                onClick={() => { setOpenMenuId(null); confirmRemoveAccess({ docId: doc.document_id }); }}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-red-50 text-red-600"
-                                            >
-                                                <Trash2 className="w-4 h-4 text-red-500" />
-                                                Remove Access
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                    {filteredDocs.length > 0 ? (
+                        viewMode === 'grid' ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {filteredDocs.map(doc => (
+                                    <DocumentCard 
+                                        key={doc.document_id}
+                                        doc={doc}
+                                        unlockingProgress={unlockingProgress}
+                                        onUnlock={handleUnlock}
+                                        onToggleStar={(id) => { toast.info("Starring shared files coming soon"); }}
+                                        onShare={() => {}} // No share for shared files
+                                        onFileInfo={(d) => { setSelectedDocForInfo(d); setShowInfoModal(true); }}
+                                        onDelete={() => confirmRemoveAccess({ docId: doc.document_id })}
+                                        onMove={openMoveModal}
+                                        onRename={() => toast.info("Renaming shared files coming soon")}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <DocumentList 
+                                documents={filteredDocs}
+                                unlockingProgress={unlockingProgress}
+                                onUnlock={handleUnlock}
+                                onToggleStar={(id) => { toast.info("Starring shared files coming soon"); }}
+                                onShare={() => {}}
+                                onFileInfo={(d) => { setSelectedDocForInfo(d); setShowInfoModal(true); }}
+                                onDelete={(id) => confirmRemoveAccess({ docId: id })}
+                                onMove={openMoveModal}
+                                onRename={() => toast.info("Renaming shared files coming soon")}
+                                openMenuId={openMenuId}
+                                setOpenMenuId={setOpenMenuId}
+                                refs={refs}
+                                strategy={strategy}
+                                x={x}
+                                y={y}
+                                menuRef={menuRef}
+                            />
+                        )
                     ) : (
-                        <div className="bg-gray-50 rounded-2xl p-12 text-center border-2 border-dashed border-gray-200">
+                        <div className="bg-gray-50 rounded-3xl p-12 text-center border-2 border-dashed border-gray-200">
                             <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
                                 <Share2 className="size-8 text-gray-300" />
                             </div>
-                            <h4 className="text-gray-900 font-semibold mb-1">No shared files yet</h4>
-                            <p className="text-gray-500 text-sm">When someone shares a file with you, it will appear here.</p>
+                            <h4 className="text-gray-900 font-semibold mb-1">
+                                {searchQuery || filters.fileFormat !== 'all' ? "No matching files" : "No shared files yet"}
+                            </h4>
+                            <p className="text-gray-500 text-sm">
+                                {searchQuery || filters.fileFormat !== 'all' ? "Try adjusting your filters or search query" : "When someone shares a file with you, it will appear here."}
+                            </p>
                         </div>
                     )}
                 </section>

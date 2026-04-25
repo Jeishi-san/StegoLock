@@ -38,9 +38,8 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::get('/starredDocuments', [StarredController::class, 'index'])
         ->name('starredDocuments');
 
-    
-
-    
+    Route::get('/manageStorage', [DocumentController::class, 'manageStorage'])
+        ->name('manageStorage');
 });
 
 Route::middleware('auth')->group(function () {

@@ -12,7 +12,7 @@ import {
 
 export default function DocumentCard({
     doc,
-    unlockingProgress,
+    unlockingProgress = {},
     onUnlock,
     onToggleStar,
     onShare,
@@ -99,7 +99,7 @@ export default function DocumentCard({
             title={isProcessing ? `${processType} file is ongoing...` : undefined}
             className={"group relative w-full p-4 bg-white rounded-lg shadow transition " + 
                 (isProcessing ? "border-2 border-indigo-100 bg-indigo-50/10 cursor-wait" : "hover:shadow-lg hover:ring-1 hover:ring-purple-600 cursor-pointer")}
-            onClick={() => !isProcessing && setOpenMenu(false)}
+            onClick={() => !isProcessing && onFileInfo(doc)}
         >
             {!isProcessing && (
                 <div className={"absolute top-0 right-0 p-4 transition space-x-1 z-10 " + 

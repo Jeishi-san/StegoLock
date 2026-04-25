@@ -3,11 +3,12 @@ import { Shield, FileText, Star, MoreVertical, Plus,
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatBytes, formatDate } from '@/Utils/fileUtils';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import Dropdown from '@/Components/Dropdown';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
+import { SearchBar } from '@/Components/SearchBar';
 
 export default function MyFolders({ folders, totalStorage, storageLimit  }) {
     const [showNewMenu, setShowNewMenu] = useState(false);
@@ -18,6 +19,35 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
     const [name, setName] = useState('');
     const [errors, setErrors] = useState({});
     const [processing, setProcessing] = useState(false);
+    
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filters, setFilters] = useState({
+        sort: 'date-newest'
+    });
+
+    const filteredFolders = useMemo(() => {
+        let result = [...folders];
+
+        // Search filter
+        if (searchQuery) {
+            result = result.filter(folder => 
+                folder.name.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+
+        // Sort filter
+        result.sort((a, b) => {
+            switch (filters.sort) {
+                case 'name-asc': return a.name.localeCompare(b.name);
+                case 'name-desc': return b.name.localeCompare(a.name);
+                case 'date-newest': return new Date(b.created_at) - new Date(a.created_at);
+                case 'date-oldest': return new Date(a.created_at) - new Date(b.created_at);
+                default: return 0;
+            }
+        });
+
+        return result;
+    }, [folders, searchQuery, filters]);
 
     const openCreateModal = () => {
         setName('');
@@ -94,9 +124,18 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    My Folders
-                </h2>
+                <h2 className="text-2xl font-black tracking-tight text-gray-900">My Folders</h2>
+            }
+            subHeader={
+                <SearchBar 
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    showFormatFilter={false}
+                    showStatusFilter={false}
+                    showOwnerFilter={false}
+                />
             }
             totalStorage={totalStorage}
             storageLimit={storageLimit}
@@ -104,10 +143,10 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
             <Head title="My Folders"/>
 
             {/* GRID VIEW (DEFAULT) */}
-            {folders.length > 0 ? (
-                <div className="h-full overflow-y-auto">
+            {filteredFolders.length > 0 || folders.length > 0 ? (
+                <div className="h-full overflow-y-auto custom-scrollbar">
                     <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
-                        {folders.map(folder => {
+                        {filteredFolders.map(folder => {
                             return (
                                 <div
                                     key={folder.folder_id}

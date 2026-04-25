@@ -1,14 +1,27 @@
-import { Shield, ArrowLeft, FolderOpen, FolderTree, Download, CheckCircle, X, Trash2, Pencil, AlertTriangle, FileText } from 'lucide-react';
+import { Shield, ArrowLeft, FolderOpen, FolderTree, Download, CheckCircle, X, Trash2, Pencil, AlertTriangle, FileText, LayoutGrid, List } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { ShareFileModal } from '@/Components/modals/ShareFileModal';
 import { FileInfoModal } from '@/Components/modals/FileInfoModal';
 import DocumentCard from '@/Components/DocumentCard';
+import { DocumentList } from '@/Components/DocumentList';
+import { SearchBar } from '@/Components/SearchBar';
+import { ViewToggle } from '@/Components/ViewToggle';
 import { useDocumentStatusPolling } from '@/hooks/useDocumentStatusPolling';
 import { useDocumentActions } from '@/hooks/useDocumentActions';
+import { sortDocuments } from '@/Utils/fileUtils';
+import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/react';
 
 export default function MyDocuments({ documents, folders, currentFolder, totalStorage, storageLimit, title = "My Documents" }) {
+    const [viewMode, setViewMode] = useState(() => localStorage.getItem('stegolock_view_mode') || 'grid');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filters, setFilters] = useState({
+        fileFormat: 'all',
+        status: 'all',
+        owner: 'all',
+        sort: 'date-newest'
+    });
 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showMoveModal, setShowMoveModal] = useState(false);
@@ -23,6 +36,30 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
     const [renameValue, setRenameValue] = useState('');
     const [selectedDocForShare, setSelectedDocForShare] = useState(null);
     const [selectedDocForInfo, setSelectedDocForInfo] = useState(null);
+
+    const [openMenuId, setOpenMenuId] = useState(null);
+    const menuRef = useRef(null);
+
+    const { x, y, strategy, refs } = useFloating({
+        placement: 'bottom-end',
+        middleware: [offset(8), flip(), shift()],
+        whileElementsMounted: autoUpdate,
+        strategy: 'fixed'
+    });
+
+    useEffect(() => {
+        localStorage.setItem('stegolock_view_mode', viewMode);
+    }, [viewMode]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setOpenMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Initial check for stuck files
     useEffect(() => {
@@ -46,6 +83,36 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
         setSelectedDocId(doc.document_id);
         setShowDownloadReadyModal(true);
     });
+
+    const filteredDocs = useMemo(() => {
+        let result = [...localDocs];
+
+        // Search Filter
+        if (searchQuery) {
+            result = result.filter(doc => 
+                doc.filename.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+
+        // Format Filter
+        if (filters.fileFormat !== 'all') {
+            result = result.filter(doc => doc.file_type?.toLowerCase().includes(filters.fileFormat));
+        }
+
+        // Status Filter
+        if (filters.status !== 'all') {
+            if (filters.status === 'secured') {
+                result = result.filter(doc => ['stored', 'retrieved', 'failed'].includes(doc.status));
+            } else {
+                result = result.filter(doc => doc.status === 'decrypted');
+            }
+        }
+
+        // Sort
+        result = sortDocuments(result, filters.sort);
+
+        return result;
+    }, [localDocs, searchQuery, filters]);
 
     const handleDownloadAndProceed = (docId) => {
         window.location.href = `/documents/download/${docId}`;
@@ -84,13 +151,24 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                             title="Back to folders"
                         >
-                            <ArrowLeft className="size-6 text-gray-600" />
+                            <ArrowLeft className="size-5 text-gray-600" />
                         </button>
                     )}
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                    <h2 className="text-2xl font-black tracking-tight text-gray-900">
                         {currentFolder ? currentFolder.name : title}
                     </h2>
                 </div>
+            }
+            headerActions={
+                <ViewToggle view={viewMode} onViewChange={setViewMode} />
+            }
+            subHeader={
+                <SearchBar 
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                />
             }
             totalStorage={totalStorage}
             storageLimit={storageLimit}
@@ -98,13 +176,33 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
         >
             <Head title="My Documents"/>
 
-            {localDocs.length > 0 ? (
-                <div className="h-full overflow-y-auto">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
-                        {localDocs.map(doc => (
-                            <DocumentCard 
-                                key={doc.document_id}
-                                doc={doc}
+            <div className="h-full overflow-y-auto custom-scrollbar">
+                {filteredDocs.length > 0 ? (
+                    viewMode === 'grid' ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
+                            {filteredDocs.map(doc => (
+                                <DocumentCard 
+                                    key={doc.document_id}
+                                    doc={doc}
+                                    unlockingProgress={unlockingProgress}
+                                    onUnlock={handleUnlock}
+                                    onToggleStar={handleToggleStar}
+                                    onShare={(d) => { setSelectedDocForShare(d); setShowShareModal(true); }}
+                                    onFileInfo={handleFileInfo}
+                                    onDelete={(id) => { setSelectedDocId(id); setShowDeleteModal(true); }}
+                                    onMove={(id) => { setSelectedDocId(id); setShowMoveModal(true); }}
+                                    onRename={(doc) => { 
+                                        setSelectedDocForRename(doc); 
+                                        setRenameValue(doc.filename);
+                                        setShowRenameModal(true); 
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-6">
+                            <DocumentList 
+                                documents={filteredDocs}
                                 unlockingProgress={unlockingProgress}
                                 onUnlock={handleUnlock}
                                 onToggleStar={handleToggleStar}
@@ -117,21 +215,32 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                                     setRenameValue(doc.filename);
                                     setShowRenameModal(true); 
                                 }}
+                                openMenuId={openMenuId}
+                                setOpenMenuId={setOpenMenuId}
+                                refs={refs}
+                                strategy={strategy}
+                                x={x}
+                                y={y}
+                                menuRef={menuRef}
                             />
-                        ))}
-                    </div>
-                </div>
-            ) : (
-                <div className="flex-1 flex items-center justify-center p-8">
-                    <div className="text-center">
-                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Shield className="size-10 text-gray-400" />
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Documents Found</h3>
-                        <p className="text-gray-500">Upload files to get started</p>
+                    )
+                ) : (
+                    <div className="flex-1 flex items-center justify-center p-8 min-h-[400px]">
+                        <div className="text-center">
+                            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-dashed border-gray-200">
+                                <Shield className="size-10 text-gray-300" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                {searchQuery || filters.fileFormat !== 'all' || filters.status !== 'all' ? "No matching documents" : "No Documents Found"}
+                            </h3>
+                            <p className="text-gray-500 max-w-xs mx-auto">
+                                {searchQuery || filters.fileFormat !== 'all' || filters.status !== 'all' ? "Try adjusting your filters or search query" : "Upload files to get started with Stegolock"}
+                            </p>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
 
             {showDeleteModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDeleteModal(false)}>

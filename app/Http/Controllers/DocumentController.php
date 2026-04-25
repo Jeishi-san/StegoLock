@@ -157,6 +157,22 @@ class DocumentController extends Controller
         ]);
     }
 
+    public function manageStorage()
+    {
+        $user = Auth::user();
+        $user->refreshStorageUsed();
+
+        $documents = Document::where('user_id', Auth::id())
+            ->latest()
+            ->get();
+
+        return Inertia::render('ManageStorage', [
+            'documents' => $documents,
+            'totalStorage' => $user->storage_used,
+            'storageLimit' => $user->storage_limit,
+        ]);
+    }
+
     public function sharedIndex()
     {
         $user = Auth::user();

@@ -3,13 +3,21 @@ import { Shield, FileText, Star, MoreVertical,
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatBytes, formatDate } from '@/Utils/fileUtils';
 import { Inertia } from '@inertiajs/inertia';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
-import { useState, useEffect, useRef } from 'react';
-import { router } from '@inertiajs/react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import Tooltip from '@/Components/Tooltip';
 import { ConfirmModal } from '@/Components/modals/ConfirmModal';
+import { SearchBar } from '@/Components/SearchBar';
+import { ViewToggle } from '@/Components/ViewToggle';
+import { DocumentList } from '@/Components/DocumentList';
+import DocumentCard from '@/Components/DocumentCard';
+import { ShareFileModal } from '@/Components/modals/ShareFileModal';
+import { FileInfoModal } from '@/Components/modals/FileInfoModal';
+import { DownloadReadyModal } from '@/Components/modals/DownloadReadyModal';
+import { useDocumentStatusPolling } from '@/hooks/useDocumentStatusPolling';
+import { useDocumentActions } from '@/hooks/useDocumentActions';
 import {
     useFloating,
     offset,
@@ -23,42 +31,129 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
 
     const menuRef = useRef(null);
 
-    const [localDocs, setLocalDocs] = useState(documents);
     const [openMenuId, setOpenMenuId] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedDocId, setSelectedDocId] = useState(null);
-    
-    // Polling logic for all processing documents
-    useEffect(() => {
-        const processingDocs = localDocs.filter(doc => 
-            !['stored', 'decrypted', 'retrieved', 'failed'].includes(doc.status)
-        );
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [showInfoModal, setShowInfoModal] = useState(false);
+    const [selectedDoc, setSelectedDoc] = useState(null);
+    const [showDownloadReadyModal, setShowDownloadReadyModal] = useState(false);
+    const { 
+        localDocs, 
+        setLocalDocs, 
+        unlockingProgress, 
+        updateUnlockingProgress 
+    } = useDocumentStatusPolling(documents, (doc) => {
+        setSelectedDoc(doc);
+        setShowDownloadReadyModal(true);
+    });
 
-        if (processingDocs.length === 0) return;
+    const {
+        handleUnlock,
+        handleMove,
+        confirmDelete,
+        keepFile,
+        handleToggleStar: baseToggleStar,
+        handleFileInfo,
+        handleRename
+    } = useDocumentActions({
+        setLocalDocs,
+        updateUnlockingProgress,
+        setSelectedDocId,
+        setSelectedDocForShare: () => {}, // Not used in Starred currently
+        setSelectedDocForInfo: setSelectedDoc,
+        setShowDeleteModal,
+        setShowMoveModal: () => {}, 
+        setShowShareModal,
+        setShowInfoModal,
+        setShowKeepFileModal: () => {} 
+    });
 
-        const interval = setInterval(async () => {
-            const updatedDocs = await Promise.all(
-                localDocs.map(async (doc) => {
-                    if (!['stored', 'decrypted', 'failed'].includes(doc.status)) {
-                        try {
-                            const { data } = await axios.get(`/documents/status/${doc.document_id}`);
-                            return { ...doc, ...data };
-                        } catch (e) {
-                            return doc;
-                        }
-                    }
-                    return doc;
-                })
-            );
-
-            if (JSON.stringify(updatedDocs) !== JSON.stringify(localDocs)) {
-                setLocalDocs(updatedDocs);
+    // Custom toggle star for Starred view (removes if unstarred)
+    const handleToggleStar = async (id) => {
+        try {
+            const resp = await axios.post(route('documents.star.toggle'), {
+                document_id: id
+            });
+            
+            if (resp.data.is_starred !== undefined) {
+                if (!resp.data.is_starred) {
+                    setLocalDocs(prev => prev.filter(doc => doc.document_id !== id));
+                    toast.success('Document removed from starred');
+                } else {
+                    setLocalDocs(prev => prev.map(doc => 
+                        doc.document_id === id ? { ...doc, is_starred: resp.data.is_starred } : doc
+                    ));
+                    toast.success(resp.data.message);
+                }
             }
-        }, 2000);
+        } catch (err) {
+            toast.error('Failed to update star status');
+        }
+    };
 
-        return () => clearInterval(interval);
-    }, [localDocs]);
+    const handleDownloadAndProceed = (docId) => {
+        window.location.href = `/documents/download/${docId}`;
+        setShowDownloadReadyModal(false);
+    };
 
+    const [viewMode, setViewMode] = useState(() => {
+        return localStorage.getItem('stegolock_view_mode_starred') || 'grid';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('stegolock_view_mode_starred', viewMode);
+    }, [viewMode]);
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filters, setFilters] = useState({
+        fileFormat: 'all',
+        status: 'all',
+        owner: 'all',
+        sort: 'date-newest'
+    });
+
+    const filteredDocs = useMemo(() => {
+        let result = [...localDocs];
+
+        // Search filter
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            result = result.filter(doc => 
+                doc.filename.toLowerCase().includes(query)
+            );
+        }
+
+        // Format filter
+        if (filters.fileFormat !== 'all') {
+            result = result.filter(doc => doc.file_type === filters.fileFormat);
+        }
+
+        // Status filter
+        if (filters.status !== 'all') {
+            result = result.filter(doc => {
+                if (filters.status === 'secured') return doc.status === 'stored' || doc.status === 'retrieved';
+                if (filters.status === 'original') return doc.status === 'decrypted';
+                return true;
+            });
+        }
+
+        // Sort filter
+        result.sort((a, b) => {
+            switch (filters.sort) {
+                case 'name-asc': return a.filename.localeCompare(b.filename);
+                case 'name-desc': return b.filename.localeCompare(a.filename);
+                case 'date-newest': return new Date(b.created_at) - new Date(a.created_at);
+                case 'date-oldest': return new Date(a.created_at) - new Date(b.created_at);
+                case 'size-largest': return (b.in_cloud_size || b.original_size) - (a.in_cloud_size || a.original_size);
+                case 'size-smallest': return (a.in_cloud_size || a.original_size) - (b.in_cloud_size || b.original_size);
+                default: return 0;
+            }
+        });
+
+        return result;
+    }, [localDocs, searchQuery, filters]);
+    
     const getStatusDisplay = (status) => {
         switch (status) {
             case 'uploaded': return 'Initializing...';
@@ -143,11 +238,11 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
     };
 
     const handleUnlock = (id) => {
+        updateUnlockingProgress(id);
         router.post('/documents/unlock', { document_id: id });
     };
 
     const openDeleteModal = (id) => {
-        setOpenMenuId(null);
         setSelectedDocId(id);
         setShowDeleteModal(true);
     };
@@ -167,9 +262,18 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Starred Documents
-                </h2>
+                <h2 className="text-2xl font-black tracking-tight text-gray-900">Starred Documents</h2>
+            }
+            headerActions={
+                <ViewToggle view={viewMode} onViewChange={setViewMode} />
+            }
+            subHeader={
+                <SearchBar 
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                />
             }
             totalStorage={totalStorage}
             storageLimit={storageLimit}
@@ -177,104 +281,35 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
         >
             <Head title="Starred Documents"/>
 
-            {localDocs.length > 0 ? (
-                <div className="h-full overflow-y-auto">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
-                        {localDocs.map(doc => (
-                            <div
-                                key={doc.document_id}
-                                className="group relative w-full p-4 bg-white rounded-lg shadow transition hover:shadow-lg hover:ring-1 hover:ring-yellow-400 cursor-pointer"
-                            >
-                                <div className="absolute top-0 right-0 p-4 transition space-x-1 z-10">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleToggleStar(doc.document_id);
-                                        }}
-                                    >
-                                        <Star className="size-8 text-yellow-400 fill-yellow-400 hover:bg-gray-100 rounded-md p-1.5 transition" />
-                                    </button>
-
-                                    <button
-                                        ref={(node) => {
-                                            if (openMenuId === doc.document_id) refs.setReference(node);
-                                        }}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleMenu(doc.document_id);
-                                        }}
-                                    >
-                                        <MoreVertical className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
-                                    </button>
-                                </div>
-
-                                <div className="relative">
-                                    <FileText className={"size-14 rounded-xl p-2 " + getFileColor(doc.file_type)} />
-                                    {!['stored', 'decrypted', 'retrieved', 'failed'].includes(doc.status) && (
-                                        <div className="absolute -top-1 -right-1 bg-white rounded-full p-1 shadow-sm">
-                                            <Loader2 className="size-5 text-indigo-600 animate-spin" />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <h3 className="text-md font-semibold text-gray-800 my-3 truncate" title={doc.filename}>
-                                    {doc.filename}
-                                </h3>
-
-                                <div className="flex justify-between items-center min-h-[20px]">
-                                    {!['stored', 'decrypted', 'retrieved', 'failed'].includes(doc.status) ? (
-                                        <span className="text-xs font-medium text-indigo-600 animate-pulse">
-                                            {getStatusDisplay(doc.status)}
-                                        </span>
-                                    ) : doc.status === 'failed' ? (
-                                        <Tooltip content={doc.error_message ? (typeof doc.error_message === 'object' ? JSON.stringify(doc.error_message) : doc.error_message) : "Error occurred during processing"}>
-                                            <div className="flex items-center gap-1 group/error">
-                                                <AlertCircle className="size-3 text-red-500" />
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
-                                                    Error
-                                                </span>
-                                            </div>
-                                        </Tooltip>
-                                    ) : (
-                                        <p className="text-sm text-gray-500">
-                                            {formatBytes(doc.in_cloud_size || doc.original_size)}
-                                        </p>
-                                    )}
-                                    <p className="text-sm text-gray-500">
-                                        {formatDate(new Date(doc.created_at))}
-                                    </p>
-                                </div>
-
-                                {openMenuId === doc.document_id && (
-                                    <div
-                                        ref={(node) => {
-                                            menuRef.current = node;
-                                            refs.setFloating(node);
-                                        }}
-                                        style={{
-                                            position: strategy,
-                                            top: y ?? 0,
-                                            left: x ?? 0
-                                        }}
-                                        className="w-36 bg-white border rounded-xl shadow-lg z-50 overflow-hidden"
-                                    >
-                                        <button
-                                            onClick={() => handleUnlock(doc.document_id)}
-                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50">
-                                            <Unlock className="w-4 h-4 text-gray-600" />
-                                            Unlock File
-                                        </button>
-                                        <div className="border-t" />
-                                        <button
-                                            onClick={() => openDeleteModal(doc.document_id)}
-                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-red-50 text-red-600">
-                                            <Trash2 className="w-4 h-4 text-red-500" />
-                                            Delete
-                                        </button>
-                                    </div>
-                                )}
+            {filteredDocs.length > 0 || localDocs.length > 0 ? (
+                <div className="h-full overflow-hidden flex flex-col">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                        {viewMode === 'grid' ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-6">
+                                {filteredDocs.map(doc => (
+                                    <DocumentCard
+                                        key={doc.document_id}
+                                        doc={doc}
+                                        unlockingProgress={unlockingProgress}
+                                        onToggleStar={() => handleToggleStar(doc.document_id)}
+                                        onDelete={() => openDeleteModal(doc.document_id)}
+                                        onShare={(d) => { setSelectedDoc(d); setShowShareModal(true); }}
+                                        onInfo={(d) => { setSelectedDoc(d); setShowInfoModal(true); }}
+                                        onUnlock={handleUnlock}
+                                    />
+                                ))}
                             </div>
-                        ))}
+                        ) : (
+                            <DocumentList
+                                documents={filteredDocs}
+                                unlockingProgress={unlockingProgress}
+                                onToggleStar={handleToggleStar}
+                                onDelete={openDeleteModal}
+                                onShare={(d) => { setSelectedDoc(d); setShowShareModal(true); }}
+                                onInfo={(d) => { setSelectedDoc(d); setShowInfoModal(true); }}
+                                onUnlock={handleUnlock}
+                            />
+                        )}
                     </div>
                 </div>
             ) : (
@@ -298,6 +333,35 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
                 onConfirm={confirmDelete}
                 onCancel={() => setShowDeleteModal(false)}
             />
+
+            {showShareModal && (
+                <ShareFileModal
+                    show={showShareModal}
+                    onClose={() => setShowShareModal(false)}
+                    document={selectedDoc}
+                />
+            )}
+
+            {showInfoModal && (
+                <FileInfoModal
+                    show={showInfoModal}
+                    onClose={() => setShowInfoModal(false)}
+                    document={selectedDoc}
+                />
+            )}
+
+            {showDownloadReadyModal && (
+                <DownloadReadyModal
+                    show={showDownloadReadyModal}
+                    onClose={() => setShowDownloadReadyModal(false)}
+                    document={selectedDoc}
+                    onDownload={handleDownloadAndProceed}
+                    onCancel={() => {
+                        keepFile(selectedDoc.document_id, selectedDoc.filename);
+                        setShowDownloadReadyModal(false);
+                    }}
+                />
+            )}
         </AuthenticatedLayout>
     );
 }

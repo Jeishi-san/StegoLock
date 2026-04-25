@@ -57,3 +57,62 @@ export const getFileColor = (type) => {
 export const getOwnerDisplay = (owner, currentUserEmail) => {
   return owner === 'me' ? currentUserEmail : owner;
 };
+
+export const categorizeDocuments = (documents) => {
+  const categories = {
+    documents: { size: 0, count: 0, label: 'Documents', color: 'blue' },
+    images: { size: 0, count: 0, label: 'Images', color: 'purple' },
+    videos: { size: 0, count: 0, label: 'Videos', color: 'pink' },
+    audio: { size: 0, count: 0, label: 'Audio', color: 'indigo' },
+    archives: { size: 0, count: 0, label: 'Archives', color: 'yellow' },
+    other: { size: 0, count: 0, label: 'Other', color: 'gray' }
+  };
+
+  documents.forEach(doc => {
+    const type = doc.file_type?.toLowerCase() || '';
+    const size = parseInt(doc.in_cloud_size || doc.original_size || 0);
+
+    if (type.includes('pdf') || type.includes('word') || type.includes('document') || type.includes('text') || type.includes('txt')) {
+      categories.documents.size += size;
+      categories.documents.count++;
+    } else if (type.includes('image')) {
+      categories.images.size += size;
+      categories.images.count++;
+    } else if (type.includes('video')) {
+      categories.videos.size += size;
+      categories.videos.count++;
+    } else if (type.includes('audio')) {
+      categories.audio.size += size;
+      categories.audio.count++;
+    } else if (type.includes('zip') || type.includes('rar') || type.includes('7z') || type.includes('archive')) {
+      categories.archives.size += size;
+      categories.archives.count++;
+    } else {
+      categories.other.size += size;
+      categories.other.count++;
+    }
+  });
+
+  return categories;
+};
+
+export const sortDocuments = (documents, sortBy) => {
+  return [...documents].sort((a, b) => {
+    switch (sortBy) {
+      case 'name-asc':
+        return a.filename.localeCompare(b.filename);
+      case 'name-desc':
+        return b.filename.localeCompare(a.filename);
+      case 'date-newest':
+        return new Date(b.created_at) - new Date(a.created_at);
+      case 'date-oldest':
+        return new Date(a.created_at) - new Date(b.created_at);
+      case 'size-largest':
+        return (b.in_cloud_size || b.original_size) - (a.in_cloud_size || a.original_size);
+      case 'size-smallest':
+        return (a.in_cloud_size || a.original_size) - (b.in_cloud_size || b.original_size);
+      default:
+        return 0;
+    }
+  });
+};
