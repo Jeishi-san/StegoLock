@@ -58,8 +58,11 @@ class DocumentController extends Controller
         // Fetch owned documents
         $query = Document::withCount('shares')
             ->where('user_id', Auth::id())
-            ->where('folder_id', $folderId)
             ->latest();
+
+        if (!is_null($folderId)) {
+            $query->where('folder_id', $folderId);
+        }
 
         $documents = $query->get()
             ->map(function ($doc) {

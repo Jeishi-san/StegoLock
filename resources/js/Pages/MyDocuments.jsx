@@ -154,7 +154,7 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                             <ArrowLeft className="size-5 text-gray-600" />
                         </button>
                     )}
-                    <h2 className="text-2xl font-black tracking-tight text-gray-900">
+                    <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white transition-colors">
                         {currentFolder ? currentFolder.name : title}
                     </h2>
                 </div>

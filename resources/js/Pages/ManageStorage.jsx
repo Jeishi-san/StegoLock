@@ -85,7 +85,7 @@ export default function ManageStorage({
             >
                 <ArrowLeft className="size-5 text-gray-600" />
             </button>
-            <h2 className="text-2xl font-black tracking-tight text-gray-900">Storage Analytics</h2>
+            <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white transition-colors">Storage Analytics</h2>
         </div>
       }
       headerActions={

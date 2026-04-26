@@ -214,55 +214,17 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [openMenuId]);
 
-    const handleToggleStar = async (id) => {
-        try {
-            const resp = await axios.post(route('documents.star.toggle'), {
-                document_id: id
-            });
-            
-            if (resp.data.is_starred !== undefined) {
-                // If unstarred, remove from this view
-                if (!resp.data.is_starred) {
-                    setLocalDocs(prev => prev.filter(doc => doc.document_id !== id));
-                    toast.success('Document removed from starred');
-                } else {
-                    setLocalDocs(prev => prev.map(doc => 
-                        doc.document_id === id ? { ...doc, is_starred: resp.data.is_starred } : doc
-                    ));
-                    toast.success(resp.data.message);
-                }
-            }
-        } catch (err) {
-            toast.error('Failed to update star status');
-        }
-    };
-
-    const handleUnlock = (id) => {
-        updateUnlockingProgress(id);
-        router.post('/documents/unlock', { document_id: id });
-    };
 
     const openDeleteModal = (id) => {
         setSelectedDocId(id);
         setShowDeleteModal(true);
     };
 
-    const confirmDelete = async () => {
-        if (!selectedDocId) return;
-        try {
-            await axios.post('/documents/delete', { document_id: selectedDocId });
-            toast.success('Document deleted successfully');
-            setLocalDocs(prev => prev.filter(doc => doc.document_id !== selectedDocId));
-            setShowDeleteModal(false);
-        } catch (err) {
-            toast.error('Failed to delete document');
-        }
-    };
 
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-2xl font-black tracking-tight text-gray-900">Starred Documents</h2>
+                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white transition-colors">Starred Documents</h2>
             }
             headerActions={
                 <ViewToggle view={viewMode} onViewChange={setViewMode} />

@@ -31,15 +31,18 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
             {/* Navigation */}
             <nav className="sticky top-0 z-50 glass-header">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        <div className="flex items-center gap-2">
-                            <div className="bg-cyber-accent p-1.5 rounded-lg shadow-lg dark:shadow-glow-cyan">
-                                <Shield className="size-6 text-white dark:text-cyber-void" />
+                    <div className="flex justify-between items-center h-24 transition-all">
+                        <Link href="/" className="group">
+                            <div className="flex items-center gap-3">
+                                <div className="relative inline-flex items-center justify-center p-3 bg-gradient-to-br from-cyber-accent via-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-cyan-500/40 dark:shadow-[0_0_20px_rgba(34,211,238,0.6)] group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                                    <Shield className="size-7 text-white drop-shadow-md relative z-10" />
+                                    <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                </div>
+                                <span className="text-2xl font-[900] text-slate-900 dark:text-white tracking-tighter leading-[0.85] transform origin-left group-hover:scale-105 inline-block group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyber-accent group-hover:to-indigo-500 transition-all duration-300">
+                                    Stego<span className="text-cyber-accent group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyber-accent group-hover:to-indigo-500 transition-all duration-300">Lock</span>
+                                </span>
                             </div>
-                            <span className="text-xl font-[900] text-slate-900 dark:text-white tracking-tighter leading-[0.85] scale-y-90 transform origin-left">
-                                Stego<span className="text-cyber-accent">Lock</span>
-                            </span>
-                        </div>
+                        </Link>
                         <div className="flex items-center gap-4">
                             <button 
                                 onClick={() => setDarkMode(!darkMode)}
@@ -95,12 +98,21 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     StegoLock strengthens protection against unauthorized access through a hybrid cryptography-steganography model. Your documents aren't just encrypted—they're fragmented and hidden.
                                 </p>
                                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
-                                    <Link
-                                        href={route('register')}
-                                        className="w-full sm:w-auto px-8 py-4 bg-cyber-accent text-white dark:text-cyber-void rounded-2xl font-bold text-lg hover:bg-slate-900 dark:hover:bg-white transition shadow-lg dark:shadow-glow-cyan-strong flex items-center justify-center gap-2"
-                                    >
-                                        Secure Your Documents <ArrowRight className="size-5" />
-                                    </Link>
+                                    {auth.user ? (
+                                        <Link
+                                            href={route('myDocuments')}
+                                            className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-cyber-accent to-indigo-500 text-white rounded-2xl font-bold text-lg hover:opacity-90 transition-all shadow-lg shadow-cyan-500/30 dark:shadow-[0_0_15px_rgba(34,211,238,0.4)] flex items-center justify-center gap-2"
+                                        >
+                                            Go to Dashboard <ArrowRight className="size-5" />
+                                        </Link>
+                                    ) : (
+                                        <Link
+                                            href={route('register')}
+                                            className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-cyber-accent to-indigo-500 text-white rounded-2xl font-bold text-lg hover:opacity-90 transition-all shadow-lg shadow-cyan-500/30 dark:shadow-[0_0_15px_rgba(34,211,238,0.4)] flex items-center justify-center gap-2"
+                                        >
+                                            Secure Your Documents <ArrowRight className="size-5" />
+                                        </Link>
+                                    )}
                                     <a
                                         href="#how-it-works"
                                         className="w-full sm:w-auto px-8 py-4 bg-slate-100 dark:bg-cyber-surface/50 text-slate-900 dark:text-white border border-slate-200 dark:border-cyber-border rounded-2xl font-bold text-lg hover:bg-slate-200 dark:hover:bg-cyber-surface transition backdrop-blur-md flex items-center justify-center gap-2"
@@ -236,18 +248,29 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                             Join organizations and professionals who trust StegoLock for their most sensitive digital assets.
                         </p>
                         <div className="flex flex-col sm:flex-row justify-center gap-4 relative z-10">
-                            <Link
-                                href={route('register')}
-                                className="px-10 py-5 bg-cyber-accent text-white dark:text-cyber-void rounded-2xl font-bold text-xl hover:bg-slate-900 dark:hover:bg-white transition shadow-lg dark:shadow-glow-cyan"
-                            >
-                                Get Started Free
-                            </Link>
-                            <Link
-                                href={route('login')}
-                                className="px-10 py-5 bg-slate-100 dark:bg-cyber-surface text-slate-900 dark:text-white border border-slate-200 dark:border-cyber-border rounded-2xl font-bold text-xl hover:bg-slate-200 dark:hover:bg-slate-800 transition"
-                            >
-                                Sign In
-                            </Link>
+                            {auth.user ? (
+                                <Link
+                                    href={route('myDocuments')}
+                                    className="px-10 py-5 bg-gradient-to-r from-cyber-accent to-indigo-500 text-white rounded-2xl font-bold text-xl hover:opacity-90 transition-all shadow-lg shadow-cyan-500/30 dark:shadow-[0_0_15px_rgba(34,211,238,0.4)]"
+                                >
+                                    Go to Dashboard
+                                </Link>
+                            ) : (
+                                <>
+                                    <Link
+                                        href={route('register')}
+                                        className="px-10 py-5 bg-gradient-to-r from-cyber-accent to-indigo-500 text-white rounded-2xl font-bold text-xl hover:opacity-90 transition-all shadow-lg shadow-cyan-500/30 dark:shadow-[0_0_15px_rgba(34,211,238,0.4)]"
+                                    >
+                                        Get Started Free
+                                    </Link>
+                                    <Link
+                                        href={route('login')}
+                                        className="px-10 py-5 bg-slate-100 dark:bg-cyber-surface/50 text-slate-900 dark:text-slate-300 border border-slate-200 dark:border-cyber-border/50 rounded-2xl font-bold text-xl hover:bg-white dark:hover:bg-white hover:text-slate-900 dark:hover:text-slate-900 transition-all shadow-sm"
+                                    >
+                                        Sign In
+                                    </Link>
+                                </>
+                            )}
                         </div>
                     </div>
                 </section>
@@ -258,11 +281,14 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
                         <div className="col-span-1 md:col-span-2 space-y-6">
-                            <div className="flex items-center gap-2">
-                                <div className="bg-cyber-accent p-1.5 rounded-lg">
-                                    <Shield className="size-6 text-white dark:text-cyber-void" />
+                            <div className="flex items-center gap-3 group cursor-default">
+                                <div className="relative inline-flex items-center justify-center p-2.5 bg-gradient-to-br from-cyber-accent via-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-cyan-500/40 dark:shadow-[0_0_20px_rgba(34,211,238,0.6)] group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                                    <Shield className="size-6 text-white drop-shadow-md relative z-10" />
+                                    <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 </div>
-                                <span className="text-xl font-[900] text-slate-900 dark:text-white tracking-tighter leading-[0.85] scale-y-90 transform origin-left ml-2">Stego<span className="text-cyber-accent">Lock</span></span>
+                                <span className="text-xl font-[900] text-slate-900 dark:text-white tracking-tighter leading-[0.85] transform origin-left group-hover:scale-105 inline-block group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyber-accent group-hover:to-indigo-500 transition-all duration-300">
+                                    Stego<span className="text-cyber-accent group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyber-accent group-hover:to-indigo-500 transition-all duration-300">Lock</span>
+                                </span>
                             </div>
                             <p className="text-slate-600 dark:text-slate-400 max-w-md">
                                 A capstone project focused on advancing digital document security through hybrid cryptography and steganography.

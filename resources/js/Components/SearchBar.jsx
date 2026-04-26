@@ -44,7 +44,7 @@ export function SearchBar({
 
   const FilterSection = ({ title, children }) => (
     <div className="mb-4">
-      <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">{title}</h4>
+      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">{title}</h4>
       {children}
     </div>
   );
@@ -58,8 +58,8 @@ export function SearchBar({
       onClick={onClick}
       className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
         active
-          ? 'bg-indigo-50 text-indigo-700 font-medium'
-          : 'text-gray-700 hover:bg-gray-50'
+          ? 'bg-indigo-50 dark:bg-cyber-accent/20 text-indigo-700 dark:text-cyber-accent font-bold'
+          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-surface'
       }`}
     >
       {label}
@@ -69,29 +69,29 @@ export function SearchBar({
   return (
     <div className="flex gap-2">
       <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-slate-400 dark:text-slate-500" />
         <input
           type="text"
           placeholder="Search documents..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          className="w-full pl-10 pr-4 py-2 bg-white dark:bg-cyber-surface/50 border border-slate-300/80 dark:border-cyber-accent/40 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyber-accent focus:border-transparent transition-all"
         />
       </div>
 
       <div className="relative" ref={filterRef}>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
             showFilters || activeFiltersCount > 0
-              ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              ? 'bg-indigo-50 dark:bg-cyber-accent/20 border-indigo-200 dark:border-cyber-accent/50 text-indigo-700 dark:text-cyber-accent'
+              : 'bg-white dark:bg-cyber-surface/50 border-slate-300/80 dark:border-cyber-accent/40 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-surface'
           }`}
         >
           <SlidersHorizontal className="size-4" />
-          <span className="text-sm font-medium">Filters</span>
+          <span className="text-sm font-bold">Filters</span>
           {activeFiltersCount > 0 && (
-            <span className="bg-indigo-600 text-white text-xs font-semibold rounded-full size-5 flex items-center justify-center">
+            <span className="bg-indigo-600 dark:bg-cyber-accent text-white dark:text-cyber-void text-xs font-bold rounded-full size-5 flex items-center justify-center shadow-sm">
               {activeFiltersCount}
             </span>
           )}
@@ -99,13 +99,13 @@ export function SearchBar({
         </button>
 
         {showFilters && (
-          <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 max-h-[calc(90vh-100px)] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="font-semibold text-gray-900">Filters & Sort</h3>
+          <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-cyber-surface/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200 dark:border-cyber-border/50 z-50 max-h-[calc(90vh-100px)] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-cyber-border/30">
+              <h3 className="font-bold text-slate-900 dark:text-white">Filters & Sort</h3>
               {activeFiltersCount > 0 && (
                 <button
                   onClick={handleResetFilters}
-                  className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                  className="flex items-center gap-1 text-xs text-indigo-600 dark:text-cyber-accent hover:text-indigo-700 dark:hover:text-cyan-300 font-bold transition-colors"
                 >
                   <X className="size-3" />
                   Reset

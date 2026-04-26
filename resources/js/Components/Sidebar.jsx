@@ -1,5 +1,5 @@
-﻿import { FolderOpen, Star, HardDrive, Shield, Lock, Unlock, Plus, ChevronDown, Upload, Users, FolderTree } from 'lucide-react';
-import { useState } from 'react';
+import { FolderOpen, Star, HardDrive, Shield, Lock, Unlock, Plus, ChevronDown, Upload, Users, FolderTree, Moon, Sun } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { formatBytes } from '@/Utils/fileUtils';
 import { Link, usePage, router } from '@inertiajs/react';
 
@@ -31,6 +31,24 @@ export function Sidebar({
 
     const user = usePage().props.auth.user;
 
+    const [darkMode, setDarkMode] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('stegolock_theme');
+            return saved ? saved === 'dark' : true;
+        }
+        return true;
+    });
+
+    useEffect(() => {
+        if (darkMode) {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('stegolock_theme', 'dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('stegolock_theme', 'light');
+        }
+    }, [darkMode]);
+
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [showNewMenu, setShowNewMenu] = useState(false);
@@ -46,28 +64,40 @@ export function Sidebar({
     const MenuButton = ({ icon: Icon, label, onClick, className = ""}) => (
         <button
             onClick={onClick}
-            className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left ${className}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 dark:text-slate-300 transition-all rounded-xl text-left group ${!className.includes('cursor-not-allowed') ? 'hover:bg-cyber-accent hover:text-white dark:hover:text-cyber-void hover:shadow-md' : ''} ${className}`}
         >
-            <Icon className={`size-4 text-gray-500 ${className}`} />
+            <Icon className={`size-4 text-slate-500 dark:text-slate-400 transition-colors ${!className.includes('cursor-not-allowed') ? 'group-hover:text-white dark:group-hover:text-cyber-void' : ''} ${className}`} />
             {label}
         </button>
     );
 
   return (
-    <nav className="w-64 h-screen flex flex-col border-b border-gray-100 bg-gray-100 shadow-lg">
+    <nav className="w-64 h-screen flex flex-col border-r border-slate-200 dark:border-cyber-border/50 bg-white dark:bg-cyber-void transition-colors duration-300 shadow-lg">
         <div className='flex-1'>
             {/* HEADER */}
             <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
-                <div className="flex my-4">
+                <div className="flex items-center justify-between my-4">
                     {/* Icon */}
-                    <Link href="/myDocuments">
+                    <Link href="/myDocuments" className="group">
                         <div className="flex items-center space-x-3 my-3">
-                            <div className="inline-flex items-center justify-center p-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/50">
-                                <Shield className="size-6 text-white" />
+                            <div className="relative inline-flex items-center justify-center p-2.5 bg-gradient-to-br from-cyber-accent via-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-cyan-500/40 dark:shadow-[0_0_20px_rgba(34,211,238,0.6)] group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                                <Shield className="size-6 text-white drop-shadow-md relative z-10" />
+                                <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             </div>
-                            <h1 className="text-xl font-bold text-gray-900">Stegolock</h1>
+                            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight transform origin-left group-hover:scale-105 inline-block group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyber-accent group-hover:to-indigo-500 transition-all duration-300">Stego<span className="text-cyber-accent group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyber-accent group-hover:to-indigo-500 transition-all duration-300">Lock</span></h1>
                         </div>
                     </Link>
+
+                    <button 
+                        onClick={() => setDarkMode(!darkMode)}
+                        className="p-2.5 bg-slate-100 dark:bg-cyber-surface/50 border border-slate-200 dark:border-cyber-border rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyber-accent hover:border-cyber-accent transition-all shadow-inner group hidden sm:block"
+                    >
+                        {darkMode ? (
+                            <Moon className="size-4 group-hover:drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]" />
+                        ) : (
+                            <Sun className="size-4 group-hover:drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]" />
+                        )}
+                    </button>
 
                     {/* Mobile Navigation */}
                     <div className="-me-2 flex items-center sm:hidden">
@@ -77,7 +107,7 @@ export function Sidebar({
                                     (previousState) => !previousState,
                                 )
                             }
-                            className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none"
+                            className="inline-flex items-center justify-center rounded-md p-2 text-slate-400 transition duration-150 ease-in-out hover:bg-slate-100 hover:text-slate-500 focus:bg-slate-100 focus:text-slate-500 focus:outline-none dark:hover:bg-cyber-surface dark:focus:bg-cyber-surface dark:text-slate-400 dark:hover:text-slate-300 dark:focus:text-slate-300"
                         >
                             <svg
                                 className="h-6 w-6"
@@ -115,7 +145,7 @@ export function Sidebar({
 
             {/* Divider */}
             <div className="relative">
-                <div className="w-full border-t border-gray-300"></div>
+                <div className="w-full border-t border-slate-200 dark:border-cyber-border/50"></div>
             </div>
 
             {/* NEW BUTTON */}
@@ -124,10 +154,7 @@ export function Sidebar({
                     {/* New Button with Dropdown */}
                     <button
                         onClick={() => { setShowNewMenu(!showNewMenu); }}
-                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r
-                                    from-indigo-600 to-purple-600 text-white px-4 py-3.5
-                                    rounded-xl hover:from-indigo-700 hover:to-purple-700
-                                    transition-all font-medium shadow-lg shadow-indigo-500/30"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-cyber-accent to-indigo-500 text-white rounded-xl hover:opacity-90 transition-all font-bold shadow-lg shadow-cyan-500/30 dark:shadow-[0_0_15px_rgba(34,211,238,0.4)]"
                     >
                         <Plus className="size-5" />
                         New
@@ -141,7 +168,7 @@ export function Sidebar({
                             className="fixed inset-0 z-40"
                             onClick={() => setShowNewMenu(false)}
                         />
-                        <div className="absolute w-full mt-14 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
+                        <div className="absolute w-full mt-16 p-2 glass-panel shadow-2xl z-50 rounded-2xl border border-slate-200 dark:border-cyber-border/50 dark:bg-cyber-surface/90 backdrop-blur-xl">
                             <MenuButton icon={Upload}
                                         label={isProcessOngoing ? "Currently locking a file..." : "Lock a File"}
                                         onClick={() => {
@@ -149,7 +176,7 @@ export function Sidebar({
                                             setShowNewMenu(false);
                                             setShowUploadModal(true);
                                         }}
-                                        className={isProcessOngoing ? 'text-gray-400 cursor-not-allowed bg-gray-50' : ''}
+                                        className={isProcessOngoing ? 'text-slate-400 cursor-not-allowed bg-slate-50 dark:bg-cyber-surface/30' : ''}
                             />
                             <MenuButton icon={Plus}
                                         label="New Folder"
@@ -172,7 +199,7 @@ export function Sidebar({
 
             {/* Divider */}
             <div className="relative">
-                <div className="w-full border-t border-gray-300"></div>
+                <div className="w-full border-t border-slate-200 dark:border-cyber-border/50"></div>
             </div>
 
             {/* NAVIGATION LINKS */}
@@ -198,7 +225,7 @@ export function Sidebar({
 
                         {/* Divider */}
                         <div className="relative">
-                            <div className="w-full border-t border-gray-300"></div>
+                            <div className="w-full border-t border-slate-200 dark:border-cyber-border/50"></div>
                         </div>
 
                         <NavLink
@@ -242,18 +269,18 @@ export function Sidebar({
         {/* Storage Info */}
         <div className="">
             <div className="mx-auto max-w-7xl my-4 space-y-1 sm:px-6 lg:px-6">
-                <div className="p-4 bg-gradient-to-br from-gray-200 to-gray-100 rounded-xl">
+                <div className="p-4 bg-slate-100 dark:bg-cyber-surface/50 rounded-xl border border-slate-200 dark:border-cyber-border/30">
                     <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-gray-600 font-medium">Storage</span>
-                        <span className="text-gray-900 font-semibold">
+                        <span className="text-slate-600 dark:text-slate-400 font-medium">Storage</span>
+                        <span className="text-slate-900 dark:text-white font-semibold">
                             {formatBytes(totalStorage)} / {formatBytes(storageLimit)}
                         </span>
                     </div>
-                    <div className="w-full bg-gray-300 rounded-full h-2 overflow-hidden">
+                    <div className="w-full bg-slate-200 dark:bg-cyber-border rounded-full h-2 overflow-hidden">
                         <div
                             className={" rounded-full transition-all shadow-sm"+
-                                (storagePercentage > 90 ? " bg-gradient-to-r from-purple-600 to-red-600 h-2" :
-                                     " bg-gradient-to-r from-indigo-600 to-purple-600 h-2")
+                                (storagePercentage > 90 ? " bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] h-2" :
+                                     " bg-cyber-accent dark:shadow-glow-cyan h-2")
                             }
                             style={{ width: `${Math.min(storagePercentage, 100)}%` }}
                         />
@@ -262,9 +289,17 @@ export function Sidebar({
 
                 <button
                     onClick={() => router.visit(route('manageStorage'))}
-                    className={`w-full flex items-center gap-2 text-gray-700 hover:bg-gray-200 px-4 py-2.5 rounded-xl transition-all font-medium ${route().current('manageStorage') ? 'bg-gray-200 shadow-inner' : ''}`}
+                    className={
+                        'w-full flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all group ' +
+                        (route().current('manageStorage') ?
+                            'bg-gradient-to-r from-cyber-accent/10 to-indigo-500/10 dark:from-cyber-accent/20 dark:to-indigo-500/20 text-indigo-700 dark:text-white shadow-md shadow-cyan-500/20 dark:shadow-[0_0_10px_rgba(34,211,238,0.2)] font-bold ' :
+                            'text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-cyber-accent/10 hover:to-indigo-500/10 dark:hover:from-cyber-accent/20 dark:hover:to-indigo-500/20 hover:text-indigo-700 dark:hover:text-white hover:shadow-md hover:shadow-cyan-500/20 dark:hover:shadow-[0_0_10px_rgba(34,211,238,0.2)] font-medium ')
+                    }
                 >
-                    <HardDrive className="size-5 text-gray-500" />
+                    <HardDrive className={
+                        'size-5 transition-colors ' +
+                        (route().current('manageStorage') ? 'text-indigo-700 dark:text-cyber-accent' : 'text-slate-500 dark:text-slate-400 group-hover:text-cyber-accent')
+                    } />
                     <span>Manage Storage</span>
                 </button>
             </div>
@@ -288,12 +323,12 @@ export function Sidebar({
                 </ResponsiveNavLink>
             </div>
 
-            <div className="border-t border-gray-200 pb-1 pt-4">
+            <div className="border-t border-slate-200 dark:border-cyber-border/50 pb-1 pt-4">
                 <div className="px-4">
-                    <div className="text-base font-medium text-gray-800">
+                    <div className="text-base font-medium text-slate-800 dark:text-slate-200">
                         {user.name}
                     </div>
-                    <div className="text-sm font-medium text-gray-500">
+                    <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
                         {user.email}
                     </div>
                 </div>

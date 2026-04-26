@@ -21,7 +21,7 @@ export default function AuthenticatedLayout({
     const user = usePage().props.auth.user;
 
     return (
-        <div className="flex min-h-screen bg-gray-100 overflow-hidden">
+        <div className="flex min-h-screen bg-slate-50 dark:bg-cyber-void transition-colors overflow-hidden">
 
             {/* LEFT SIDE (Navigation) */}
             <Sidebar
@@ -32,11 +32,11 @@ export default function AuthenticatedLayout({
 
             {/* RIGHT SIDE */}
             <div className="flex flex-col flex-1 h-screen overflow-hidden">
-                <header className="bg-white border-b border-gray-100 relative z-20">
+                <header className="bg-white/80 dark:bg-cyber-surface/90 backdrop-blur-xl border-b border-slate-200 dark:border-cyber-border/50 relative z-20 transition-colors">
                     <div className="max-w-[1600px] mx-auto px-4 lg:px-8 py-4">
                         {/* Row 1: Title & Actions */}
                         <div className="flex items-center justify-between min-h-[40px]">
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0 text-slate-900 dark:text-white transition-colors">
                                 {header}
                             </div>
 
@@ -47,36 +47,36 @@ export default function AuthenticatedLayout({
                                 {/* Global Profile Menu */}
                                 <Dropdown>
                                     <Dropdown.Trigger>
-                                        <button className="flex items-center justify-center size-10 bg-gray-50 hover:bg-gray-100 rounded-full transition-all border border-gray-200 group cursor-pointer shadow-sm overflow-hidden">
-                                            <div className="size-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                                        <button className="flex items-center justify-center size-10 bg-slate-50 dark:bg-cyber-surface hover:bg-slate-100 dark:hover:bg-cyber-surface/80 rounded-full transition-all border border-slate-200 dark:border-cyber-border/50 group cursor-pointer shadow-sm hover:shadow-cyan-500/20 overflow-hidden">
+                                            <div className="size-full bg-gradient-to-br from-cyber-accent to-indigo-500 flex items-center justify-center text-white font-bold text-sm shadow-inner group-hover:scale-110 transition-transform">
                                                 {user.name.charAt(0)}
                                             </div>
                                         </button>
                                     </Dropdown.Trigger>
 
-                                    <Dropdown.Content width="64" contentClasses="py-2 bg-white rounded-2xl shadow-2xl border border-gray-100">
-                                        <div className="px-5 py-4 border-b border-gray-50 mb-1">
-                                            <p className="text-sm font-bold text-gray-900 leading-tight">{user.name}</p>
-                                            <p className="text-xs text-gray-500 truncate mt-0.5">{user.email}</p>
+                                    <Dropdown.Content width="72" contentClasses="py-2 bg-white dark:bg-cyber-surface/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-300 dark:border-cyber-accent/30">
+                                        <div className="px-5 py-4 border-b border-slate-200 dark:border-cyber-border/50 mb-1">
+                                            <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{user.name}</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{user.email}</p>
                                         </div>
                                         
                                         <div className="space-y-0.5 px-2">
-                                            <Dropdown.Link href={route('profile.edit')} className="flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50 transition-colors rounded-xl">
-                                                <User className="size-4 text-gray-400" />
+                                            <Dropdown.Link href={route('profile.edit')} className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30 transition-colors rounded-xl group">
+                                                <User className="size-4 text-slate-400 group-hover:text-cyber-accent transition-colors" />
                                                 Manage Account
                                             </Dropdown.Link>
 
-                                            <Dropdown.Link href={route('manageStorage')} className="flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50 transition-colors rounded-xl">
-                                                <HardDrive className="size-4 text-gray-400" />
+                                            <Dropdown.Link href={route('manageStorage')} className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30 transition-colors rounded-xl group">
+                                                <HardDrive className="size-4 text-slate-400 group-hover:text-cyber-accent transition-colors" />
                                                 Manage Storage
                                             </Dropdown.Link>
                                         </div>
 
-                                        <div className="my-2 border-t border-gray-50 mx-2" />
+                                        <div className="my-2 border-t border-slate-50 dark:border-cyber-border/30 mx-2" />
 
                                         <div className="px-2">
-                                            <Dropdown.Link href={route('logout')} method="post" as="button" className="flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded-xl w-full">
-                                                <EyeOff className="size-4 text-red-400" />
+                                            <Dropdown.Link href={route('logout')} method="post" as="button" className="flex items-center gap-3 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors rounded-xl w-full group">
+                                                <EyeOff className="size-4 text-red-400 group-hover:text-red-500 transition-colors" />
                                                 Log Out
                                             </Dropdown.Link>
                                         </div>
@@ -87,7 +87,7 @@ export default function AuthenticatedLayout({
 
                         {/* Row 2: Search & Filters */}
                         {subHeader && (
-                            <div className="mt-4 pt-4 border-t border-gray-50">
+                            <div className="mt-4 pt-4 border-t border-slate-50 dark:border-cyber-border/30">
                                 {subHeader}
                             </div>
                         )}

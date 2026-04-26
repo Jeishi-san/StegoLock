@@ -51,11 +51,12 @@ const Content = ({
         alignmentClasses = 'ltr:origin-top-right rtl:origin-top-left end-0';
     }
 
-    let widthClasses = '';
-
-    if (width === '48') {
-        widthClasses = 'w-48';
-    }
+    const widthClasses = {
+        '48': 'w-48',
+        '64': 'w-64',
+        '72': 'w-72',
+        '80': 'w-80',
+    }[width] || 'w-48';
 
     return (
         <>

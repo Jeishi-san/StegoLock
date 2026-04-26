@@ -124,7 +124,7 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-2xl font-black tracking-tight text-gray-900">My Folders</h2>
+                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white transition-colors">My Folders</h2>
             }
             subHeader={
                 <SearchBar 

@@ -286,7 +286,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-2xl font-black tracking-tight text-gray-900">Shared With Me</h2>
+                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white transition-colors">Shared With Me</h2>
             }
             headerActions={
                 <ViewToggle view={viewMode} onViewChange={setViewMode} />
