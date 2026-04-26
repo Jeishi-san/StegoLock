@@ -110,12 +110,16 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                 </div>
                             </div>
                             <div className="flex-1 relative animate-float">
-                                <div className="absolute inset-0 bg-cyber-accent/10 blur-[100px] rounded-full"></div>
-                                <img
-                                    src="/assets/images/stegolock_hero.png"
-                                    alt="StegoLock Security Model"
-                                    className="relative z-10 w-full max-w-lg mx-auto rounded-3xl shadow-2xl border border-cyber-border/50 backdrop-blur-sm bg-cyber-surface/20"
-                                />
+                                {/* Dynamic Glow */}
+                                <div className="absolute inset-0 bg-cyber-accent/20 dark:bg-cyber-accent/10 blur-[100px] rounded-full"></div>
+                                <div className="relative z-10 group">
+                                    <div className="absolute -inset-1 bg-gradient-to-r from-cyber-accent/50 to-indigo-500/50 rounded-[2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                                    <img
+                                        src="/assets/images/stegolock_hero_v2.png"
+                                        alt="StegoLock Security Model"
+                                        className="relative w-full max-w-lg mx-auto rounded-[2rem] shadow-2xl border border-white/20 dark:border-cyber-border/50 backdrop-blur-xl bg-white/30 dark:bg-cyber-surface/30 transform transition-transform duration-500 hover:scale-[1.02]"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
