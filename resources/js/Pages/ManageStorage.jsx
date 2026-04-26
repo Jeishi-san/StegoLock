@@ -44,28 +44,29 @@ export default function ManageStorage({
     });
   };
 
+
   const CategoryCard = ({ icon: Icon, data, label, color }) => {
     const colorVariants = {
-        blue: 'from-blue-500/20 to-blue-600/5 text-blue-600 border-blue-100',
-        purple: 'from-purple-500/20 to-purple-600/5 text-purple-600 border-purple-100',
-        pink: 'from-pink-500/20 to-pink-600/5 text-pink-600 border-pink-100',
-        indigo: 'from-indigo-500/20 to-indigo-600/5 text-indigo-600 border-indigo-100',
-        yellow: 'from-yellow-500/20 to-yellow-600/5 text-yellow-600 border-yellow-100',
-        gray: 'from-gray-500/20 to-gray-600/5 text-gray-600 border-gray-100'
+        blue: 'from-cyber-accent/20 to-cyber-accent/5 text-cyber-accent border-cyber-accent/20 shadow-glow-cyan/10',
+        purple: 'from-fuchsia-500/20 to-fuchsia-500/5 text-fuchsia-400 border-fuchsia-500/20 shadow-glow-fuchsia/10',
+        pink: 'from-rose-500/20 to-rose-500/5 text-rose-400 border-rose-500/20',
+        indigo: 'from-cyan-500/20 to-cyan-500/5 text-cyan-400 border-cyan-500/20',
+        yellow: 'from-amber-500/20 to-amber-500/5 text-amber-400 border-amber-500/20',
+        gray: 'from-slate-500/20 to-slate-500/5 text-slate-400 border-slate-500/20'
     };
 
     return (
-        <div className={`relative overflow-hidden bg-gradient-to-br ${colorVariants[color]} p-6 rounded-3xl border transition-all hover:shadow-lg group`}>
+        <div className={`relative overflow-hidden glass-panel bg-gradient-to-br ${colorVariants[color]} p-6 rounded-3xl transition-all duration-300 hover:scale-[1.02] hover:border-cyber-accent/50 group bg-white dark:bg-transparent`}>
             <div className="flex items-start justify-between relative z-10">
-                <div className="p-3 bg-white rounded-2xl shadow-sm">
+                <div className="p-3 bg-slate-100/50 dark:bg-cyber-void/50 rounded-2xl border border-slate-200 dark:border-cyber-border/50 group-hover:border-cyber-accent/50 transition-colors">
                     <Icon className="size-6" />
                 </div>
                 <div className="text-right">
-                    <p className="text-2xl font-bold">{formatBytes(data.size)}</p>
-                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">{data.count} files</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-white tabular-nums tracking-tighter">{formatBytes(data.size)}</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{data.count} units</p>
                 </div>
             </div>
-            <p className="mt-6 font-bold text-gray-900 relative z-10">{label}</p>
+            <p className="mt-6 font-bold text-slate-600 dark:text-slate-300 relative z-10 tracking-tight">{label}</p>
             <div className="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Icon className="size-32" />
             </div>
@@ -81,84 +82,84 @@ export default function ManageStorage({
         <div className="flex items-center gap-4">
             <button 
                 onClick={() => window.history.back()}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 bg-slate-100 dark:bg-cyber-surface hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl border border-slate-200 dark:border-cyber-border transition-all text-slate-500 dark:text-slate-400 hover:text-cyber-accent"
             >
-                <ArrowLeft className="size-5 text-gray-600" />
+                <ArrowLeft className="size-5" />
             </button>
-            <h2 className="text-2xl font-black tracking-tight text-gray-900">Storage Analytics</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Vault Analytics</h2>
         </div>
       }
       headerActions={
         <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+            className="flex items-center gap-2 px-6 py-2.5 bg-slate-100 dark:bg-cyber-surface border border-slate-200 dark:border-cyber-border rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:text-cyber-accent hover:border-cyber-accent transition-all shadow-lg dark:shadow-glow-cyan/10"
         >
             <RefreshCw className={`size-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            Sync Vault
         </button>
       }
     >
       <Head title="Storage Management" />
 
       <div className="h-full overflow-y-auto custom-scrollbar p-8">
-        <div className="max-w-6xl mx-auto space-y-10">
+        <div className="max-w-6xl mx-auto space-y-12">
             {/* Overview Section */}
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-indigo-200 relative overflow-hidden">
+            <div className="glass-panel bg-gradient-to-br from-slate-100 to-white dark:from-cyber-void dark:to-slate-900 rounded-[2.5rem] p-10 text-slate-900 dark:text-white shadow-2xl relative overflow-hidden border-slate-200 dark:border-cyber-accent/30">
                 <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div>
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-md">
-                                <HardDrive className="size-10" />
+                        <div className="flex items-center gap-5 mb-8">
+                            <div className="p-4 bg-cyber-accent/20 rounded-2xl border border-cyber-accent/30 shadow-glow-cyan">
+                                <HardDrive className="size-10 text-cyber-accent" />
                             </div>
                             <div>
-                                <h3 className="text-3xl font-black italic tracking-tighter uppercase">STG-DB.V1</h3>
-                                <p className="text-indigo-100 font-bold text-sm tracking-widest opacity-80 uppercase">Storage Subsystem</p>
+                                <h3 className="text-3xl font-black tracking-tighter uppercase text-slate-900 dark:text-white">CORE-VAULT.X</h3>
+                                <p className="text-cyber-accent-dark dark:text-cyber-accent font-black text-[10px] tracking-[0.3em] uppercase">Primary Storage Subsystem</p>
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between font-bold text-sm">
-                                <span className="opacity-80">Overall Capacity</span>
-                                <span>{formatBytes(totalStorage)} / {formatBytes(storageLimit)}</span>
+                            <div className="flex items-center justify-between font-bold text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                <span>Overall Capacity</span>
+                                <span className="text-slate-900 dark:text-white">{formatBytes(totalStorage)} / {formatBytes(storageLimit)}</span>
                             </div>
-                            <div className="w-full bg-white/20 rounded-full h-4 backdrop-blur-sm overflow-hidden p-1">
+                            <div className="w-full bg-cyber-surface/50 rounded-full h-5 border border-cyber-border overflow-hidden p-1 shadow-inner">
                                 <div
-                                    className="bg-white h-full rounded-full transition-all shadow-[0_0_20px_rgba(255,255,255,0.6)]"
+                                    className="bg-cyber-accent h-full rounded-full transition-all duration-1000 shadow-glow-cyan"
                                     style={{ width: `${Math.min(storagePercentage, 100)}%` }}
                                 />
                             </div>
-                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-60">
+                            <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
                                 <span>0%</span>
-                                <span>{storagePercentage.toFixed(1)}% Used</span>
+                                <span className="text-cyber-accent">{storagePercentage.toFixed(1)}% Saturation</span>
                                 <span>100%</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="flex justify-center md:justify-end gap-6">
-                        <div className="bg-white/10 rounded-[2rem] p-8 backdrop-blur-md border border-white/10 text-center min-w-[160px] transform hover:scale-105 transition-transform">
-                            <p className="text-5xl font-black mb-1">{storagePercentage.toFixed(1)}%</p>
-                            <p className="text-xs font-black uppercase tracking-widest opacity-60">Utilization</p>
+                        <div className="glass-panel bg-white/50 dark:bg-cyber-surface/30 rounded-[2rem] p-8 border border-slate-200 dark:border-cyber-border/50 text-center min-w-[170px] transform hover:scale-105 transition-all">
+                            <p className="text-5xl font-black mb-1 text-slate-900 dark:text-white tabular-nums tracking-tighter">{storagePercentage.toFixed(1)}%</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Utilization</p>
                         </div>
-                        <div className="bg-white/10 rounded-[2rem] p-8 backdrop-blur-md border border-white/10 text-center min-w-[160px] transform hover:scale-105 transition-transform">
-                            <p className="text-5xl font-black mb-1">{formatBytes(storageLimit - totalStorage).split(' ')[0]}</p>
-                            <p className="text-xs font-black uppercase tracking-widest opacity-60">Free {formatBytes(storageLimit - totalStorage).split(' ')[1]}</p>
+                        <div className="glass-panel bg-white/50 dark:bg-cyber-surface/30 rounded-[2rem] p-8 border border-slate-200 dark:border-cyber-border/50 text-center min-w-[170px] transform hover:scale-105 transition-all">
+                            <p className="text-5xl font-black mb-1 text-cyber-accent-dark dark:text-cyber-accent tabular-nums tracking-tighter">{formatBytes(storageLimit - totalStorage).split(' ')[0]}</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Free {formatBytes(storageLimit - totalStorage).split(' ')[1]}</p>
                         </div>
                     </div>
                 </div>
                 
                 {/* Abstract Background Element */}
-                <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-white/5 to-transparent skew-x-12 transform translate-x-1/4" />
+                <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-cyber-accent/10 to-transparent skew-x-12 transform translate-x-1/4" />
             </div>
 
             {/* Category Grid */}
             <section>
-                <div className="flex items-center gap-3 mb-8">
-                    <div className="w-2 h-8 bg-indigo-600 rounded-full" />
-                    <h3 className="text-2xl font-bold text-gray-900">Distribution</h3>
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="w-1.5 h-8 bg-cyber-accent rounded-full shadow-lg dark:shadow-glow-cyan" />
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Data Distribution</h3>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
                     <CategoryCard icon={FileText} data={categories.documents} label="Documents" color="blue" />
                     <CategoryCard icon={Image} data={categories.images} label="Images" color="purple" />
                     <CategoryCard icon={Film} data={categories.videos} label="Videos" color="pink" />
@@ -171,43 +172,43 @@ export default function ManageStorage({
             {/* Cleanup Section */}
             <section>
                 <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3">
-                        <div className="w-2 h-8 bg-red-500 rounded-full" />
-                        <h3 className="text-2xl font-bold text-gray-900">Cleanup Suggestions</h3>
+                    <div className="flex items-center gap-4">
+                        <div className="w-1.5 h-8 bg-red-500 rounded-full shadow-glow-red" />
+                        <h3 className="text-2xl font-bold text-white tracking-tight">Storage Recovery</h3>
                     </div>
-                    <span className="text-xs font-bold text-red-600 bg-red-50 px-4 py-2 rounded-full uppercase tracking-widest">Priority: Size Descending</span>
+                    <span className="text-[10px] font-black text-red-400 bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-full uppercase tracking-widest">Priority: High Volume</span>
                 </div>
 
-                <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="divide-y divide-gray-50">
+                <div className="glass-panel rounded-[2.5rem] border-cyber-border/50 overflow-hidden bg-cyber-surface/10">
+                    <div className="divide-y divide-cyber-border/30">
                         {largestFiles.length > 0 ? (
                             largestFiles.map((doc, idx) => (
-                                <div key={doc.document_id} className="flex items-center gap-6 p-6 hover:bg-gray-50/80 transition-all group">
-                                    <div className="text-lg font-black text-gray-200 w-8 tabular-nums">
+                                <div key={doc.document_id} className="flex items-center gap-6 p-8 hover:bg-cyber-surface/30 transition-all group">
+                                    <div className="text-sm font-black text-slate-700 w-8 tabular-nums tracking-widest">
                                         {(idx + 1).toString().padStart(2, '0')}
                                     </div>
-                                    <div className="p-4 bg-gray-50 rounded-2xl group-hover:bg-white group-hover:shadow-md transition-all">
-                                        <FileText className="size-8 text-gray-400" />
+                                    <div className="p-4 bg-slate-100 dark:bg-cyber-surface rounded-2xl group-hover:border-cyber-accent/50 border border-transparent transition-all">
+                                        <FileText className="size-8 text-slate-500 group-hover:text-cyber-accent" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-gray-900 text-lg truncate mb-1">{doc.filename}</p>
-                                        <div className="flex items-center gap-3 text-xs font-bold text-gray-400 uppercase tracking-tighter">
-                                            <span>{doc.file_type || 'Unknown'}</span>
-                                            <span>•</span>
-                                            <span>Added {formatDate(doc.created_at)}</span>
+                                        <p className="font-bold text-slate-900 dark:text-white text-lg truncate mb-1 tracking-tight">{doc.filename}</p>
+                                        <div className="flex items-center gap-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            <span className="text-cyber-accent-dark dark:text-cyber-accent/70">{doc.file_type || 'DATA'}</span>
+                                            <span className="w-1 h-1 bg-slate-300 dark:bg-slate-700 rounded-full" />
+                                            <span>Initialized {formatDate(doc.created_at)}</span>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-xl font-black text-gray-900 mb-1">{formatBytes(doc.in_cloud_size || doc.original_size)}</p>
-                                        <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">Critical Impact</p>
+                                        <p className="text-2xl font-black text-slate-900 dark:text-white mb-1 tabular-nums tracking-tighter">{formatBytes(doc.in_cloud_size || doc.original_size)}</p>
+                                        <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">Critical Mass</p>
                                     </div>
                                     <button
                                         onClick={() => handleDelete(doc.document_id, doc.filename)}
                                         disabled={isDeleting === doc.document_id}
-                                        className="p-4 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"
+                                        className="p-5 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all border border-transparent hover:border-red-500/30"
                                     >
                                         {isDeleting === doc.document_id ? (
-                                            <RefreshCw className="size-6 animate-spin" />
+                                            <RefreshCw className="size-6 animate-spin text-cyber-accent" />
                                         ) : (
                                             <Trash2 className="size-6" />
                                         )}
@@ -215,16 +216,17 @@ export default function ManageStorage({
                                 </div>
                             ))
                         ) : (
-                            <div className="py-20 text-center">
-                                <AlertCircle className="size-16 text-gray-200 mx-auto mb-4" />
-                                <p className="text-gray-400 font-bold uppercase tracking-widest">No storage data available</p>
+                            <div className="py-24 text-center">
+                                <div className="p-6 bg-cyber-surface/30 rounded-full inline-block mb-6 border border-cyber-border">
+                                    <AlertCircle className="size-16 text-slate-700" />
+                                </div>
+                                <p className="text-slate-500 font-black uppercase tracking-[0.3em] text-xs">No storage nodes detected</p>
                             </div>
                         )}
                     </div>
                 </div>
             </section>
         </div>
-      </div>
     </AuthenticatedLayout>
   );
 }

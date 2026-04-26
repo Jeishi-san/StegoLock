@@ -148,13 +148,13 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                     {currentFolder && (
                         <button 
                             onClick={() => router.visit(route('myFolders'))}
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            className="p-2 bg-cyber-surface hover:bg-slate-800 rounded-xl border border-cyber-border transition-all text-slate-400 hover:text-cyber-accent"
                             title="Back to folders"
                         >
-                            <ArrowLeft className="size-5 text-gray-600" />
+                            <ArrowLeft className="size-5" />
                         </button>
                     )}
-                    <h2 className="text-2xl font-black tracking-tight text-gray-900">
+                    <h2 className="text-3xl font-bold tracking-tight text-white">
                         {currentFolder ? currentFolder.name : title}
                     </h2>
                 </div>
@@ -179,7 +179,7 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
             <div className="h-full overflow-y-auto custom-scrollbar">
                 {filteredDocs.length > 0 ? (
                     viewMode === 'grid' ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-8">
                             {filteredDocs.map(doc => (
                                 <DocumentCard 
                                     key={doc.document_id}
@@ -200,7 +200,7 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                             ))}
                         </div>
                     ) : (
-                        <div className="p-6">
+                        <div className="p-8">
                             <DocumentList 
                                 documents={filteredDocs}
                                 unlockingProgress={unlockingProgress}
@@ -226,64 +226,68 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                         </div>
                     )
                 ) : (
-                    <div className="flex-1 flex items-center justify-center p-8 min-h-[400px]">
-                        <div className="text-center">
-                            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-dashed border-gray-200">
-                                <Shield className="size-10 text-gray-300" />
+                    <div className="flex-1 flex items-center justify-center p-8 min-h-[500px]">
+                        <div className="text-center max-w-sm">
+                            <div className="w-24 h-24 bg-cyber-surface/30 rounded-3xl flex items-center justify-center mx-auto mb-8 border-2 border-dashed border-cyber-border/50 shadow-inner group-hover:border-cyber-accent transition-colors">
+                                <Shield className="size-10 text-slate-600" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">
-                                {searchQuery || filters.fileFormat !== 'all' || filters.status !== 'all' ? "No matching documents" : "No Documents Found"}
+                            <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">
+                                {searchQuery || filters.fileFormat !== 'all' || filters.status !== 'all' ? "No matches found" : "No documents yet"}
                             </h3>
-                            <p className="text-gray-500 max-w-xs mx-auto">
-                                {searchQuery || filters.fileFormat !== 'all' || filters.status !== 'all' ? "Try adjusting your filters or search query" : "Upload files to get started with Stegolock"}
+                            <p className="text-slate-500 leading-relaxed">
+                                {searchQuery || filters.fileFormat !== 'all' || filters.status !== 'all' 
+                                    ? "Try refining your search parameters or resetting filters." 
+                                    : "Start securing your digital footprint by locking your first document."}
                             </p>
                         </div>
                     </div>
                 )}
             </div>
 
+            {/* MODALS */}
             {showDeleteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDeleteModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-red-600 p-6 text-white text-center relative">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 transition-all duration-300">
+                    <div className="absolute inset-0 bg-slate-900/40 dark:bg-cyber-void/80 backdrop-blur-sm" onClick={() => setShowDeleteModal(false)} />
+                    <div className="glass-panel w-full max-w-md overflow-hidden transform transition-all shadow-2xl rounded-3xl border-red-500/20 relative z-10 bg-white dark:bg-cyber-void">
+                        <div className="bg-red-500/5 dark:bg-red-500/10 p-8 text-center relative border-b border-red-500/10 dark:border-red-500/20">
                             <button 
                                 onClick={() => setShowDeleteModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+                                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                             >
                                 <X className="size-5" />
                             </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <Trash2 className="size-10 text-white" />
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-red-500/10 dark:bg-red-500/20 rounded-3xl mb-6 shadow-xl dark:shadow-glow-red border border-red-500/20 dark:border-red-500/30">
+                                <Trash2 className="size-10 text-red-500" />
                             </div>
-                            <h2 className="text-xl font-bold">Delete File</h2>
-                            <p className="text-red-100 text-sm mt-1">This action cannot be undone</p>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Delete Document</h2>
+                            <p className="text-red-500 dark:text-red-400/80 text-sm mt-2 font-medium">This action is permanent and irreversible.</p>
                         </div>
                         
-                        <div className="p-6">
-                            <div className="bg-red-50 rounded-xl p-4 mb-6 flex items-center gap-4 border border-red-100">
-                                <div className="bg-white p-2 rounded-lg shadow-sm">
-                                    <FileText className="size-6 text-red-600" />
+                        <div className="p-8">
+                            <div className="bg-slate-50 dark:bg-cyber-surface/50 rounded-2xl p-5 mb-8 flex items-center gap-4 border border-slate-200 dark:border-cyber-border/50">
+                                <div className="bg-red-50 dark:bg-red-500/10 p-3 rounded-xl border border-red-100 dark:border-red-500/20">
+                                    <FileText className="size-6 text-red-500" />
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                <div className="flex-1 min-w-0 text-left">
+                                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
                                         {localDocs.find(d => d.document_id === selectedDocId)?.filename}
                                     </p>
-                                    <p className="text-xs text-red-500">Permanent removal</p>
+                                    <p className="text-xs font-bold text-red-500/70 uppercase tracking-widest mt-1">Pending Removal</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-4">
                                 <button 
                                     onClick={() => setShowDeleteModal(false)}
-                                    className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                                    className="px-6 py-3.5 text-sm font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-cyber-surface hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-cyber-border"
                                 >
                                     Cancel
                                 </button>
                                 <button 
                                     onClick={() => confirmDelete(selectedDocId)}
-                                    className="px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors"
+                                    className="px-6 py-3.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-lg shadow-red-600/20"
                                 >
-                                    Delete
+                                    Confirm Delete
                                 </button>
                             </div>
                         </div>
@@ -292,49 +296,50 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
             )}
 
             {showMoveModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMoveModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/40 dark:bg-cyber-void/80 backdrop-blur-sm" onClick={() => setShowMoveModal(false)} />
+                    <div className="glass-panel w-full max-w-md overflow-hidden transform transition-all shadow-2xl rounded-3xl border-cyber-accent/20 relative z-10 bg-white dark:bg-cyber-void">
+                        <div className="bg-cyber-accent/5 dark:bg-cyber-accent/10 p-8 text-center relative border-b border-slate-100 dark:border-cyber-border">
                             <button 
                                 onClick={() => setShowMoveModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+                                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                             >
                                 <X className="size-5" />
                             </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <FolderOpen className="size-10 text-white" />
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/10 dark:bg-cyber-accent/20 rounded-3xl mb-6 shadow-xl dark:shadow-glow-cyan border border-cyber-accent/20 dark:border-cyber-accent/30">
+                                <FolderOpen className="size-10 text-cyber-accent" />
                             </div>
-                            <h2 className="text-xl font-bold">Move to Folder</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Organize your document</p>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Relocate Document</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Select a destination folder</p>
                         </div>
                         
-                        <div className="p-6">
-                            <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar mb-6">
+                        <div className="p-8">
+                            <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar mb-8">
                                 <button 
                                     onClick={() => handleMove(selectedDocId, null)} 
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 group text-left"
+                                    className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl bg-slate-50 dark:bg-cyber-surface/30 hover:bg-cyber-accent hover:text-white dark:hover:text-cyber-void transition-all border border-slate-200 dark:border-cyber-border group text-left"
                                 >
-                                    <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white">
-                                        <FolderOpen className="size-5 text-gray-400 group-hover:text-indigo-600" />
+                                    <div className="p-2.5 bg-slate-100 dark:bg-cyber-surface rounded-xl group-hover:bg-white/10 dark:group-hover:bg-cyber-void/10">
+                                        <FolderOpen className="size-5 text-slate-500 group-hover:text-white dark:group-hover:text-cyber-void" />
                                     </div>
-                                    <span className="text-sm font-medium text-gray-700">Root Directory</span>
+                                    <span className="text-sm font-bold tracking-tight">Root Directory</span>
                                 </button>
                                 {folders.map(folder => (
                                     <button 
                                         key={folder.folder_id} 
                                         onClick={() => handleMove(selectedDocId, folder.folder_id)} 
-                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 group text-left"
+                                        className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl bg-slate-50 dark:bg-cyber-surface/30 hover:bg-cyber-accent hover:text-white dark:hover:text-cyber-void transition-all border border-slate-200 dark:border-cyber-border group text-left"
                                     >
-                                        <div className="p-2 bg-indigo-50 rounded-lg group-hover:bg-white">
-                                            <FolderTree className="size-5 text-indigo-500" />
+                                        <div className="p-2.5 bg-slate-100 dark:bg-cyber-surface rounded-xl group-hover:bg-white/10 dark:group-hover:bg-cyber-void/10">
+                                            <FolderTree className="size-5 text-cyber-accent group-hover:text-white dark:group-hover:text-cyber-void" />
                                         </div>
-                                        <span className="text-sm font-medium text-gray-700 truncate">{folder.name}</span>
+                                        <span className="text-sm font-bold tracking-tight truncate">{folder.name}</span>
                                     </button>
                                 ))}
                             </div>
                             
                             <div className="flex justify-end">
-                                <button onClick={() => setShowMoveModal(false)} className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all">
+                                <button onClick={() => setShowMoveModal(false)} className="px-8 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-cyber-surface hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-cyber-border">
                                     Cancel
                                 </button>
                             </div>
@@ -343,34 +348,153 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                 </div>
             )}
 
-            {showKeepFileModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowKeepFileModal(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <CheckCircle className="size-10 text-white" />
+            {showRenameModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/40 dark:bg-cyber-void/80 backdrop-blur-sm" onClick={() => setShowRenameModal(false)} />
+                    <div className="glass-panel w-full max-w-md overflow-hidden transform transition-all shadow-2xl rounded-3xl border-cyber-accent/20 relative z-10 bg-white dark:bg-cyber-void">
+                        <div className="bg-cyber-accent/5 dark:bg-cyber-accent/10 p-8 text-center relative border-b border-slate-100 dark:border-cyber-border">
+                            <button 
+                                onClick={() => setShowRenameModal(false)}
+                                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                            >
+                                <X className="size-5" />
+                            </button>
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/10 dark:bg-cyber-accent/20 rounded-3xl mb-6 shadow-xl dark:shadow-glow-cyan border border-cyber-accent/20 dark:border-cyber-accent/30">
+                                <Pencil className="size-10 text-cyber-accent" />
                             </div>
-                            <h2 className="text-xl font-bold">File Retrieved</h2>
-                            <p className="text-indigo-100 text-sm mt-1">What would you like to do with the unlocked file?</p>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Rename Document</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Update the identifier for this file</p>
                         </div>
                         
-                        <div className="p-6">
-                            <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
-                                The file is currently decrypted on our server. You can keep it for later or delete it immediately for maximum security.
+                        <div className="p-8">
+                            <div className="space-y-6 mb-8 text-left">
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">New Filename</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <FileText className="size-5 text-slate-500 group-focus-within:text-cyber-accent transition-colors" />
+                                        </div>
+                                        <input 
+                                            autoFocus
+                                            type="text" 
+                                            value={renameValue}
+                                            onChange={(e) => setRenameValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    handleRename(selectedDocForRename.document_id, renameValue);
+                                                    setShowRenameModal(false);
+                                                }
+                                            }}
+                                            className="w-full pl-12 pr-4 py-3.5 bg-slate-50 dark:bg-cyber-surface/50 border border-slate-200 dark:border-cyber-border rounded-2xl focus:ring-2 focus:ring-cyber-accent focus:border-transparent outline-none transition-all font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 shadow-inner"
+                                            placeholder="Enter new filename"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <button onClick={() => setShowRenameModal(false)} className="px-6 py-3.5 text-sm font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-cyber-surface hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-cyber-border">
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        handleRename(selectedDocForRename.document_id, renameValue);
+                                        setShowRenameModal(false);
+                                    }}
+                                    className="px-6 py-3.5 text-sm font-bold text-white dark:text-cyber-void bg-cyber-accent hover:bg-slate-900 dark:hover:bg-white rounded-xl transition-all shadow-lg dark:shadow-glow-cyan"
+                                >
+                                    Update Name
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showKeepFileModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/40 dark:bg-cyber-void/80 backdrop-blur-sm" onClick={() => setShowKeepFileModal(null)} />
+                    <div className="glass-panel w-full max-w-md overflow-hidden transform transition-all shadow-2xl rounded-3xl border-cyber-accent/20 relative z-10 bg-white dark:bg-cyber-void">
+                        <div className="bg-cyber-accent/5 dark:bg-cyber-accent/10 p-8 text-center relative border-b border-slate-100 dark:border-cyber-border">
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/10 dark:bg-cyber-accent/20 rounded-3xl mb-6 shadow-xl dark:shadow-glow-cyan border border-cyber-accent/20 dark:border-cyber-accent/30">
+                                <CheckCircle className="size-10 text-cyber-accent" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Data Restored</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">The document is now decrypted</p>
+                        </div>
+                        
+                        <div className="p-8">
+                            <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-8 leading-relaxed">
+                                The file is now accessible. Choose whether to maintain this decrypted state on the vault or purge it immediately for zero-knowledge security.
                             </p>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-4">
                                 <button 
                                     onClick={() => keepFile(selectedDocId, localDocs.find(d => d.document_id === selectedDocId)?.filename)}
-                                    className="px-4 py-2.5 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all"
+                                    className="px-6 py-3.5 text-sm font-bold text-cyber-accent bg-slate-100 dark:bg-cyber-surface hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-cyber-border"
                                 >
-                                    Keep File
+                                    Keep Online
                                 </button>
                                 <button 
                                     onClick={() => { setShowDeleteModal(true); setShowKeepFileModal(null); }}
-                                    className="px-4 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-lg shadow-red-100"
+                                    className="px-6 py-3.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-lg shadow-red-600/20"
                                 >
-                                    Delete File
+                                    Purge Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showDownloadReadyModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-cyber-void/80 backdrop-blur-sm" onClick={() => setShowDownloadReadyModal(false)} />
+                    <div className="glass-panel w-full max-w-md overflow-hidden transform transition-all shadow-2xl rounded-3xl border-cyber-accent/20 relative z-10">
+                        <div className="bg-cyber-accent/10 p-8 text-center relative border-b border-cyber-border">
+                            <button 
+                                onClick={() => setShowDownloadReadyModal(false)}
+                                className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white transition-colors"
+                            >
+                                <X className="size-5" />
+                            </button>
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/20 rounded-3xl mb-6 shadow-glow-cyan border border-cyber-accent/30">
+                                <CheckCircle className="size-10 text-cyber-accent" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-white tracking-tight">Vault Unlocked</h2>
+                            <p className="text-slate-400 text-sm mt-2">Your document is ready for extraction</p>
+                        </div>
+                        
+                        <div className="p-8">
+                            <div className="bg-cyber-surface/50 rounded-2xl p-5 mb-8 flex items-center gap-4 border border-cyber-border/50">
+                                <div className="bg-cyber-accent/10 p-3 rounded-xl border border-cyber-accent/20">
+                                    <Shield className="size-6 text-cyber-accent" />
+                                </div>
+                                <div className="flex-1 min-w-0 text-left">
+                                    <p className="text-sm font-bold text-white truncate">
+                                        {localDocs.find(d => d.document_id === selectedDocId)?.filename}
+                                    </p>
+                                    <p className="text-xs font-bold text-cyber-accent/70 uppercase tracking-widest mt-1">Status: Decrypted</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <button 
+                                    onClick={() => {
+                                        const doc = localDocs.find(d => d.document_id === selectedDocId);
+                                        keepFile(selectedDocId, doc?.filename);
+                                        setShowDownloadReadyModal(false);
+                                    }}
+                                    className="px-6 py-3.5 text-sm font-bold text-slate-400 bg-cyber-surface hover:bg-slate-800 rounded-xl transition-all border border-cyber-border"
+                                >
+                                    Later
+                                </button>
+                                <button 
+                                    onClick={() => handleDownloadAndProceed(selectedDocId)}
+                                    className="px-6 py-3.5 text-sm font-bold text-cyber-void bg-cyber-accent hover:bg-white rounded-xl transition-all shadow-glow-cyan flex items-center justify-center gap-2"
+                                >
+                                    <Download className="size-4" />
+                                    Extract Now
                                 </button>
                             </div>
                         </div>
@@ -384,122 +508,6 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
 
             {showInfoModal && (
                 <FileInfoModal document={selectedDocForInfo} onClose={() => setShowInfoModal(false)} />
-            )}
-            
-            {showRenameModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowRenameModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
-                            <button 
-                                onClick={() => setShowRenameModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
-                            >
-                                <X className="size-5" />
-                            </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <Pencil className="size-10 text-white" />
-                            </div>
-                            <h2 className="text-xl font-bold">Rename Document</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Enter a new name for your file</p>
-                        </div>
-                        
-                        <div className="p-6">
-                            <div className="space-y-4 mb-6">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">New Filename</label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <FileText className="size-5 text-gray-400" />
-                                        </div>
-                                        <input 
-                                            autoFocus
-                                            type="text" 
-                                            value={renameValue}
-                                            onChange={(e) => setRenameValue(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    handleRename(selectedDocForRename.document_id, renameValue);
-                                                    setShowRenameModal(false);
-                                                }
-                                            }}
-                                            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all font-medium text-gray-700"
-                                            placeholder="Enter new filename"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-3">
-                                <button onClick={() => setShowRenameModal(false)} className="px-4 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all">
-                                    Cancel
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        handleRename(selectedDocForRename.document_id, renameValue);
-                                        setShowRenameModal(false);
-                                    }}
-                                    className="px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-100"
-                                >
-                                    Rename
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showDownloadReadyModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDownloadReadyModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
-                            <button 
-                                onClick={() => setShowDownloadReadyModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
-                            >
-                                <X className="size-5" />
-                            </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <CheckCircle className="size-10 text-white" />
-                            </div>
-                            <h2 className="text-xl font-bold">File Unlocked</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Your document is ready for retrieval</p>
-                        </div>
-                        
-                        <div className="p-6">
-                            <div className="bg-gray-50 rounded-xl p-4 mb-6 flex items-center gap-4">
-                                <div className="bg-white p-2 rounded-lg shadow-sm">
-                                    <Shield className="size-6 text-indigo-600" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 truncate">
-                                        {localDocs.find(d => d.document_id === selectedDocId)?.filename}
-                                    </p>
-                                    <p className="text-xs text-gray-500">Decryption complete</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <button 
-                                    onClick={() => {
-                                        const doc = localDocs.find(d => d.document_id === selectedDocId);
-                                        keepFile(selectedDocId, doc?.filename);
-                                        setShowDownloadReadyModal(false);
-                                    }}
-                                    className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    onClick={() => handleDownloadAndProceed(selectedDocId)}
-                                    className="px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Download className="size-4" />
-                                    Download
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             )}
 
         </AuthenticatedLayout>

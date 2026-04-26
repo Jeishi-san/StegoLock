@@ -11,16 +11,19 @@ export default function NavLink({
         <Link
             {...props}
             className={
-                'w-full flex items-center px-4 py-3 rounded-xl transition-all ' +
+                'w-full flex items-center px-4 py-3 rounded-xl transition-all font-medium ' +
                 (active ?
-                    'bg-gradient-to-r from-indigo-200 to-purple-100 text-indigo-700 shadow-md' :
-                    'text-gray-700 hover:bg-gray-200 ') +
-                className
+                    'bg-cyber-accent text-cyber-void shadow-glow-cyan' :
+                    'text-slate-400 hover:bg-cyber-surface hover:text-white') +
+                ' ' + className
             }
         >
-            <Icon className={
-                'size-5 mr-2 text-gray-500' +
-                (active ? ' text-indigo-600' : ' text-gray-500')} />
+            {Icon && (
+                <Icon className={
+                    'size-5 mr-3 ' +
+                    (active ? 'text-cyber-void' : 'text-slate-500 group-hover:text-cyber-accent')} 
+                />
+            )}
             {children}
         </Link>
     );

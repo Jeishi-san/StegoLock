@@ -286,7 +286,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-2xl font-black tracking-tight text-gray-900">Shared With Me</h2>
+                <h2 className="text-3xl font-bold tracking-tight text-white">Shared Vault</h2>
             }
             headerActions={
                 <ViewToggle view={viewMode} onViewChange={setViewMode} />
@@ -304,46 +304,48 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
         >
             <Head title="Shared With Me" />
 
-            <div className="p-6 space-y-8 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide custom-scrollbar">
-                {/* Pending Shares Section - Only show if not searching or if results found */}
+            <div className="p-8 space-y-12 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide custom-scrollbar">
+                {/* Pending Shares Section */}
                 {pendingShares.length > 0 && !searchQuery && filters.fileFormat === 'all' && filters.status === 'all' && (
-                    <section>
-                        <div className="flex items-center gap-2 mb-4">
-                            <Clock className="size-5 text-indigo-600" />
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Pending Shares</h3>
-                            <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">
+                    <section className="animate-fade-in">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                <Clock className="size-5 text-amber-500 shadow-glow-amber" />
+                            </div>
+                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Pending Ingress Protocol</h3>
+                            <span className="bg-amber-500/10 text-amber-500 text-[10px] font-black px-2.5 py-1 rounded-full border border-amber-500/20">
                                 {pendingShares.length}
                             </span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {pendingShares.map(share => (
-                                <div key={share.share_id} className="bg-white p-4 rounded-xl shadow-sm border border-indigo-100 flex items-center justify-between group hover:shadow-md transition-all">
+                                <div key={share.share_id} className="glass-panel p-6 rounded-3xl border-amber-500/20 flex items-center justify-between group hover:border-amber-500/40 transition-all duration-300">
                                     <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-indigo-50 rounded-lg">
-                                            <UserPlus className="size-6 text-indigo-600" />
+                                        <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20 group-hover:bg-amber-500/20 transition-all">
+                                            <UserPlus className="size-6 text-amber-500" />
                                         </div>
-                                        <div>
-                                            <p className="font-semibold text-gray-900 truncate max-w-[150px]">
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-white truncate max-w-[150px] tracking-tight">
                                                 {share.document.filename}
                                             </p>
-                                            <p className="text-xs text-gray-500">
-                                                from {share.sender.name}
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                                                From {share.sender.name}
                                             </p>
                                         </div>
                                     </div>
                                     {share.is_expired ? (
                                         <Tooltip content="Invitation expired. Please ask the owner to share again.">
-                                            <div className="px-4 py-2 bg-red-100 text-red-600 text-xs font-bold rounded-lg flex items-center gap-2 cursor-help">
-                                                <AlertCircle className="size-4" />
-                                                EXPIRED
+                                            <div className="px-4 py-2.5 bg-red-500/10 text-red-500 text-[10px] font-black rounded-xl flex items-center gap-2 border border-red-500/20 cursor-help uppercase tracking-widest">
+                                                <AlertCircle className="size-3" />
+                                                Expired
                                             </div>
                                         </Tooltip>
                                     ) : (
                                         <button
                                             onClick={() => handleAcceptShare(share.document_id)}
-                                            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                                            className="px-5 py-2.5 bg-amber-500 text-black text-[10px] font-black rounded-xl hover:bg-white transition-all flex items-center gap-2 uppercase tracking-widest"
                                         >
-                                            <UserCheck className="size-4" />
+                                            <UserCheck className="size-3.5" />
                                             Accept
                                         </button>
                                     )}
@@ -354,17 +356,19 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                 )}
 
                 {/* Accepted Documents Grid */}
-                <section>
+                <section className="animate-fade-in">
                     {pendingShares.length > 0 && !searchQuery && (
-                        <div className="flex items-center gap-2 mb-4">
-                            <FolderOpen className="size-5 text-gray-600" />
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Shared Files</h3>
+                        <div className="flex items-center gap-3 mb-6 pt-4">
+                            <div className="p-2 bg-cyber-accent/10 border border-cyber-accent/20 rounded-lg">
+                                <FolderOpen className="size-5 text-cyber-accent shadow-glow-cyan" />
+                            </div>
+                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Authorized Modules</h3>
                         </div>
                     )}
 
                     {filteredDocs.length > 0 ? (
                         viewMode === 'grid' ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                                 {filteredDocs.map(doc => (
                                     <DocumentCard 
                                         key={doc.document_id}
@@ -401,15 +405,15 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                             />
                         )
                     ) : (
-                        <div className="bg-gray-50 rounded-3xl p-12 text-center border-2 border-dashed border-gray-200">
-                            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                                <Share2 className="size-8 text-gray-300" />
+                        <div className="glass-panel rounded-[3rem] p-20 text-center border-2 border-dashed border-cyber-border/50 bg-cyber-surface/10">
+                            <div className="w-20 h-20 bg-cyber-surface rounded-3xl flex items-center justify-center mx-auto mb-6 border border-cyber-border group shadow-inner">
+                                <Share2 className="size-10 text-slate-700 group-hover:text-cyber-accent transition-colors" />
                             </div>
-                            <h4 className="text-gray-900 font-semibold mb-1">
-                                {searchQuery || filters.fileFormat !== 'all' ? "No matching files" : "No shared files yet"}
+                            <h4 className="text-white text-xl font-bold mb-2 tracking-tight">
+                                {searchQuery || filters.fileFormat !== 'all' ? "No matching modules" : "Shared vault is empty"}
                             </h4>
-                            <p className="text-gray-500 text-sm">
-                                {searchQuery || filters.fileFormat !== 'all' ? "Try adjusting your filters or search query" : "When someone shares a file with you, it will appear here."}
+                            <p className="text-slate-500 max-w-sm mx-auto text-sm leading-relaxed">
+                                {searchQuery || filters.fileFormat !== 'all' ? "Try adjusting your search parameters to find the module." : "When someone shares a secure document with you, it will manifest here."}
                             </p>
                         </div>
                     )}
@@ -417,49 +421,54 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
 
                 {/* Sent Shares Section */}
                 {sentShares && sentShares.length > 0 && (
-                    <section className="pt-8 border-t border-gray-100">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Share2 className="size-5 text-indigo-600" />
-                            <h3 className="text-lg font-bold text-gray-900">Shared by Me</h3>
-                            <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded-full">
+                    <section className="pt-12 border-t border-cyber-border/30 animate-fade-in">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="p-2 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-lg">
+                                <Share2 className="size-5 text-fuchsia-400 shadow-glow-fuchsia" />
+                            </div>
+                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Outbound Transmissions</h3>
+                            <span className="bg-fuchsia-500/10 text-fuchsia-400 text-[10px] font-black px-2.5 py-1 rounded-full border border-fuchsia-500/20">
                                 {sentShares.length}
                             </span>
                         </div>
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="glass-panel rounded-[2.5rem] border-cyber-border/50 overflow-hidden bg-cyber-surface/10">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm">
-                                    <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+                                    <thead className="bg-cyber-surface/50 text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] border-b border-cyber-border/30">
                                         <tr>
-                                            <th className="px-6 py-3">Document</th>
-                                            <th className="px-6 py-3">Recipients</th>
-                                            <th className="px-6 py-3">Date</th>
+                                            <th className="px-8 py-5">Secure Module</th>
+                                            <th className="px-8 py-5">Recipients</th>
+                                            <th className="px-8 py-5">Initialization</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-50">
+                                    <tbody className="divide-y divide-cyber-border/20">
                                         {sentShares.map(group => (
-                                            <tr key={group.document_id} className="hover:bg-gray-50/50 transition-colors">
-                                                <td className="px-6 py-4 align-top">
-                                                    <div className="flex items-center gap-3">
-                                                        <FileText className={`size-5 ${getFileColor(group.file_type)}`} />
-                                                        <span className="font-medium text-gray-900">{group.filename}</span>
+                                            <tr key={group.document_id} className="hover:bg-cyber-surface/30 transition-all group/row">
+                                                <td className="px-8 py-6 align-top">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`p-3 rounded-2xl bg-cyber-surface border border-cyber-border group-hover/row:border-fuchsia-500/50 transition-all`}>
+                                                            <FileText className={`size-5 ${getFileColor(group.file_type).split(' ')[0]}`} />
+                                                        </div>
+                                                        <span className="font-bold text-white tracking-tight group-hover/row:text-fuchsia-400 transition-colors">{group.filename}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-8 py-6">
                                                     {group.recipients.length === 1 ? (
-                                                        <div className="flex items-center justify-between group/single">
+                                                        <div className="flex items-center justify-between group/single bg-cyber-surface/40 p-4 rounded-2xl border border-cyber-border/50 hover:border-fuchsia-500/30 transition-all">
                                                             <div className="flex flex-col">
-                                                                <p className="text-sm font-medium text-gray-700">{group.recipients[0].name}</p>
-                                                                <p className="text-xs text-gray-400">{group.recipients[0].email}</p>
-                                                                <span className={`text-[9px] font-bold uppercase tracking-wider mt-1 ${
-                                                                    group.recipients[0].status === 'accepted' ? 'text-green-600' : 'text-yellow-600'
+                                                                <p className="text-sm font-bold text-slate-200">{group.recipients[0].name}</p>
+                                                                <p className="text-[10px] font-medium text-slate-500 mt-0.5">{group.recipients[0].email}</p>
+                                                                <span className={`text-[9px] font-black uppercase tracking-[0.2em] mt-2 inline-flex items-center gap-1.5 ${
+                                                                    group.recipients[0].status === 'accepted' ? 'text-cyber-accent' : 'text-amber-500'
                                                                 }`}>
+                                                                    <div className={`size-1.5 rounded-full ${group.recipients[0].status === 'accepted' ? 'bg-cyber-accent shadow-glow-cyan' : 'bg-amber-500 shadow-glow-amber'}`} />
                                                                     {group.recipients[0].status}
                                                                 </span>
                                                             </div>
                                                             <button 
                                                                 onClick={() => confirmRemoveAccess({ shareId: group.recipients[0].share_id })}
-                                                                className="p-1 text-gray-400 hover:text-red-600 opacity-0 group-hover/single:opacity-100 transition-all"
-                                                                title="Remove Access"
+                                                                className="p-2.5 text-slate-600 hover:text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-xl transition-all"
+                                                                title="Revoke Access"
                                                             >
                                                                 <Trash2 className="size-4" />
                                                             </button>
@@ -469,9 +478,9 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                             <button
                                                                 ref={(node) => openRecipientsId === group.document_id && rRefs.setReference(node)}
                                                                 onClick={() => setOpenRecipientsId(openRecipientsId === group.document_id ? null : group.document_id)}
-                                                                className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-medium text-sm transition-colors"
+                                                                className="flex items-center gap-3 text-fuchsia-400 hover:text-white font-black text-[10px] uppercase tracking-[0.2em] transition-all bg-fuchsia-500/10 px-5 py-3 rounded-xl border border-fuchsia-500/20 hover:border-fuchsia-500/50"
                                                             >
-                                                                Shared to {group.recipients.length} people
+                                                                Manifest {group.recipients.length} Recipient Node{group.recipients.length > 1 ? 's' : ''}
                                                                 {openRecipientsId === group.document_id ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
                                                             </button>
 
@@ -479,25 +488,29 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                                 <div
                                                                     ref={(node) => { recipientMenuRef.current = node; rRefs.setFloating(node); }}
                                                                     style={{ position: rStrategy, top: ry ?? 0, left: rx ?? 0 }}
-                                                                    className="w-72 p-4 bg-white rounded-xl shadow-xl border border-gray-100 space-y-3 z-[60]"
+                                                                    className="w-80 p-5 glass-panel rounded-3xl border border-cyber-border/50 shadow-2xl z-[60] animate-fade-in"
                                                                 >
-                                                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Manage Access</h4>
-                                                                    <div className="max-h-60 overflow-y-auto pr-1 space-y-3 scrollbar-thin scrollbar-thumb-gray-200">
+                                                                    <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-5 ml-1 flex items-center gap-2">
+                                                                        <div className="size-1.5 bg-fuchsia-500 rounded-full" />
+                                                                        Access Control List
+                                                                    </h4>
+                                                                    <div className="max-h-64 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
                                                                         {group.recipients.map(recipient => (
-                                                                            <div key={recipient.share_id} className="flex items-center justify-between gap-4 border-b border-gray-50 last:border-0 pb-2 last:pb-0 group/item">
-                                                                                <div className="flex flex-col">
-                                                                                    <p className="text-sm font-medium text-gray-700">{recipient.name}</p>
-                                                                                    <p className="text-xs text-gray-400">{recipient.email}</p>
-                                                                                    <span className={`text-[9px] font-bold uppercase tracking-wider mt-1 ${
-                                                                                        recipient.status === 'accepted' ? 'text-green-600' : 'text-yellow-600'
+                                                                            <div key={recipient.share_id} className="flex items-center justify-between gap-4 border-b border-cyber-border/30 last:border-0 pb-4 last:pb-0 group/item">
+                                                                                <div className="flex flex-col min-w-0">
+                                                                                    <p className="text-sm font-bold text-white truncate">{recipient.name}</p>
+                                                                                    <p className="text-[10px] font-medium text-slate-500 truncate mt-0.5">{recipient.email}</p>
+                                                                                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] mt-2 inline-flex items-center gap-1.5 ${
+                                                                                        recipient.status === 'accepted' ? 'text-cyber-accent' : 'text-amber-500'
                                                                                     }`}>
+                                                                                        <div className={`size-1.5 rounded-full ${recipient.status === 'accepted' ? 'bg-cyber-accent shadow-glow-cyan' : 'bg-amber-500 shadow-glow-amber'}`} />
                                                                                         {recipient.status}
                                                                                     </span>
                                                                                 </div>
                                                                                 <button 
                                                                                     onClick={() => confirmRemoveAccess({ shareId: recipient.share_id })}
-                                                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                                    title="Remove Access"
+                                                                                    className="p-2.5 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 transition-all"
+                                                                                    title="Revoke Access"
                                                                                 >
                                                                                     <Trash2 className="size-4" />
                                                                                 </button>
@@ -509,18 +522,18 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 text-gray-500 align-top relative group/row">
+                                                <td className="px-8 py-6 text-slate-500 align-top relative">
                                                     <div className="flex items-center justify-between">
-                                                        {formatDate(new Date(group.created_at))}
+                                                        <span className="text-xs font-bold uppercase tracking-widest tabular-nums">{formatDate(new Date(group.created_at))}</span>
                                                         <button
                                                             ref={(node) => openRowMenuId === group.document_id && tRefs.setReference(node)}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setOpenRowMenuId(openRowMenuId === group.document_id ? null : group.document_id);
                                                             }}
-                                                            className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover/row:opacity-100 transition-opacity"
+                                                            className="p-2.5 bg-cyber-surface hover:bg-slate-800 border border-cyber-border rounded-xl opacity-0 group-hover/row:opacity-100 transition-all hover:text-white"
                                                         >
-                                                            <MoreVertical className="size-4 text-gray-400" />
+                                                            <MoreVertical className="size-4" />
                                                         </button>
                                                     </div>
 
@@ -528,33 +541,17 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                         <div
                                                             ref={(node) => { rowMenuRef.current = node; tRefs.setFloating(node); }}
                                                             style={{ position: tStrategy, top: ty ?? 0, left: tx ?? 0 }}
-                                                            className="w-48 bg-white border rounded-xl shadow-lg z-[70] overflow-hidden py-1"
+                                                            className="w-56 glass-panel border border-cyber-border/50 rounded-2xl shadow-2xl z-[70] overflow-hidden py-2 animate-fade-in"
                                                         >
-                                                            <button onClick={() => { setOpenRowMenuId(null); confirmRemoveAccess({ docId: group.document_id }); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                                                <Trash2 className="size-4" /> Remove All Access
+                                                            <button onClick={() => { setOpenRowMenuId(null); handleUnlock(group.document_id); }} className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-300 hover:bg-cyber-accent hover:text-cyber-void transition-all">
+                                                                <Unlock className="size-4" /> Unlock Module
                                                             </button>
-                                                            <div className="h-px bg-gray-100 my-1" />
-                                                            <button onClick={() => { setOpenRowMenuId(null); handleUnlock(group.document_id); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                                <Unlock className="size-4" /> Unlock File
+                                                            <button onClick={() => { setOpenRowMenuId(null); setSelectedDocForInfo({ ...group, document_id: group.document_id }); setShowInfoModal(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-300 hover:bg-cyber-accent hover:text-cyber-void transition-all">
+                                                                <Info className="size-4" /> Data Integrity
                                                             </button>
-                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Rename coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                                <Pencil className="size-4" /> Rename
-                                                            </button>
-                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Move coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                                <FolderInput className="size-4" /> Move File
-                                                            </button>
-                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Sharing coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                                <Share2 className="size-4" /> Share File
-                                                            </button>
-                                                            <button onClick={() => { 
-                                                                setOpenRowMenuId(null); 
-                                                                setSelectedDocForInfo({ ...group, document_id: group.document_id }); // Simulating doc object for group
-                                                                setShowInfoModal(true);
-                                                            }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                                <Info className="size-4" /> File Info
-                                                            </button>
-                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Delete coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium">
-                                                                <Trash2 className="size-4" /> Delete
+                                                            <div className="h-px bg-cyber-border/30 my-2 mx-2" />
+                                                            <button onClick={() => { setOpenRowMenuId(null); confirmRemoveAccess({ docId: group.document_id }); }} className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-red-400 hover:bg-red-500 hover:text-white transition-all">
+                                                                <Trash2 className="size-4" /> Revoke All Access
                                                             </button>
                                                         </div>
                                                     )}
@@ -569,48 +566,50 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                 )}
             </div>
 
+            {/* Inlined Modals */}
             {showDownloadReadyModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDownloadReadyModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-cyber-void/80 backdrop-blur-sm" onClick={() => setShowDownloadReadyModal(false)} />
+                    <div className="glass-panel w-full max-w-md overflow-hidden transform transition-all shadow-2xl rounded-[2.5rem] border-cyber-accent/20 relative z-10 animate-fade-in">
+                        <div className="bg-cyber-accent/10 p-10 text-center relative border-b border-cyber-border">
                             <button 
                                 onClick={() => setShowDownloadReadyModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+                                className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white transition-colors"
                             >
                                 <X className="size-5" />
                             </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <CheckCircle className="size-10 text-white" />
+                            <div className="inline-flex items-center justify-center w-24 h-24 bg-cyber-accent/20 rounded-[2rem] mb-6 shadow-glow-cyan border border-cyber-accent/30">
+                                <CheckCircle className="size-12 text-cyber-accent" />
                             </div>
-                            <h2 className="text-xl font-bold">File Unlocked</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Your document is ready for retrieval</p>
+                            <h2 className="text-3xl font-black text-white tracking-tight uppercase italic">Protocol Alpha</h2>
+                            <p className="text-cyber-accent font-black text-[10px] tracking-[0.4em] uppercase mt-1">Extraction Matrix Stable</p>
                         </div>
                         
-                        <div className="p-6">
-                            <div className="bg-gray-50 rounded-xl p-4 mb-6 flex items-center gap-4">
-                                <div className="bg-white p-2 rounded-lg shadow-sm">
-                                    <Shield className="size-6 text-indigo-600" />
+                        <div className="p-10">
+                            <div className="bg-cyber-surface/50 rounded-3xl p-6 mb-8 border border-cyber-border flex items-center gap-5 shadow-inner">
+                                <div className="p-4 bg-cyber-accent/10 rounded-2xl border border-cyber-accent/20">
+                                    <Shield className="size-8 text-cyber-accent" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                    <p className="text-lg font-bold text-white truncate tracking-tight">
                                         {localDocs.find(d => d.document_id === selectedDocId)?.filename}
                                     </p>
-                                    <p className="text-xs text-gray-500">Decryption complete</p>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Ready for local manifest</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-4">
                                 <button 
                                     onClick={() => setShowDownloadReadyModal(false)}
-                                    className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                                    className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400 bg-cyber-surface hover:bg-slate-800 rounded-2xl transition-all border border-cyber-border"
                                 >
                                     Cancel
                                 </button>
                                 <button 
                                     onClick={() => handleDownloadAndProceed(selectedDocId)}
-                                    className="px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors flex items-center justify-center gap-2"
+                                    className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-cyber-void bg-cyber-accent hover:bg-white rounded-2xl transition-all shadow-glow-cyan flex items-center justify-center gap-3"
                                 >
-                                    <Download className="size-4 mr-2" />
+                                    <Download className="size-4" />
                                     Download
                                 </button>
                             </div>
@@ -620,26 +619,27 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
             )}
 
             {showKeepFileModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowKeepFileModal(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <CheckCircle className="size-10 text-white" />
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-cyber-void/80 backdrop-blur-sm" onClick={() => setShowKeepFileModal(null)} />
+                    <div className="glass-panel w-full max-w-md overflow-hidden transform transition-all shadow-2xl rounded-[2.5rem] border-cyber-accent/20 relative z-10 animate-fade-in">
+                        <div className="bg-cyber-accent/10 p-10 text-center relative border-b border-cyber-border">
+                            <div className="inline-flex items-center justify-center w-24 h-24 bg-cyber-accent/20 rounded-[2rem] mb-6 shadow-glow-cyan border border-cyber-accent/30">
+                                <Shield className="size-12 text-cyber-accent" />
                             </div>
-                            <h2 className="text-xl font-bold">File Retrieved</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Shared file successfully decrypted</p>
+                            <h2 className="text-3xl font-black text-white tracking-tight uppercase italic">Secure Retraction</h2>
+                            <p className="text-cyber-accent font-black text-[10px] tracking-[0.4em] uppercase mt-1">Data Stream Terminated</p>
                         </div>
                         
-                        <div className="p-6">
-                            <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
-                                You've successfully downloaded the shared file. We recommend removing the decrypted version from the server for maximum security.
+                        <div className="p-10">
+                            <p className="text-sm text-slate-400 text-center mb-10 leading-relaxed font-medium">
+                                The module has been successfully manifested. We recommend purging the temporary server decryption for maximum security density.
                             </p>
 
                             <button 
                                 onClick={() => setShowKeepFileModal(null)}
-                                className="w-full px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-100"
+                                className="w-full px-8 py-4 text-[11px] font-black uppercase tracking-widest text-cyber-void bg-cyber-accent hover:bg-white rounded-2xl transition-all shadow-glow-cyan"
                             >
-                                Done
+                                Acknowledge & Purge
                             </button>
                         </div>
                     </div>
@@ -647,49 +647,50 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
             )}
 
             {showMoveModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMoveModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-cyber-void/80 backdrop-blur-sm" onClick={() => setShowMoveModal(false)} />
+                    <div className="glass-panel w-full max-w-md overflow-hidden transform transition-all shadow-2xl rounded-[2.5rem] border-cyber-accent/20 relative z-10 animate-fade-in">
+                        <div className="bg-cyber-accent/10 p-10 text-center relative border-b border-cyber-border">
                             <button 
                                 onClick={() => setShowMoveModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+                                className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white transition-colors"
                             >
                                 <X className="size-5" />
                             </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <FolderOpen className="size-10 text-white" />
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/20 rounded-3xl mb-6 shadow-glow-cyan border border-cyber-accent/30">
+                                <FolderTree className="size-10 text-cyber-accent" />
                             </div>
-                            <h2 className="text-xl font-bold">Move to Folder</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Organize your document</p>
+                            <h2 className="text-2xl font-bold text-white tracking-tight">Relocate Module</h2>
+                            <p className="text-slate-400 text-sm mt-2">Adjust vault coordinates</p>
                         </div>
                         
-                        <div className="p-6">
-                            <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar mb-6">
+                        <div className="p-10">
+                            <div className="max-h-64 overflow-y-auto space-y-3 pr-3 custom-scrollbar mb-8">
                                 <button 
                                     onClick={() => handleMove(null)} 
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 group text-left"
+                                    className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-cyber-surface/50 hover:bg-cyber-accent/10 transition-all border border-cyber-border hover:border-cyber-accent/40 group text-left shadow-inner"
                                 >
-                                    <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white">
-                                        <FolderOpen className="size-5 text-gray-400 group-hover:text-indigo-600" />
+                                    <div className="p-2.5 bg-cyber-surface rounded-xl border border-cyber-border group-hover:border-cyber-accent/30">
+                                        <FolderOpen className="size-6 text-slate-500 group-hover:text-cyber-accent transition-colors" />
                                     </div>
-                                    <span className="text-sm font-medium text-gray-700">Root Directory</span>
+                                    <span className="text-sm font-bold text-slate-300 group-hover:text-white">Root Infrastructure</span>
                                 </button>
                                 {folders.map(folder => (
                                     <button 
                                         key={folder.folder_id} 
                                         onClick={() => handleMove(folder.folder_id)} 
-                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 group text-left"
+                                        className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-cyber-surface/50 hover:bg-cyber-accent/10 transition-all border border-cyber-border hover:border-cyber-accent/40 group text-left shadow-inner"
                                     >
-                                        <div className="p-2 bg-indigo-50 rounded-lg group-hover:bg-white">
-                                            <FolderTree className="size-5 text-indigo-500" />
+                                        <div className="p-2.5 bg-cyber-surface rounded-xl border border-cyber-border group-hover:border-cyber-accent/30">
+                                            <FolderTree className="size-6 text-cyber-accent" />
                                         </div>
-                                        <span className="text-sm font-medium text-gray-700 truncate">{folder.name}</span>
+                                        <span className="text-sm font-bold text-slate-300 group-hover:text-white truncate">{folder.name}</span>
                                     </button>
                                 ))}
                             </div>
                             
                             <div className="flex justify-end">
-                                <button onClick={() => setShowMoveModal(false)} className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all">
+                                <button onClick={() => setShowMoveModal(false)} className="px-8 py-3.5 text-[11px] font-black uppercase tracking-widest text-slate-400 bg-cyber-surface hover:bg-slate-800 rounded-xl transition-all border border-cyber-border">
                                     Cancel
                                 </button>
                             </div>
@@ -707,9 +708,9 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
 
             <ConfirmModal 
                 show={showRemoveConfirm}
-                title="Remove Access"
-                message={removeData.shareId ? "Are you sure you want to remove access for this recipient?" : "Are you sure you want to remove ALL access to this document?"}
-                confirmText="Remove Access"
+                title="Revoke Protocol"
+                message={removeData.shareId ? "Are you sure you want to revoke access for this recipient node?" : "Are you sure you want to revoke ALL external access to this secure module?"}
+                confirmText="Revoke Access"
                 isDanger={true}
                 isLoading={isRemoving}
                 onConfirm={handleRemoveAccessAction}

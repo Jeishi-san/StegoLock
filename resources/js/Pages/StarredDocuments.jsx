@@ -154,48 +154,8 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
         return result;
     }, [localDocs, searchQuery, filters]);
     
-    const getStatusDisplay = (status) => {
-        switch (status) {
-            case 'uploaded': return 'Initializing...';
-            case 'encrypted': return 'Encrypting file...';
-            case 'fragmented': return 'Embedding file...';
-            case 'mapped': return 'Embedding file...';
-            case 'embedded': return 'Storing file...';
-            case 'stored': return 'Stored';
-            case 'extracted': return 'Reconstructing file...';
-            case 'reconstructed': return 'Decrypting file...';
-            case 'decrypted': return 'Decrypted';
-            case 'retrieved': return 'Retrieved';
-            case 'failed': return 'Error';
-            default: return status ? status.charAt(0).toUpperCase() + status.slice(1) : '';
-        }
-    };
-
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'stored':
-            case 'decrypted':
-            case 'retrieved':
-                return 'bg-green-100 text-green-700';
-            case 'failed':
-                return 'bg-red-100 text-red-700';
-            default:
-                return 'bg-indigo-100 text-indigo-700';
-        }
-    };
-
     const toggleMenu = (id) => {
         setOpenMenuId(prev => (prev === id ? null : id));
-    };
-
-    const getFileColor = (type) => {
-        switch (type) {
-            case 'pdf': return 'text-red-500 bg-red-50';
-            case 'doc':
-            case 'docx': return 'text-blue-500 bg-blue-50';
-            case 'txt': return 'text-gray-600 bg-gray-50';
-            default: return 'text-indigo-500 bg-indigo-50';
-        }
     };
 
     const { x, y, strategy, refs } = useFloating({
@@ -203,6 +163,11 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
         middleware: [offset(8), flip(), shift()],
         whileElementsMounted: autoUpdate
     });
+
+    const openDeleteModal = (id) => {
+        setSelectedDocId(id);
+        setShowDeleteModal(true);
+    };
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -214,55 +179,10 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [openMenuId]);
 
-    const handleToggleStar = async (id) => {
-        try {
-            const resp = await axios.post(route('documents.star.toggle'), {
-                document_id: id
-            });
-            
-            if (resp.data.is_starred !== undefined) {
-                // If unstarred, remove from this view
-                if (!resp.data.is_starred) {
-                    setLocalDocs(prev => prev.filter(doc => doc.document_id !== id));
-                    toast.success('Document removed from starred');
-                } else {
-                    setLocalDocs(prev => prev.map(doc => 
-                        doc.document_id === id ? { ...doc, is_starred: resp.data.is_starred } : doc
-                    ));
-                    toast.success(resp.data.message);
-                }
-            }
-        } catch (err) {
-            toast.error('Failed to update star status');
-        }
-    };
-
-    const handleUnlock = (id) => {
-        updateUnlockingProgress(id);
-        router.post('/documents/unlock', { document_id: id });
-    };
-
-    const openDeleteModal = (id) => {
-        setSelectedDocId(id);
-        setShowDeleteModal(true);
-    };
-
-    const confirmDelete = async () => {
-        if (!selectedDocId) return;
-        try {
-            await axios.post('/documents/delete', { document_id: selectedDocId });
-            toast.success('Document deleted successfully');
-            setLocalDocs(prev => prev.filter(doc => doc.document_id !== selectedDocId));
-            setShowDeleteModal(false);
-        } catch (err) {
-            toast.error('Failed to delete document');
-        }
-    };
-
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-2xl font-black tracking-tight text-gray-900">Starred Documents</h2>
+                <h2 className="text-3xl font-bold tracking-tight text-white">Priority Vault</h2>
             }
             headerActions={
                 <ViewToggle view={viewMode} onViewChange={setViewMode} />
@@ -283,9 +203,9 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
 
             {filteredDocs.length > 0 || localDocs.length > 0 ? (
                 <div className="h-full overflow-hidden flex flex-col">
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
                         {viewMode === 'grid' ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
                                 {filteredDocs.map(doc => (
                                     <DocumentCard
                                         key={doc.document_id}
@@ -300,37 +220,41 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
                                 ))}
                             </div>
                         ) : (
-                            <DocumentList
-                                documents={filteredDocs}
-                                unlockingProgress={unlockingProgress}
-                                onToggleStar={handleToggleStar}
-                                onDelete={openDeleteModal}
-                                onShare={(d) => { setSelectedDoc(d); setShowShareModal(true); }}
-                                onInfo={(d) => { setSelectedDoc(d); setShowInfoModal(true); }}
-                                onUnlock={handleUnlock}
-                            />
+                            <div className="max-w-6xl mx-auto">
+                                <DocumentList
+                                    documents={filteredDocs}
+                                    unlockingProgress={unlockingProgress}
+                                    onToggleStar={handleToggleStar}
+                                    onDelete={openDeleteModal}
+                                    onShare={(d) => { setSelectedDoc(d); setShowShareModal(true); }}
+                                    onInfo={(d) => { setSelectedDoc(d); setShowInfoModal(true); }}
+                                    onUnlock={handleUnlock}
+                                />
+                            </div>
                         )}
                     </div>
                 </div>
             ) : (
-                <div className="flex-1 flex items-center justify-center p-8">
-                    <div className="text-center">
-                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Star className="size-10 text-gray-400" />
+                <div className="flex-1 flex items-center justify-center p-8 animate-fade-in">
+                    <div className="glass-panel rounded-[3rem] p-24 text-center max-w-lg border-2 border-dashed border-cyber-border/50 bg-cyber-surface/10">
+                        <div className="w-24 h-24 bg-cyber-surface rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-cyber-border group shadow-inner">
+                            <Star className="size-12 text-slate-700 group-hover:text-yellow-400 group-hover:shadow-glow-yellow transition-all duration-500" />
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Starred Documents</h3>
-                        <p className="text-gray-500">Star your important documents to find them easily</p>
+                        <h3 className="text-2xl font-bold text-white mb-3 tracking-tight italic">Priority Vault Empty</h3>
+                        <p className="text-slate-500 leading-relaxed font-medium">
+                            No modules have been elevated to priority status. Star your most critical modules to manifest them here for rapid access.
+                        </p>
                     </div>
                 </div>
             )}
 
             <ConfirmModal 
                 show={showDeleteModal}
-                title="Delete File"
-                message="Are you sure you want to delete this file? This action cannot be undone."
-                confirmText="Delete"
+                title="Protocol Termination"
+                message="Are you sure you want to terminate this module? This operation is irreversible and will purge all encrypted fragments from the grid."
+                confirmText="Terminate Module"
                 isDanger={true}
-                onConfirm={confirmDelete}
+                onConfirm={() => confirmDelete(selectedDocId)}
                 onCancel={() => setShowDeleteModal(false)}
             />
 

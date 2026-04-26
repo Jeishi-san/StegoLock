@@ -44,7 +44,7 @@ export function SearchBar({
 
   const FilterSection = ({ title, children }) => (
     <div className="mb-4">
-      <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">{title}</h4>
+      <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-3 tracking-widest">{title}</h4>
       {children}
     </div>
   );
@@ -56,10 +56,10 @@ export function SearchBar({
   }) => (
     <button
       onClick={onClick}
-      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+      className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
         active
-          ? 'bg-indigo-50 text-indigo-700 font-medium'
-          : 'text-gray-700 hover:bg-gray-50'
+          ? 'bg-cyber-accent text-white dark:text-cyber-void dark:shadow-glow-cyan'
+          : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-cyber-surface hover:text-slate-900 dark:hover:text-white'
       }`}
     >
       {label}
@@ -67,45 +67,45 @@ export function SearchBar({
   );
 
   return (
-    <div className="flex gap-2">
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
+    <div className="flex gap-3">
+      <div className="relative flex-1 group">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-slate-500 group-focus-within:text-cyber-accent transition-colors" />
         <input
           type="text"
           placeholder="Search documents..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          className="w-full pl-10 pr-4 py-2.5 bg-slate-100 dark:bg-cyber-surface/50 border border-slate-200 dark:border-cyber-border rounded-xl text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-cyber-accent focus:border-transparent transition-all"
         />
       </div>
 
       <div className="relative" ref={filterRef}>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border transition-all duration-300 ${
             showFilters || activeFiltersCount > 0
-              ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              ? 'bg-cyber-accent border-cyber-accent text-white dark:text-cyber-void dark:shadow-glow-cyan'
+              : 'bg-slate-100 dark:bg-cyber-surface border-slate-200 dark:border-cyber-border text-slate-600 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-500'
           }`}
         >
           <SlidersHorizontal className="size-4" />
-          <span className="text-sm font-medium">Filters</span>
+          <span className="text-sm font-bold">Filters</span>
           {activeFiltersCount > 0 && (
-            <span className="bg-indigo-600 text-white text-xs font-semibold rounded-full size-5 flex items-center justify-center">
+            <span className="bg-white dark:bg-cyber-void text-cyber-accent text-[10px] font-black rounded-full size-5 flex items-center justify-center border border-cyber-accent/20">
               {activeFiltersCount}
             </span>
           )}
-          <ChevronDown className={`size-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`size-4 transition-transform duration-300 ${showFilters ? 'rotate-180' : ''}`} />
         </button>
 
         {showFilters && (
-          <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 max-h-[calc(90vh-100px)] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="font-semibold text-gray-900">Filters & Sort</h3>
+          <div className="absolute top-full right-0 mt-3 w-80 glass-panel rounded-2xl shadow-2xl z-50 max-h-[calc(90vh-100px)] flex flex-col overflow-hidden animate-fade-in bg-white dark:bg-cyber-surface/90">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-cyber-border/50 bg-slate-50 dark:bg-cyber-surface/30">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">Filters & Sort</h3>
               {activeFiltersCount > 0 && (
                 <button
                   onClick={handleResetFilters}
-                  className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                  className="flex items-center gap-1.5 text-[10px] text-cyber-accent hover:text-slate-900 dark:hover:text-white font-black uppercase tracking-wider transition-colors"
                 >
                   <X className="size-3" />
                   Reset
@@ -113,7 +113,7 @@ export function SearchBar({
               )}
             </div>
 
-            <div className="overflow-y-auto p-4">
+            <div className="overflow-y-auto p-4 custom-scrollbar">
               {showSortFilter && (
                 <FilterSection title="Sort By">
                   <div className="space-y-1">
@@ -151,7 +151,7 @@ export function SearchBar({
                 </FilterSection>
               )}
 
-              {showSortFilter && (showFormatFilter || showStatusFilter || showOwnerFilter) && <div className="border-t border-gray-200 my-4" />}
+              {showSortFilter && (showFormatFilter || showStatusFilter || showOwnerFilter) && <div className="border-t border-slate-100 dark:border-cyber-border/30 my-4" />}
 
               {showFormatFilter && (
                 <FilterSection title="File Format">
@@ -185,7 +185,7 @@ export function SearchBar({
                 </FilterSection>
               )}
 
-              {showFormatFilter && (showStatusFilter || showOwnerFilter) && <div className="border-t border-gray-200 my-4" />}
+              {showFormatFilter && (showStatusFilter || showOwnerFilter) && <div className="border-t border-slate-100 dark:border-cyber-border/30 my-4" />}
 
               {showStatusFilter && (
                 <FilterSection title="Status">
@@ -209,7 +209,7 @@ export function SearchBar({
                 </FilterSection>
               )}
 
-              {showStatusFilter && showOwnerFilter && <div className="border-t border-gray-200 my-4" />}
+              {showStatusFilter && showOwnerFilter && <div className="border-t border-slate-100 dark:border-cyber-border/30 my-4" />}
 
               {showOwnerFilter && (
                 <FilterSection title="Owner">
