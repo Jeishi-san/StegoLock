@@ -286,7 +286,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-3xl font-bold tracking-tight text-white">Shared Vault</h2>
+                <h2 className="text-3xl font-bold tracking-tight text-white">Shared With Me</h2>
             }
             headerActions={
                 <ViewToggle view={viewMode} onViewChange={setViewMode} />
@@ -312,7 +312,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                             <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                                 <Clock className="size-5 text-amber-500 shadow-glow-amber" />
                             </div>
-                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Pending Ingress Protocol</h3>
+                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Pending Shares</h3>
                             <span className="bg-amber-500/10 text-amber-500 text-[10px] font-black px-2.5 py-1 rounded-full border border-amber-500/20">
                                 {pendingShares.length}
                             </span>
@@ -362,7 +362,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                             <div className="p-2 bg-cyber-accent/10 border border-cyber-accent/20 rounded-lg">
                                 <FolderOpen className="size-5 text-cyber-accent shadow-glow-cyan" />
                             </div>
-                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Authorized Modules</h3>
+                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Shared Files</h3>
                         </div>
                     )}
 
@@ -410,10 +410,10 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                 <Share2 className="size-10 text-slate-700 group-hover:text-cyber-accent transition-colors" />
                             </div>
                             <h4 className="text-white text-xl font-bold mb-2 tracking-tight">
-                                {searchQuery || filters.fileFormat !== 'all' ? "No matching modules" : "Shared vault is empty"}
+                                {searchQuery || filters.fileFormat !== 'all' ? "No matching files" : "No shared files yet"}
                             </h4>
                             <p className="text-slate-500 max-w-sm mx-auto text-sm leading-relaxed">
-                                {searchQuery || filters.fileFormat !== 'all' ? "Try adjusting your search parameters to find the module." : "When someone shares a secure document with you, it will manifest here."}
+                                {searchQuery || filters.fileFormat !== 'all' ? "Try adjusting your search parameters to find the module." : "When someone shares a file with you, it will appear here."}
                             </p>
                         </div>
                     )}
@@ -426,7 +426,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                             <div className="p-2 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-lg">
                                 <Share2 className="size-5 text-fuchsia-400 shadow-glow-fuchsia" />
                             </div>
-                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Outbound Transmissions</h3>
+                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Shared by Me</h3>
                             <span className="bg-fuchsia-500/10 text-fuchsia-400 text-[10px] font-black px-2.5 py-1 rounded-full border border-fuchsia-500/20">
                                 {sentShares.length}
                             </span>
@@ -436,9 +436,9 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                 <table className="w-full text-left text-sm">
                                     <thead className="bg-cyber-surface/50 text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] border-b border-cyber-border/30">
                                         <tr>
-                                            <th className="px-8 py-5">Secure Module</th>
+                                            <th className="px-8 py-5">Document</th>
                                             <th className="px-8 py-5">Recipients</th>
-                                            <th className="px-8 py-5">Initialization</th>
+                                            <th className="px-8 py-5">Date</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-cyber-border/20">
@@ -480,7 +480,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                                 onClick={() => setOpenRecipientsId(openRecipientsId === group.document_id ? null : group.document_id)}
                                                                 className="flex items-center gap-3 text-fuchsia-400 hover:text-white font-black text-[10px] uppercase tracking-[0.2em] transition-all bg-fuchsia-500/10 px-5 py-3 rounded-xl border border-fuchsia-500/20 hover:border-fuchsia-500/50"
                                                             >
-                                                                Manifest {group.recipients.length} Recipient Node{group.recipients.length > 1 ? 's' : ''}
+                                                                Shared to {group.recipients.length} people
                                                                 {openRecipientsId === group.document_id ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
                                                             </button>
 
@@ -492,7 +492,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                                 >
                                                                     <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-5 ml-1 flex items-center gap-2">
                                                                         <div className="size-1.5 bg-fuchsia-500 rounded-full" />
-                                                                        Access Control List
+                                                                        Manage Access
                                                                     </h4>
                                                                     <div className="max-h-64 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
                                                                         {group.recipients.map(recipient => (
@@ -544,14 +544,14 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                             className="w-56 glass-panel border border-cyber-border/50 rounded-2xl shadow-2xl z-[70] overflow-hidden py-2 animate-fade-in"
                                                         >
                                                             <button onClick={() => { setOpenRowMenuId(null); handleUnlock(group.document_id); }} className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-300 hover:bg-cyber-accent hover:text-cyber-void transition-all">
-                                                                <Unlock className="size-4" /> Unlock Module
+                                                                <Unlock className="size-4" /> Unlock File
                                                             </button>
                                                             <button onClick={() => { setOpenRowMenuId(null); setSelectedDocForInfo({ ...group, document_id: group.document_id }); setShowInfoModal(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-300 hover:bg-cyber-accent hover:text-cyber-void transition-all">
-                                                                <Info className="size-4" /> Data Integrity
+                                                                <Info className="size-4" /> File Info
                                                             </button>
                                                             <div className="h-px bg-cyber-border/30 my-2 mx-2" />
                                                             <button onClick={() => { setOpenRowMenuId(null); confirmRemoveAccess({ docId: group.document_id }); }} className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-red-400 hover:bg-red-500 hover:text-white transition-all">
-                                                                <Trash2 className="size-4" /> Revoke All Access
+                                                                <Trash2 className="size-4" /> Remove All Access
                                                             </button>
                                                         </div>
                                                     )}
@@ -581,8 +581,8 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                             <div className="inline-flex items-center justify-center w-24 h-24 bg-cyber-accent/20 rounded-[2rem] mb-6 shadow-glow-cyan border border-cyber-accent/30">
                                 <CheckCircle className="size-12 text-cyber-accent" />
                             </div>
-                            <h2 className="text-3xl font-black text-white tracking-tight uppercase italic">Protocol Alpha</h2>
-                            <p className="text-cyber-accent font-black text-[10px] tracking-[0.4em] uppercase mt-1">Extraction Matrix Stable</p>
+                            <h2 className="text-3xl font-black text-white tracking-tight uppercase italic">File Unlocked</h2>
+                            <p className="text-cyber-accent font-black text-[10px] tracking-[0.4em] uppercase mt-1">Your document is ready for retrieval</p>
                         </div>
                         
                         <div className="p-10">
@@ -626,20 +626,20 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                             <div className="inline-flex items-center justify-center w-24 h-24 bg-cyber-accent/20 rounded-[2rem] mb-6 shadow-glow-cyan border border-cyber-accent/30">
                                 <Shield className="size-12 text-cyber-accent" />
                             </div>
-                            <h2 className="text-3xl font-black text-white tracking-tight uppercase italic">Secure Retraction</h2>
-                            <p className="text-cyber-accent font-black text-[10px] tracking-[0.4em] uppercase mt-1">Data Stream Terminated</p>
+                            <h2 className="text-3xl font-black text-white tracking-tight uppercase italic">File Retrieved</h2>
+                            <p className="text-cyber-accent font-black text-[10px] tracking-[0.4em] uppercase mt-1">Shared file successfully decrypted</p>
                         </div>
                         
                         <div className="p-10">
                             <p className="text-sm text-slate-400 text-center mb-10 leading-relaxed font-medium">
-                                The module has been successfully manifested. We recommend purging the temporary server decryption for maximum security density.
+                                You've successfully downloaded the shared file. We recommend removing the decrypted version from the server for maximum security density.
                             </p>
 
                             <button 
                                 onClick={() => setShowKeepFileModal(null)}
                                 className="w-full px-8 py-4 text-[11px] font-black uppercase tracking-widest text-cyber-void bg-cyber-accent hover:bg-white rounded-2xl transition-all shadow-glow-cyan"
                             >
-                                Acknowledge & Purge
+                                Done
                             </button>
                         </div>
                     </div>
@@ -660,8 +660,8 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                             <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/20 rounded-3xl mb-6 shadow-glow-cyan border border-cyber-accent/30">
                                 <FolderTree className="size-10 text-cyber-accent" />
                             </div>
-                            <h2 className="text-2xl font-bold text-white tracking-tight">Relocate Module</h2>
-                            <p className="text-slate-400 text-sm mt-2">Adjust vault coordinates</p>
+                            <h2 className="text-2xl font-bold text-white tracking-tight">Move to Folder</h2>
+                            <p className="text-slate-400 text-sm mt-2">Organize your document</p>
                         </div>
                         
                         <div className="p-10">
@@ -673,7 +673,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                     <div className="p-2.5 bg-cyber-surface rounded-xl border border-cyber-border group-hover:border-cyber-accent/30">
                                         <FolderOpen className="size-6 text-slate-500 group-hover:text-cyber-accent transition-colors" />
                                     </div>
-                                    <span className="text-sm font-bold text-slate-300 group-hover:text-white">Root Infrastructure</span>
+                                    <span className="text-sm font-bold text-slate-300 group-hover:text-white">Root Directory</span>
                                 </button>
                                 {folders.map(folder => (
                                     <button 
@@ -708,8 +708,8 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
 
             <ConfirmModal 
                 show={showRemoveConfirm}
-                title="Revoke Protocol"
-                message={removeData.shareId ? "Are you sure you want to revoke access for this recipient node?" : "Are you sure you want to revoke ALL external access to this secure module?"}
+                title="Remove Access"
+                message={removeData.shareId ? "Are you sure you want to remove access for this recipient?" : "Are you sure you want to remove ALL access to this document?"}
                 confirmText="Revoke Access"
                 isDanger={true}
                 isLoading={isRemoving}

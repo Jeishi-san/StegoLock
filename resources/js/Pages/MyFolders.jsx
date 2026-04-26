@@ -237,8 +237,8 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
                             <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/20 rounded-3xl mb-6 shadow-glow-cyan border border-cyber-accent/30">
                                 <Plus className="size-10 text-cyber-accent" />
                             </div>
-                            <h2 className="text-2xl font-bold text-white tracking-tight">Create Folder</h2>
-                            <p className="text-slate-400 text-sm mt-2">Add a new segment to your vault</p>
+                            <h2 className="text-2xl font-bold text-white tracking-tight">New Folder</h2>
+                            <p className="text-slate-400 text-sm mt-2">Organize your workspace</p>
                         </div>
                         
                         <div className="p-8">
@@ -273,7 +273,7 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
                                         disabled={processing}
                                         className="px-6 py-3.5 text-sm font-bold text-cyber-void bg-cyber-accent hover:bg-white rounded-xl transition-all shadow-glow-cyan disabled:opacity-50"
                                     >
-                                        Initialize Folder
+                                        Create Folder
                                     </button>
                                 </div>
                             </form>
@@ -297,7 +297,7 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
                                 <Pencil className="size-10 text-cyber-accent" />
                             </div>
                             <h2 className="text-2xl font-bold text-white tracking-tight">Rename Folder</h2>
-                            <p className="text-slate-400 text-sm mt-2">Update collection identifier</p>
+                            <p className="text-slate-400 text-sm mt-2">Enter a new name</p>
                         </div>
                         
                         <div className="p-8">
@@ -355,8 +355,8 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
                             <div className="inline-flex items-center justify-center w-20 h-20 bg-red-500/20 rounded-3xl mb-6 shadow-glow-red border border-red-500/30">
                                 <Trash2 className="size-10 text-red-500" />
                             </div>
-                            <h2 className="text-2xl font-bold text-white tracking-tight">Purge Folder</h2>
-                            <p className="text-red-400/80 text-sm mt-2 font-medium">Warning: Irreversible action</p>
+                            <h2 className="text-2xl font-bold text-white tracking-tight">Delete Folder</h2>
+                            <p className="text-red-400/80 text-sm mt-2 font-medium">This action cannot be undone</p>
                         </div>
                         
                         <div className="p-8 text-center">
@@ -378,7 +378,7 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
                                     disabled={processing}
                                     className="px-6 py-3.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-lg shadow-red-600/20 disabled:opacity-50"
                                 >
-                                    Purge Folder
+                                    Delete
                                 </button>
                             </div>
                         </div>

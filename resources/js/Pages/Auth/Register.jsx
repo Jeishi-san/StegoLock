@@ -26,12 +26,9 @@ export default function Register() {
         <>
             <Head title="Register" />
 
-            <div className="space-y-1 mb-8">
-                <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-                    Join StegoLock
-                </h2>
-                <p className="text-slate-500 dark:text-slate-400 font-medium">Create your decentralized security profile.</p>
-            </div>
+            <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-8">
+                Create Account
+            </h2>
 
             <form onSubmit={submit} className="space-y-5">
                 <div className="space-y-2">
@@ -121,19 +118,18 @@ export default function Register() {
                                 <Loader2 className="size-5 animate-spin" />
                                 <span>Generating Profile...</span>
                             </div>
-                        ) : 'Initialize Account'}
+                        ) : 'Create Account'}
                     </PrimaryButton>
                 </div>
             </form>
 
             <div className="mt-10 text-center">
                 <p className="text-slate-500 dark:text-slate-400">
-                    Already have an account?{' '}
                     <Link 
                         href={route('login')} 
                         className="text-cyber-accent-dark dark:text-cyber-accent font-black uppercase tracking-widest text-[11px] hover:underline transition-all"
                     >
-                        Sign In
+                        Sign in instead
                     </Link>
                 </p>
             </div>

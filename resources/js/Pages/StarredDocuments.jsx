@@ -182,7 +182,7 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-3xl font-bold tracking-tight text-white">Priority Vault</h2>
+                <h2 className="text-3xl font-bold tracking-tight text-white">Starred Documents</h2>
             }
             headerActions={
                 <ViewToggle view={viewMode} onViewChange={setViewMode} />
@@ -240,9 +240,9 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
                         <div className="w-24 h-24 bg-cyber-surface rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-cyber-border group shadow-inner">
                             <Star className="size-12 text-slate-700 group-hover:text-yellow-400 group-hover:shadow-glow-yellow transition-all duration-500" />
                         </div>
-                        <h3 className="text-2xl font-bold text-white mb-3 tracking-tight italic">Priority Vault Empty</h3>
+                        <h3 className="text-2xl font-bold text-white mb-3 tracking-tight italic">No Starred Documents</h3>
                         <p className="text-slate-500 leading-relaxed font-medium">
-                            No modules have been elevated to priority status. Star your most critical modules to manifest them here for rapid access.
+                            Star your important documents to find them easily
                         </p>
                     </div>
                 </div>
@@ -250,9 +250,9 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
 
             <ConfirmModal 
                 show={showDeleteModal}
-                title="Protocol Termination"
-                message="Are you sure you want to terminate this module? This operation is irreversible and will purge all encrypted fragments from the grid."
-                confirmText="Terminate Module"
+                title="Delete File"
+                message="Are you sure you want to delete this file? This action cannot be undone."
+                confirmText="Delete"
                 isDanger={true}
                 onConfirm={() => confirmDelete(selectedDocId)}
                 onCancel={() => setShowDeleteModal(false)}

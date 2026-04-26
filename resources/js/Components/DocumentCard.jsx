@@ -162,7 +162,7 @@ export default function DocumentCard({
                         <div className="flex items-center gap-1 group/error cursor-help">
                             <AlertCircle className="size-3 text-red-500" />
                             <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">
-                                Failed
+                                Error
                             </span>
                         </div>
                     </Tooltip>

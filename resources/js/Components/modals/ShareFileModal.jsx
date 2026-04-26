@@ -42,7 +42,7 @@ export function ShareFileModal({ document: doc, onClose }) {
             email: targetEmail
         });
         
-        toast.success(response.data.message || `Module shared with ${targetEmail}`);
+        toast.success(response.data.message || `File shared with ${targetEmail}`);
         setEmail('');
         setShowConfirm(false);
         fetchRecipients();
@@ -51,7 +51,7 @@ export function ShareFileModal({ document: doc, onClose }) {
             router.reload({ only: ['documents'] });
         });
     } catch (error) {
-        toast.error(error.response?.data?.error || 'Failed to share module');
+        toast.error(error.response?.data?.error || 'Failed to share file');
     } finally {
         setIsSharing(false);
     }
@@ -66,7 +66,7 @@ export function ShareFileModal({ document: doc, onClose }) {
     setIsRemoving(true);
     try {
       await axios.post(route('documents.share.remove'), { share_id: shareToDelete });
-      toast.success('Access revoked successfully');
+      toast.success('Access removed successfully');
       setShowDeleteConfirm(false);
       setShareToDelete(null);
       fetchRecipients();
@@ -75,7 +75,7 @@ export function ShareFileModal({ document: doc, onClose }) {
           router.reload({ only: ['documents', 'sentShares'] });
       });
     } catch (error) {
-      toast.error('Failed to revoke access');
+      toast.error('Failed to remove access');
     } finally {
       setIsRemoving(false);
     }
@@ -105,7 +105,7 @@ export function ShareFileModal({ document: doc, onClose }) {
     }
     switch (share.status) {
       case 'accepted':
-        return <span className="flex items-center gap-1.5 text-[9px] font-black text-cyber-accent uppercase tracking-widest bg-cyber-accent/10 px-2.5 py-1 rounded-full border border-cyber-accent/20"><UserCheck className="size-3" /> Manifested</span>;
+        return <span className="flex items-center gap-1.5 text-[9px] font-black text-cyber-accent uppercase tracking-widest bg-cyber-accent/10 px-2.5 py-1 rounded-full border border-cyber-accent/20"><UserCheck className="size-3" /> Shared</span>;
       default:
         return <span className="flex items-center gap-1.5 text-[9px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20"><Clock className="size-3" /> Pending</span>;
     }
@@ -126,7 +126,7 @@ export function ShareFileModal({ document: doc, onClose }) {
           <div className="inline-flex items-center justify-center w-24 h-24 bg-cyber-accent/10 dark:bg-cyber-accent/20 rounded-[2rem] mb-6 shadow-xl dark:shadow-glow-cyan border border-cyber-accent/20 dark:border-cyber-accent/30">
             <Share2 className="size-12 text-cyber-accent" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase italic">Access Control</h2>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase italic">Share File</h2>
           <p className="text-cyber-accent-dark dark:text-cyber-accent font-black text-[10px] tracking-[0.4em] uppercase mt-2 truncate px-10">{doc.filename}</p>
         </div>
 
@@ -136,7 +136,7 @@ export function ShareFileModal({ document: doc, onClose }) {
           <div className="space-y-4">
             <div className="flex items-center gap-3 mb-2">
                 <div className="w-1.5 h-5 bg-cyber-accent rounded-full shadow-glow-cyan" />
-                <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Deploy Invitation</h3>
+                <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">New Share</h3>
             </div>
             <div className="flex gap-4">
                 <div className="relative flex-1">
@@ -148,7 +148,7 @@ export function ShareFileModal({ document: doc, onClose }) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="w-full pl-14 pr-6 py-4 bg-slate-50 dark:bg-cyber-surface/50 border border-slate-200 dark:border-cyber-border rounded-2xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-cyber-accent/50 focus:border-cyber-accent transition-all shadow-inner"
-                        placeholder="Recipient Node Address (Email)"
+                        placeholder="Enter recipient email address"
                         disabled={showConfirm}
                         autoFocus
                     />
@@ -184,13 +184,13 @@ export function ShareFileModal({ document: doc, onClose }) {
           <div className="space-y-4">
             <div className="flex items-center gap-3 mb-2">
                 <div className="w-1.5 h-5 bg-fuchsia-500 rounded-full shadow-glow-fuchsia" />
-                <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Authorized Nodes</h3>
+                <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Current Access</h3>
             </div>
             <div className="bg-slate-50 dark:bg-cyber-surface/30 rounded-[2.5rem] border border-slate-200 dark:border-cyber-border overflow-hidden">
                 {isLoadingRecipients ? (
                     <div className="p-16 flex flex-col items-center justify-center text-slate-500">
                         <Loader2 className="size-10 animate-spin mb-4 text-cyber-accent" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Mapping Nodes...</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Loading recipients...</span>
                     </div>
                 ) : recipients.length > 0 ? (
                     <div className="divide-y divide-cyber-border/20">
@@ -232,7 +232,7 @@ export function ShareFileModal({ document: doc, onClose }) {
                         <div className="size-20 bg-slate-100 dark:bg-cyber-surface rounded-3xl flex items-center justify-center mx-auto mb-6 border border-slate-200 dark:border-cyber-border shadow-inner">
                             <Users className="size-10 text-slate-300 dark:text-slate-700" />
                         </div>
-                        <p className="text-slate-400 dark:text-slate-500 font-medium px-8">No external nodes have been authorized to access this module.</p>
+                        <p className="text-slate-400 dark:text-slate-500 font-medium px-8">Not shared with anyone yet.</p>
                     </div>
                 )}
             </div>
@@ -243,9 +243,9 @@ export function ShareFileModal({ document: doc, onClose }) {
                 <AlertCircle className="size-5 text-cyber-accent-dark dark:text-cyber-accent dark:shadow-glow-cyan" />
               </div>
               <div>
-                  <p className="text-[11px] font-black text-cyber-accent-dark dark:text-cyber-accent uppercase tracking-widest mb-1.5">Security Protocol</p>
+                  <p className="text-[11px] font-black text-cyber-accent-dark dark:text-cyber-accent uppercase tracking-widest mb-1.5">Security Note</p>
                   <p className="text-[12px] text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
-                      Invitations undergo automatic entropy degradation after 24 hours. Administrative revocation is instantaneous and absolute.
+                      Shares expire automatically after 24 hours. You can remove access at any time to immediately invalidate the recipient's ability to unlock this file.
                   </p>
               </div>
           </div>
@@ -257,7 +257,7 @@ export function ShareFileModal({ document: doc, onClose }) {
               onClick={onClose}
               className="px-10 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-cyber-surface hover:bg-slate-200 dark:hover:bg-slate-800 rounded-2xl transition-all border border-slate-200 dark:border-cyber-border"
             >
-              Close Console
+              Close
             </button>
         </div>
       </div>
@@ -265,9 +265,9 @@ export function ShareFileModal({ document: doc, onClose }) {
 
     <ConfirmModal 
         show={showDeleteConfirm}
-        title="Revoke Access"
-        message="Are you sure you want to revoke access for this node? The recipient will lose all decryption capabilities for this module immediately."
-        confirmText="Revoke Access"
+        title="Remove Access"
+        message="Are you sure you want to remove access for this user? They will no longer be able to unlock this document."
+        confirmText="Remove Access"
         isDanger={true}
         isLoading={isRemoving}
         onConfirm={handleRemoveAccess}

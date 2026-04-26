@@ -157,10 +157,9 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
                             <Upload className="size-6 text-cyber-accent" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                                Lock New Document
+                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                Upload Document to Lock
                             </h2>
-                            <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5 font-medium uppercase tracking-widest">Secure extraction protocol</p>
                         </div>
                     </div>
                 </div>
@@ -183,15 +182,15 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
                                     </div>
                                 </div>
 
-                                <p className="text-slate-900 dark:text-white font-bold text-lg mb-2">
-                                    Select document to secure
+                                 <p className="text-slate-900 dark:text-white font-bold text-lg mb-2">
+                                    Drop file here or click to browse
                                 </p>
-                                <p className="text-sm text-slate-500 mb-8">
-                                    PDF, DOC, DOCX, or TXT (Max 50MB)
+                                 <p className="text-sm text-slate-500 mb-8">
+                                    Supports .pdf, .doc/.docx, and .txt only
                                 </p>
 
-                                <span className="inline-flex items-center px-6 py-3 bg-cyber-accent text-white dark:text-cyber-void font-bold rounded-xl text-sm shadow-lg dark:shadow-glow-cyan group-hover:bg-slate-900 dark:group-hover:bg-white transition-all">
-                                    Browse Files
+                                 <span className="inline-flex items-center px-6 py-3 bg-cyber-accent text-white dark:text-cyber-void font-bold rounded-xl text-sm shadow-lg dark:shadow-glow-cyan group-hover:bg-slate-900 dark:group-hover:bg-white transition-all">
+                                    Browse File
                                 </span>
                             </div>
 
@@ -222,7 +221,7 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
                             <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-3">
                                 <AlertCircle className="size-5 text-red-500 shrink-0 mt-0.5" />
                                 <p className="text-xs text-red-400 font-medium leading-relaxed text-left">
-                                    Encryption will begin immediately upon upload. The original plaintext will be purged and replaced with a steganographic carrier.
+                                     Uploaded files are immediately locked in the process. You cannot see any preview once processing starts.
                                 </p>
                             </div>
 
@@ -253,7 +252,7 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
                                     ) : (
                                         <>
                                             <Shield className="size-4" />
-                                            Begin Locking
+                                             Continue Upload
                                         </>
                                     )}
                                 </button>

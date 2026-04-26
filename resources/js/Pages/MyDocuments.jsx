@@ -231,14 +231,14 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                             <div className="w-24 h-24 bg-cyber-surface/30 rounded-3xl flex items-center justify-center mx-auto mb-8 border-2 border-dashed border-cyber-border/50 shadow-inner group-hover:border-cyber-accent transition-colors">
                                 <Shield className="size-10 text-slate-600" />
                             </div>
-                            <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">
-                                {searchQuery || filters.fileFormat !== 'all' || filters.status !== 'all' ? "No matches found" : "No documents yet"}
-                            </h3>
-                            <p className="text-slate-500 leading-relaxed">
-                                {searchQuery || filters.fileFormat !== 'all' || filters.status !== 'all' 
-                                    ? "Try refining your search parameters or resetting filters." 
-                                    : "Start securing your digital footprint by locking your first document."}
-                            </p>
+                             <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">
+                                 {searchQuery || filters.fileFormat !== 'all' || filters.status !== 'all' ? "No matching documents" : "No Documents Found"}
+                             </h3>
+                             <p className="text-slate-500 leading-relaxed">
+                                 {searchQuery || filters.fileFormat !== 'all' || filters.status !== 'all' 
+                                     ? "Try adjusting your filters or search query" 
+                                     : "Upload files to get started with Stegolock"}
+                             </p>
                         </div>
                     </div>
                 )}
@@ -259,8 +259,8 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                             <div className="inline-flex items-center justify-center w-20 h-20 bg-red-500/10 dark:bg-red-500/20 rounded-3xl mb-6 shadow-xl dark:shadow-glow-red border border-red-500/20 dark:border-red-500/30">
                                 <Trash2 className="size-10 text-red-500" />
                             </div>
-                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Delete Document</h2>
-                            <p className="text-red-500 dark:text-red-400/80 text-sm mt-2 font-medium">This action is permanent and irreversible.</p>
+                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Delete File</h2>
+                            <p className="text-red-500 dark:text-red-400/80 text-sm mt-2 font-medium">This action cannot be undone</p>
                         </div>
                         
                         <div className="p-8">
@@ -272,7 +272,7 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                                     <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
                                         {localDocs.find(d => d.document_id === selectedDocId)?.filename}
                                     </p>
-                                    <p className="text-xs font-bold text-red-500/70 uppercase tracking-widest mt-1">Pending Removal</p>
+                                     <p className="text-xs font-bold text-red-500/70 uppercase tracking-widest mt-1">Permanent removal</p>
                                 </div>
                             </div>
 
@@ -283,12 +283,12 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                                 >
                                     Cancel
                                 </button>
-                                <button 
-                                    onClick={() => confirmDelete(selectedDocId)}
-                                    className="px-6 py-3.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-lg shadow-red-600/20"
-                                >
-                                    Confirm Delete
-                                </button>
+                                 <button 
+                                     onClick={() => confirmDelete(selectedDocId)}
+                                     className="px-6 py-3.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-lg shadow-red-600/20"
+                                 >
+                                     Delete
+                                 </button>
                             </div>
                         </div>
                     </div>
@@ -309,8 +309,8 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                             <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/10 dark:bg-cyber-accent/20 rounded-3xl mb-6 shadow-xl dark:shadow-glow-cyan border border-cyber-accent/20 dark:border-cyber-accent/30">
                                 <FolderOpen className="size-10 text-cyber-accent" />
                             </div>
-                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Relocate Document</h2>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Select a destination folder</p>
+                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Move to Folder</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Organize your document</p>
                         </div>
                         
                         <div className="p-8">
@@ -362,8 +362,8 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                             <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/10 dark:bg-cyber-accent/20 rounded-3xl mb-6 shadow-xl dark:shadow-glow-cyan border border-cyber-accent/20 dark:border-cyber-accent/30">
                                 <Pencil className="size-10 text-cyber-accent" />
                             </div>
-                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Rename Document</h2>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Update the identifier for this file</p>
+                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Rename Document</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Enter a new name for your file</p>
                         </div>
                         
                         <div className="p-8">
@@ -401,9 +401,9 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                                         handleRename(selectedDocForRename.document_id, renameValue);
                                         setShowRenameModal(false);
                                     }}
-                                    className="px-6 py-3.5 text-sm font-bold text-white dark:text-cyber-void bg-cyber-accent hover:bg-slate-900 dark:hover:bg-white rounded-xl transition-all shadow-lg dark:shadow-glow-cyan"
+                                     className="px-6 py-3.5 text-sm font-bold text-white dark:text-cyber-void bg-cyber-accent hover:bg-slate-900 dark:hover:bg-white rounded-xl transition-all shadow-lg dark:shadow-glow-cyan"
                                 >
-                                    Update Name
+                                    Rename
                                 </button>
                             </div>
                         </div>
@@ -419,27 +419,27 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                             <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/10 dark:bg-cyber-accent/20 rounded-3xl mb-6 shadow-xl dark:shadow-glow-cyan border border-cyber-accent/20 dark:border-cyber-accent/30">
                                 <CheckCircle className="size-10 text-cyber-accent" />
                             </div>
-                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Data Restored</h2>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">The document is now decrypted</p>
+                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">File Retrieved</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">What would you like to do with the unlocked file?</p>
                         </div>
                         
                         <div className="p-8">
                             <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-8 leading-relaxed">
-                                The file is now accessible. Choose whether to maintain this decrypted state on the vault or purge it immediately for zero-knowledge security.
+                                 The file is currently decrypted on our server. You can keep it for later or delete it immediately for maximum security.
                             </p>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <button 
                                     onClick={() => keepFile(selectedDocId, localDocs.find(d => d.document_id === selectedDocId)?.filename)}
-                                    className="px-6 py-3.5 text-sm font-bold text-cyber-accent bg-slate-100 dark:bg-cyber-surface hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-cyber-border"
+                                     className="px-6 py-3.5 text-sm font-bold text-cyber-accent bg-slate-100 dark:bg-cyber-surface hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-cyber-border"
                                 >
-                                    Keep Online
+                                    Keep File
                                 </button>
                                 <button 
                                     onClick={() => { setShowDeleteModal(true); setShowKeepFileModal(null); }}
                                     className="px-6 py-3.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-lg shadow-red-600/20"
                                 >
-                                    Purge Data
+                                    Delete File
                                 </button>
                             </div>
                         </div>
@@ -461,8 +461,8 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                             <div className="inline-flex items-center justify-center w-20 h-20 bg-cyber-accent/20 rounded-3xl mb-6 shadow-glow-cyan border border-cyber-accent/30">
                                 <CheckCircle className="size-10 text-cyber-accent" />
                             </div>
-                            <h2 className="text-2xl font-bold text-white tracking-tight">Vault Unlocked</h2>
-                            <p className="text-slate-400 text-sm mt-2">Your document is ready for extraction</p>
+                             <h2 className="text-2xl font-bold text-white tracking-tight">File Unlocked</h2>
+                            <p className="text-slate-400 text-sm mt-2">Your document is ready for retrieval</p>
                         </div>
                         
                         <div className="p-8">
@@ -474,27 +474,27 @@ export default function MyDocuments({ documents, folders, currentFolder, totalSt
                                     <p className="text-sm font-bold text-white truncate">
                                         {localDocs.find(d => d.document_id === selectedDocId)?.filename}
                                     </p>
-                                    <p className="text-xs font-bold text-cyber-accent/70 uppercase tracking-widest mt-1">Status: Decrypted</p>
+                                     <p className="text-xs font-bold text-cyber-accent/70 uppercase tracking-widest mt-1">Decryption complete</p>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <button 
                                     onClick={() => {
-                                        const doc = localDocs.find(d => d.document_id === selectedDocId);
-                                        keepFile(selectedDocId, doc?.filename);
-                                        setShowDownloadReadyModal(false);
+                                         const doc = localDocs.find(d => d.document_id === selectedDocId);
+                                         keepFile(selectedDocId, doc?.filename);
+                                         setShowDownloadReadyModal(false);
                                     }}
                                     className="px-6 py-3.5 text-sm font-bold text-slate-400 bg-cyber-surface hover:bg-slate-800 rounded-xl transition-all border border-cyber-border"
                                 >
-                                    Later
+                                    Cancel
                                 </button>
                                 <button 
                                     onClick={() => handleDownloadAndProceed(selectedDocId)}
-                                    className="px-6 py-3.5 text-sm font-bold text-cyber-void bg-cyber-accent hover:bg-white rounded-xl transition-all shadow-glow-cyan flex items-center justify-center gap-2"
+                                     className="px-6 py-3.5 text-sm font-bold text-cyber-void bg-cyber-accent hover:bg-white rounded-xl transition-all shadow-glow-cyan flex items-center justify-center gap-2"
                                 >
                                     <Download className="size-4" />
-                                    Extract Now
+                                    Download
                                 </button>
                             </div>
                         </div>

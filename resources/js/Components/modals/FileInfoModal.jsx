@@ -52,23 +52,23 @@ export function FileInfoModal({ document: doc, onClose }) {
 
     switch (activity.action) {
       case 'shared': 
-        return <>{actor} shared this module with <span className="text-white font-bold">{activity.metadata?.recipient_email}</span></>;
+        return <>{actor} shared this file with <span className="text-white font-bold">{activity.metadata?.recipient_email}</span></>;
       case 'accepted': 
         return <>{actor} accepted the share invitation</>;
       case 'unlocked': 
-        return <>{actor} unlocked/decrypted the module</>;
+        return <>{actor} unlocked/decrypted the file</>;
       case 'removed': 
         return <>{actor} removed access for a recipient</>;
       case 'locking_started':
-        return <>{actor} initiated module encryption & locking</>;
+        return <>{actor} initiated file encryption & locking</>;
       case 'locking_completed':
-        return <>Module encryption & locking completed successfully</>;
+        return <>File encryption & locking completed successfully</>;
       case 'locking_failed':
-        return <>{actor} failed to lock module {errorMsg}</>;
+        return <>{actor} failed to lock file {errorMsg}</>;
       case 'unlocking_failed':
-        return <>{actor} failed to unlock module {errorMsg}</>;
+        return <>{actor} failed to unlock file {errorMsg}</>;
       case 'deleted':
-        return <>{actor} purged this module from the grid</>;
+        return <>{actor} deleted this file from the system</>;
       default: 
         return <>{actor} performed {activity.action}</>;
     }
@@ -88,7 +88,7 @@ export function FileInfoModal({ document: doc, onClose }) {
           <div className="inline-flex items-center justify-center w-24 h-24 bg-cyber-accent/10 dark:bg-cyber-accent/20 rounded-[2rem] mb-6 shadow-xl dark:shadow-glow-cyan border border-cyber-accent/20 dark:border-cyber-accent/30">
             <History className="size-12 text-cyber-accent" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase italic">Audit Logs</h2>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase italic">File History</h2>
           <p className="text-cyber-accent-dark dark:text-cyber-accent font-black text-[10px] tracking-[0.4em] uppercase mt-2 truncate px-10">{doc.filename}</p>
         </div>
 
@@ -97,14 +97,14 @@ export function FileInfoModal({ document: doc, onClose }) {
             {/* File Stats Summary */}
             <div className="grid grid-cols-2 gap-6">
                 <div className="p-6 bg-slate-50 dark:bg-cyber-surface/50 rounded-3xl border border-slate-200 dark:border-cyber-border group hover:border-cyber-accent/30 transition-all shadow-inner">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Integrity Status</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Status</p>
                     <div className="flex items-center gap-3">
                         <ShieldCheck className="size-5 text-cyber-accent dark:shadow-glow-cyan" />
                         <p className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">{doc.status}</p>
                     </div>
                 </div>
                 <div className="p-6 bg-slate-50 dark:bg-cyber-surface/50 rounded-3xl border border-slate-200 dark:border-cyber-border group hover:border-cyber-accent/30 transition-all shadow-inner">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Manifest Date</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Created</p>
                     <div className="flex items-center gap-3">
                         <Clock className="size-5 text-slate-500 group-hover:text-cyber-accent transition-colors" />
                         <p className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">{formatDate(new Date(doc.created_at))}</p>
@@ -116,7 +116,7 @@ export function FileInfoModal({ document: doc, onClose }) {
             <div className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                     <div className="w-1.5 h-6 bg-cyber-accent rounded-full shadow-glow-cyan" />
-                    <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Sequential Audit</h3>
+                    <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Activity Timeline</h3>
                 </div>
                 
                 {isLoading ? (
@@ -125,7 +125,7 @@ export function FileInfoModal({ document: doc, onClose }) {
                             <Loader2 className="size-12 animate-spin text-cyber-accent" />
                             <div className="absolute inset-0 size-12 blur-xl bg-cyber-accent/20 animate-pulse" />
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Querying Distributed Ledger...</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Retrieving audit logs...</span>
                     </div>
                 ) : activities.length > 0 ? (
                     <div className="relative space-y-8 before:absolute before:inset-0 before:ml-7 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-cyber-accent before:via-slate-200 dark:before:via-cyber-border/30 before:to-transparent">
@@ -151,7 +151,7 @@ export function FileInfoModal({ document: doc, onClose }) {
                         <div className="size-20 bg-cyber-surface rounded-3xl flex items-center justify-center mx-auto mb-6 border border-cyber-border shadow-inner">
                             <History className="size-10 text-slate-700" />
                         </div>
-                        <p className="text-slate-500 font-medium px-8">No audit logs have been recorded for this module in the current epoch.</p>
+                        <p className="text-slate-500 font-medium px-8">No activity recorded for this file yet.</p>
                     </div>
                 )}
             </div>
@@ -163,7 +163,7 @@ export function FileInfoModal({ document: doc, onClose }) {
               onClick={onClose}
               className="px-10 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-cyber-surface hover:bg-slate-200 dark:hover:bg-slate-800 rounded-2xl transition-all border border-slate-200 dark:border-cyber-border"
             >
-              Close Ledger
+              Close
             </button>
         </div>
       </div>

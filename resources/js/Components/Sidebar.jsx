@@ -86,7 +86,7 @@ export function Sidebar({
                         >
                             <div className="flex items-center gap-3">
                                 <Plus className="size-5" />
-                                <span className="text-sm font-black uppercase tracking-widest italic">New Module</span>
+                                <span className="text-sm font-black uppercase tracking-widest italic">New</span>
                             </div>
                             <ChevronDown className={`size-4 transition-transform duration-300 ${openNewMenu ? 'rotate-180' : ''}`} />
                         </button>
@@ -98,14 +98,14 @@ export function Sidebar({
                                     className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-cyber-accent hover:text-white dark:hover:text-cyber-void transition-all rounded-xl text-left"
                                 >
                                     <Upload className="size-4" />
-                                    Upload & Encrypt
+                                    Lock a File
                                 </button>
                                 <button 
                                     onClick={() => { setOpenNewMenu(false); }}
                                     className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-cyber-accent hover:text-white dark:hover:text-cyber-void transition-all rounded-xl text-left"
                                 >
                                     <FolderTree className="size-4" />
-                                    Create Folder
+                                    New Folder
                                 </button>
                             </div>
                         )}
@@ -115,22 +115,29 @@ export function Sidebar({
                 <div className="px-4 space-y-2">
                     <NavLink href={route('myDocuments')} active={route().current('myDocuments')}>
                         <FolderOpen className="size-5" />
-                        <span className="font-bold uppercase tracking-widest text-[10px]">Vault-Alpha</span>
+                        <span className="font-bold uppercase tracking-widest text-[10px]">My Documents</span>
                     </NavLink>
 
                     <NavLink href={route('myFolders')} active={route().current('myFolders')}>
                         <FolderTree className="size-5" />
-                        <span className="font-bold uppercase tracking-widest text-[10px]">Directories</span>
+                        <span className="font-bold uppercase tracking-widest text-[10px]">My Folders</span>
+                    </NavLink>
+
+                    <div className="mx-2 my-2 border-t border-slate-200 dark:border-cyber-border/30" />
+
+                    <NavLink href={route('allDocuments')} active={route().current('allDocuments')}>
+                        <FolderOpen className="size-5" />
+                        <span className="font-bold uppercase tracking-widest text-[10px]">All Documents</span>
                     </NavLink>
 
                     <NavLink href={route('sharedDocuments')} active={route().current('sharedDocuments')}>
                         <Users className="size-5" />
-                        <span className="font-bold uppercase tracking-widest text-[10px]">Authorized Access</span>
+                        <span className="font-bold uppercase tracking-widest text-[10px]">Shared With Me</span>
                     </NavLink>
 
                     <NavLink href={route('starredDocuments')} active={route().current('starredDocuments')}>
                         <Star className="size-5" />
-                        <span className="font-bold uppercase tracking-widest text-[10px]">Priority Stack</span>
+                        <span className="font-bold uppercase tracking-widest text-[10px]">Starred</span>
                     </NavLink>
                 </div>
 
