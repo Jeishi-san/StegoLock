@@ -18,12 +18,9 @@ export default function NavLink({
                 ' ' + className
             }
         >
-            {Icon && (
-                <Icon className={
-                    'size-5 mr-3 ' +
-                    (active ? 'text-cyber-void' : 'text-slate-500 group-hover:text-cyber-accent')} 
-                />
-            )}
+            <Icon className={
+                'size-5 mr-3 ' +
+                (active ? 'text-cyber-void' : 'text-slate-500 group-hover:text-cyber-accent')} />
             {children}
         </Link>
     );

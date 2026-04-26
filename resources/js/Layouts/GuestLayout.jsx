@@ -60,6 +60,10 @@ export default function GuestLayout({ children, mode = 'login' }) {
                                     <h1 className="text-7xl font-[900] text-slate-900 dark:text-white tracking-tighter leading-[0.85] scale-y-90 transform origin-top">
                                         Stego<span className="text-cyber-accent">Lock</span>
                                     </h1>
+                                    <div className="h-1.5 w-24 bg-cyber-accent mx-auto rounded-full shadow-glow-cyan" />
+                                    <p className="text-xl text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                                        Advanced steganographic security layer.
+                                    </p>
                                 </div>
                             </div>
                         </div>

@@ -26,9 +26,12 @@ export default function Register() {
         <>
             <Head title="Register" />
 
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-8 tracking-tight">
-                Create Account
-            </h2>
+            <div className="space-y-1 mb-8">
+                <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+                    Join StegoLock
+                </h2>
+                <p className="text-slate-500 dark:text-slate-400 font-medium">Create your decentralized security profile.</p>
+            </div>
 
             <form onSubmit={submit} className="space-y-5">
                 <div className="space-y-2">
@@ -116,22 +119,24 @@ export default function Register() {
                         {processing ? (
                             <div className="flex items-center gap-2">
                                 <Loader2 className="size-5 animate-spin" />
-                                <span>Registering...</span>
+                                <span>Generating Profile...</span>
                             </div>
-                        ) : 'Register'}
+                        ) : 'Initialize Account'}
                     </PrimaryButton>
                 </div>
             </form>
 
-                <p className="text-slate-500 dark:text-slate-400 text-sm">
+            <div className="mt-10 text-center">
+                <p className="text-slate-500 dark:text-slate-400">
                     Already have an account?{' '}
                     <Link 
                         href={route('login')} 
-                        className="text-cyber-accent-dark dark:text-cyber-accent hover:underline"
+                        className="text-cyber-accent-dark dark:text-cyber-accent font-black uppercase tracking-widest text-[11px] hover:underline transition-all"
                     >
-                        Sign in
+                        Sign In
                     </Link>
                 </p>
+            </div>
         </>
     );
 }

@@ -32,9 +32,12 @@ export default function Login({ status, canResetPassword }) {
                 </div>
             )}
 
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-8 tracking-tight">
-                Sign In
-            </h2>
+            <div className="space-y-1 mb-8">
+                <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+                    Welcome Back
+                </h2>
+                <p className="text-slate-500 dark:text-slate-400 font-medium">Please enter your credentials to access the vault.</p>
+            </div>
 
             <form onSubmit={submit} className="space-y-6">
                 <div className="space-y-2">
@@ -100,9 +103,9 @@ export default function Login({ status, canResetPassword }) {
                         {processing ? (
                             <div className="flex items-center gap-2">
                                 <Loader2 className="size-5 animate-spin" />
-                                <span>Log in...</span>
+                                <span>Authorizing...</span>
                             </div>
-                        ) : 'Log in'}
+                        ) : 'Sign In to Vault'}
                     </PrimaryButton>
                 </div>
             </form>
@@ -112,9 +115,9 @@ export default function Login({ status, canResetPassword }) {
                     Don't have an account?{' '}
                     <Link 
                         href={route('register')} 
-                        className="text-cyber-accent-dark dark:text-cyber-accent hover:underline"
+                        className="text-cyber-accent-dark dark:text-cyber-accent font-black uppercase tracking-widest text-[11px] hover:underline transition-all"
                     >
-                        Sign up
+                        Create Account
                     </Link>
                 </p>
             </div>
