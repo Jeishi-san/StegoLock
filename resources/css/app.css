@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-md border border-slate-200 shadow-sm transition-all duration-300;
+  }
+  .dark .glass-panel {
+    @apply bg-cyber-surface/60 border-cyber-border/50 shadow-none;
+  }
+
+  .glass-header {
+    @apply bg-white/80 backdrop-blur-md border-b border-slate-200 transition-all duration-300;
+  }
+  .dark .glass-header {
+    @apply bg-cyber-void/70 border-cyber-border/50;
+  }
+
+  .text-glow-cyan {
+    @apply text-cyber-accent-dark dark:text-cyber-accent;
+    text-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+  }
+
+  .btn-cyber {
+    @apply px-5 py-2.5 bg-cyber-accent text-white dark:text-cyber-void font-bold rounded-xl hover:bg-slate-900 dark:hover:bg-white transition-all shadow-lg dark:shadow-glow-cyan;
+  }
+}
+
 @keyframes progress {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(300%); }
@@ -9,4 +34,18 @@
 
 .animate-progress {
   animation: progress 2s ease-in-out infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-cyber-void;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-cyber-border rounded-full hover:bg-cyber-muted transition-colors;
 }
