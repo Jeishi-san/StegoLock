@@ -1,5 +1,5 @@
-import { FolderOpen, Star, HardDrive, Shield, Lock, Unlock, Plus, ChevronDown, Upload, Users, FolderTree, Moon, Sun } from 'lucide-react';
-import { useState, useEffect } from 'react';
+﻿import { FolderOpen, Star, HardDrive, Shield, Lock, Unlock, Plus, ChevronDown, Upload, Users, FolderTree } from 'lucide-react';
+import { useState } from 'react';
 import { formatBytes } from '@/Utils/fileUtils';
 import { Link, usePage, router } from '@inertiajs/react';
 
@@ -27,160 +27,291 @@ export function Sidebar({
   onManageStorageClick,
   onNewFolderClick,
   hasProcessingDocs = false,
-  darkMode,
-  setDarkMode,
 }) {
 
     const user = usePage().props.auth.user;
-    const pendingSharesCount = usePage().props.pendingSharesCount;
 
+    const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
-    const [openNewMenu, setOpenNewMenu] = useState(false);
+    const [showNewMenu, setShowNewMenu] = useState(false);
 
-    const isProcessOngoing = hasProcessingDocs;
+    const [isUploading, setIsUploading] = useState(false);
+
+    // Any ongoing process (either local or background)
+    const isProcessOngoing = isUploading || hasProcessingDocs;
+
+
     const storagePercentage = (totalStorage / storageLimit) * 100;
 
-    return (
-        <nav className="w-64 h-screen flex flex-col border-r border-slate-200 dark:border-cyber-border/50 bg-white dark:bg-cyber-void shadow-xl dark:shadow-2xl relative z-30 overflow-hidden transition-colors duration-300">
-            <div className='flex-1 overflow-y-auto custom-scrollbar'>
-                <div className="mx-auto max-w-7xl px-6 py-8 flex items-center justify-between">
+    const MenuButton = ({ icon: Icon, label, onClick, className = ""}) => (
+        <button
+            onClick={onClick}
+            className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left ${className}`}
+        >
+            <Icon className={`size-4 text-gray-500 ${className}`} />
+            {label}
+        </button>
+    );
+
+  return (
+    <nav className="w-64 h-screen flex flex-col border-b border-gray-100 bg-gray-100 shadow-lg">
+        <div className='flex-1'>
+            {/* HEADER */}
+            <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
+                <div className="flex my-4">
+                    {/* Icon */}
                     <Link href="/myDocuments">
-                        <div className="flex items-center space-x-3">
-                            <div className="inline-flex items-center justify-center p-2 bg-cyber-accent rounded-xl shadow-lg dark:shadow-glow-cyan">
-                                <Shield className="size-6 text-white dark:text-cyber-void" />
+                        <div className="flex items-center space-x-3 my-3">
+                            <div className="inline-flex items-center justify-center p-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/50">
+                                <Shield className="size-6 text-white" />
                             </div>
-                            <h1 className="text-xl font-[900] text-slate-900 dark:text-white tracking-tighter leading-[0.85] scale-y-90 transform origin-left">
-                                Stego<span className="text-cyber-accent">lock</span>
-                            </h1>
+                            <h1 className="text-xl font-bold text-gray-900">Stegolock</h1>
                         </div>
                     </Link>
 
-                    <button 
-                        onClick={() => setDarkMode(!darkMode)}
-                        className="p-2.5 bg-slate-100 dark:bg-cyber-surface/50 border border-slate-200 dark:border-cyber-border rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyber-accent hover:border-cyber-accent transition-all shadow-inner group"
-                    >
-                        {darkMode ? (
-                            <Moon className="size-4 group-hover:drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]" />
-                        ) : (
-                            <Sun className="size-4 group-hover:drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]" />
-                        )}
-                    </button>
-                </div>
-
-                <div className="px-4 mb-8">
-                    <div className="relative">
-                        <button 
-                            onClick={() => setOpenNewMenu(!openNewMenu)}
-                            className="w-full flex items-center justify-between gap-3 px-5 py-4 bg-cyber-accent text-white dark:text-cyber-void rounded-[1.25rem] hover:bg-slate-900 dark:hover:bg-white transition-all shadow-lg dark:shadow-glow-cyan group"
+                    {/* Mobile Navigation */}
+                    <div className="-me-2 flex items-center sm:hidden">
+                        <button
+                            onClick={() =>
+                                setShowingNavigationDropdown(
+                                    (previousState) => !previousState,
+                                )
+                            }
+                            className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none"
                         >
-                            <div className="flex items-center gap-3">
-                                <Plus className="size-5" />
-                                <span className="text-sm font-black uppercase tracking-widest italic">New</span>
-                            </div>
-                            <ChevronDown className={`size-4 transition-transform duration-300 ${openNewMenu ? 'rotate-180' : ''}`} />
+                            <svg
+                                className="h-6 w-6"
+                                stroke="currentColor"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    className={
+                                        !showingNavigationDropdown
+                                            ? 'inline-flex'
+                                            : 'hidden'
+                                    }
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M4 6h16M4 12h16M4 18h16"
+                                />
+                                <path
+                                    className={
+                                        showingNavigationDropdown
+                                            ? 'inline-flex'
+                                            : 'hidden'
+                                    }
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M6 18L18 6M6 6l12 12"
+                                />
+                            </svg>
                         </button>
-
-                        {openNewMenu && (
-                            <div className="absolute top-full left-0 right-0 mt-2 p-2 glass-panel rounded-2xl shadow-2xl z-50 animate-fade-in bg-white dark:bg-cyber-surface/90">
-                                <button 
-                                    onClick={() => {
-                                        if (isProcessOngoing) return;
-                                        setShowUploadModal(true);
-                                        setOpenNewMenu(false);
-                                    }}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold transition-all rounded-xl text-left ${isProcessOngoing ? 'text-slate-400 cursor-not-allowed' : 'text-slate-600 dark:text-slate-300 hover:bg-cyber-accent hover:text-white dark:hover:text-cyber-void'}`}
-                                >
-                                    <Upload className="size-4" />
-                                    {isProcessOngoing ? "Currently locking a file..." : "Lock a File"}
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        if (onNewFolderClick) onNewFolderClick();
-                                        else router.visit(route('myFolders'));
-                                        setOpenNewMenu(false);
-                                    }}
-                                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-cyber-accent hover:text-white dark:hover:text-cyber-void transition-all rounded-xl text-left"
-                                >
-                                    <FolderTree className="size-4" />
-                                    New Folder
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
-
-                <div className="px-4 space-y-2">
-                    <NavLink href={route('myDocuments')} active={route().current('myDocuments')} icon={FolderOpen}>
-                        <span className="font-bold uppercase tracking-widest text-[10px]">My Documents</span>
-                    </NavLink>
-
-                    <NavLink href={route('myFolders')} active={route().current('myFolders')} icon={FolderTree}>
-                        <span className="font-bold uppercase tracking-widest text-[10px]">My Folders</span>
-                    </NavLink>
-
-                    <NavLink href={route('allDocuments')} active={route().current('allDocuments')} icon={FolderOpen}>
-                        <span className="font-bold uppercase tracking-widest text-[10px]">All Documents</span>
-                    </NavLink>
-
-                    <NavLink href={route('sharedDocuments')} active={route().current('sharedDocuments')} icon={Users}>
-                        <div className="flex items-center justify-between w-full">
-                            <span className="font-bold uppercase tracking-widest text-[10px]">Shared With Me</span>
-                            {pendingSharesCount > 0 && (
-                                <span className="flex items-center justify-center size-4 text-[9px] font-black text-white bg-red-500 rounded-full shadow-lg shadow-red-500/20 animate-pulse">
-                                    {pendingSharesCount}
-                                </span>
-                            )}
-                        </div>
-                    </NavLink>
-
-                    <NavLink href={route('starredDocuments')} active={route().current('starredDocuments')} icon={Star}>
-                        <span className="font-bold uppercase tracking-widest text-[10px]">Starred</span>
-                    </NavLink>
-                </div>
-
-                <div className="px-4 mt-8">
-                    <button
-                        onClick={() => router.visit(route('manageStorage'))}
-                        className={`w-full flex items-center gap-3 px-5 py-4 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all ${
-                            route().current('manageStorage') 
-                            ? 'bg-cyber-accent text-white dark:text-cyber-void shadow-lg dark:shadow-glow-cyan' 
-                            : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-cyber-surface/50 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                    >
-                        <HardDrive className="size-5" />
-                        <span>Manage Storage</span>
-                    </button>
-                </div>
-
-                <UploadModal
-                    isOpen={showUploadModal}
-                    onClose={() => setShowUploadModal(false)}
-                />
             </div>
 
-            <div className="p-4 bg-slate-50 dark:bg-cyber-surface/30 border-t border-slate-200 dark:border-cyber-border/50 transition-colors duration-300">
-                <div className="space-y-3">
-                    <div className="p-4 bg-slate-100 dark:bg-cyber-void/50 rounded-xl border border-slate-200 dark:border-cyber-border/50">
-                        <div className="flex items-center justify-between text-[9px] mb-2 uppercase tracking-[0.2em] font-black">
-                            <div className="flex items-center gap-1.5 text-slate-500">
-                                <div className="size-1 bg-cyber-accent rounded-full shadow-glow-cyan animate-pulse" />
-                                Storage
-                            </div>
-                            <span className="text-cyber-accent">
-                                {formatBytes(totalStorage)} <span className="text-slate-400 dark:text-slate-700 mx-0.5">/</span> {formatBytes(storageLimit)}
-                            </span>
-                        </div>
-                        <div className="w-full bg-slate-200 dark:bg-cyber-border/50 rounded-full h-1.5 overflow-hidden">
-                            <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                    storagePercentage > 90 ? 'bg-red-500' : 'bg-cyber-accent shadow-glow-cyan'
-                                }`}
-                                style={{ width: `${Math.min(storagePercentage, 100)}%` }}
+            {/* Divider */}
+            <div className="relative">
+                <div className="w-full border-t border-gray-300"></div>
+            </div>
+
+            {/* NEW BUTTON */}
+            <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
+                <div className="flex my-4 relative">
+                    {/* New Button with Dropdown */}
+                    <button
+                        onClick={() => { setShowNewMenu(!showNewMenu); }}
+                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r
+                                    from-indigo-600 to-purple-600 text-white px-4 py-3.5
+                                    rounded-xl hover:from-indigo-700 hover:to-purple-700
+                                    transition-all font-medium shadow-lg shadow-indigo-500/30"
+                    >
+                        <Plus className="size-5" />
+                        New
+                        <ChevronDown className="size-4 ml-auto" />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {showNewMenu && (
+                        <>
+                        <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setShowNewMenu(false)}
+                        />
+                        <div className="absolute w-full mt-14 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
+                            <MenuButton icon={Upload}
+                                        label={isProcessOngoing ? "Currently locking a file..." : "Lock a File"}
+                                        onClick={() => {
+                                            if (isProcessOngoing) return;
+                                            setShowNewMenu(false);
+                                            setShowUploadModal(true);
+                                        }}
+                                        className={isProcessOngoing ? 'text-gray-400 cursor-not-allowed bg-gray-50' : ''}
+                            />
+                            <MenuButton icon={Plus}
+                                        label="New Folder"
+                                        onClick={onNewFolderClick || (() => router.visit(route('myFolders')))}
                             />
                         </div>
-                    </div>
+                        </>
+                    )}
+
                 </div>
             </div>
-        </nav>
+
+            {/* Upload Modal */}
+            <UploadModal
+                isOpen={showUploadModal}
+                onClose={() => setShowUploadModal(false)}
+                allowUpload={() => setIsUploading(false)}
+                uploaded={() => setIsUploading(true)}
+            />
+
+            {/* Divider */}
+            <div className="relative">
+                <div className="w-full border-t border-gray-300"></div>
+            </div>
+
+            {/* NAVIGATION LINKS */}
+            <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
+                <div className="flex mt-4">
+
+                    {/* Navigation Links */}
+                    <div className="w-full space-y-2">
+                        <NavLink
+                            href={route('myDocuments')}
+                            active={route().current('myDocuments')}
+                            icon={FolderOpen}
+                        >
+                            My Documents
+                        </NavLink>
+                        <NavLink
+                            href={route('myFolders')}
+                            active={route().current('myFolders')}
+                            icon={FolderTree}
+                        >
+                            My Folders
+                        </NavLink>
+
+                        {/* Divider */}
+                        <div className="relative">
+                            <div className="w-full border-t border-gray-300"></div>
+                        </div>
+
+                        <NavLink
+                            href={route('allDocuments')}
+                            active={route().current('allDocuments')}
+                            icon={FolderOpen}
+                        >All Documents</NavLink>
+
+                        <NavLink
+                            href={route('sharedDocuments')}
+                            active={route().current('sharedDocuments')}
+                            icon={Users}
+                        >
+                            <div className="flex items-center justify-between w-full">
+                                <span>Shared With Me</span>
+                                {usePage().props.pendingSharesCount > 0 && (
+                                    <span className="flex items-center justify-center size-5 text-[10px] font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
+                                        {usePage().props.pendingSharesCount}
+                                    </span>
+                                )}
+                            </div>
+                        </NavLink>
+
+                        <NavLink
+                            href={route('starredDocuments')}
+                            active={route().current('starredDocuments')}
+                            icon={Star}
+                        >Starred</NavLink>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        {/* Divider */}
+        <div className="relative">
+            <div className="w-full border-t border-gray-300"></div>
+        </div>
+
+
+        {/* Storage Info */}
+        <div className="">
+            <div className="mx-auto max-w-7xl my-4 space-y-1 sm:px-6 lg:px-6">
+                <div className="p-4 bg-gradient-to-br from-gray-200 to-gray-100 rounded-xl">
+                    <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="text-gray-600 font-medium">Storage</span>
+                        <span className="text-gray-900 font-semibold">
+                            {formatBytes(totalStorage)} / {formatBytes(storageLimit)}
+                        </span>
+                    </div>
+                    <div className="w-full bg-gray-300 rounded-full h-2 overflow-hidden">
+                        <div
+                            className={" rounded-full transition-all shadow-sm"+
+                                (storagePercentage > 90 ? " bg-gradient-to-r from-purple-600 to-red-600 h-2" :
+                                     " bg-gradient-to-r from-indigo-600 to-purple-600 h-2")
+                            }
+                            style={{ width: `${Math.min(storagePercentage, 100)}%` }}
+                        />
+                    </div>
+                </div>
+
+                <button
+                    onClick={() => router.visit(route('manageStorage'))}
+                    className={`w-full flex items-center gap-2 text-gray-700 hover:bg-gray-200 px-4 py-2.5 rounded-xl transition-all font-medium ${route().current('manageStorage') ? 'bg-gray-200 shadow-inner' : ''}`}
+                >
+                    <HardDrive className="size-5 text-gray-500" />
+                    <span>Manage Storage</span>
+                </button>
+            </div>
+
+        </div>
+
+
+        {/* RESPONSIVE LAYOUT */}
+        <div
+            className={
+                (showingNavigationDropdown ? 'block' : 'hidden') +
+                ' sm:hidden'
+            }
+        >
+            <div className="space-y-1 pb-3 pt-2">
+                <ResponsiveNavLink
+                    href={route('myDocuments')}
+                    active={route().current('myDocuments')}
+                >
+                    My Documents
+                </ResponsiveNavLink>
+            </div>
+
+            <div className="border-t border-gray-200 pb-1 pt-4">
+                <div className="px-4">
+                    <div className="text-base font-medium text-gray-800">
+                        {user.name}
+                    </div>
+                    <div className="text-sm font-medium text-gray-500">
+                        {user.email}
+                    </div>
+                </div>
+
+                <div className="mt-3 space-y-1">
+                    <ResponsiveNavLink href={route('profile.edit')}>
+                        Profile
+                    </ResponsiveNavLink>
+                    <ResponsiveNavLink
+                        method="post"
+                        href={route('logout')}
+                        as="button"
+                    >
+                        Log Out
+                    </ResponsiveNavLink>
+                </div>
+            </div>
+        </div>
+    </nav>
   );
 }
