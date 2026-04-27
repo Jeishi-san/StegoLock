@@ -24,16 +24,16 @@ export function FileInfoModal({ document: doc, onClose }) {
 
   const getActionIcon = (action) => {
     switch (action) {
-      case 'shared': return <Share2 className="size-4 text-indigo-600" />;
-      case 'accepted': return <CheckCircle2 className="size-4 text-green-600" />;
-      case 'unlocked': return <Unlock className="size-4 text-purple-600" />;
-      case 'removed': return <Trash2 className="size-4 text-red-600" />;
-      case 'locking_started': return <Lock className="size-4 text-orange-600" />;
-      case 'locking_completed': return <ShieldCheck className="size-4 text-green-600" />;
+      case 'shared': return <Share2 className="size-4 text-indigo-600 dark:text-indigo-400" />;
+      case 'accepted': return <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />;
+      case 'unlocked': return <Unlock className="size-4 text-purple-600 dark:text-purple-400" />;
+      case 'removed': return <Trash2 className="size-4 text-red-600 dark:text-red-400" />;
+      case 'locking_started': return <Lock className="size-4 text-amber-600 dark:text-amber-400" />;
+      case 'locking_completed': return <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" />;
       case 'locking_failed': 
-      case 'unlocking_failed': return <AlertCircle className="size-4 text-red-600" />;
-      case 'deleted': return <Trash2 className="size-4 text-gray-600" />;
-      default: return <FileText className="size-4 text-gray-600" />;
+      case 'unlocking_failed': return <AlertCircle className="size-4 text-red-600 dark:text-red-400" />;
+      case 'deleted': return <Trash2 className="size-4 text-slate-600 dark:text-slate-400" />;
+      default: return <FileText className="size-4 text-slate-600 dark:text-slate-400" />;
     }
   };
 
@@ -45,14 +45,14 @@ export function FileInfoModal({ document: doc, onClose }) {
   const getActionText = (activity) => {
     const actor = activity.user.id === doc.user_id ? "You" : activity.user.name;
     const errorMsg = activity.metadata?.error ? (
-        <span className="block text-[10px] text-red-500 font-mono mt-1 bg-red-50 p-1 rounded border border-red-100">
+        <span className="block text-[10px] text-red-500 dark:text-red-400 font-mono mt-2 bg-red-50 dark:bg-red-900/20 p-2 rounded-xl border border-red-100 dark:border-red-900/30">
             Error: {activity.metadata.error}
         </span>
     ) : null;
 
     switch (activity.action) {
       case 'shared': 
-        return <>{actor} shared this file with <span className="font-bold">{activity.metadata?.recipient_email}</span></>;
+        return <>{actor} shared this file with <span className="font-black text-slate-900 dark:text-white">{activity.metadata?.recipient_email}</span></>;
       case 'accepted': 
         return <>{actor} accepted the share invitation</>;
       case 'unlocked': 
@@ -75,64 +75,73 @@ export function FileInfoModal({ document: doc, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <div 
+        className="bg-white dark:bg-cyber-void rounded-2xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 dark:border-cyber-border"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="bg-indigo-600 p-6 text-white text-center relative">
+        <div className="bg-indigo-600 dark:bg-cyber-accent/10 p-6 text-white dark:text-cyber-accent text-center relative border-b dark:border-cyber-border">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+            className="absolute top-4 right-4 p-1 hover:bg-white/20 dark:hover:bg-cyber-accent/20 rounded-full transition-colors z-10"
           >
             <X className="size-5" />
           </button>
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-            <History className="size-10 text-white" />
+          
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 dark:bg-cyber-accent/20 rounded-full mb-4 shadow-inner">
+            <History className="size-10 text-white dark:text-cyber-accent" />
           </div>
-          <h2 className="text-xl font-bold leading-tight">File History</h2>
-          <p className="text-indigo-100 text-sm mt-1 truncate px-6">{doc.filename}</p>
+          <h2 className="text-xl font-bold dark:text-white uppercase tracking-tight">File History</h2>
+          <p className="text-indigo-100 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-1 truncate px-6">
+              {doc.filename}
+          </p>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
             {/* File Stats Summary */}
             <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Status</p>
+                <div className="p-4 bg-slate-50 dark:bg-cyber-surface/50 rounded-2xl border border-slate-100 dark:border-cyber-border">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Status</p>
                     <div className="flex items-center gap-2">
-                        <ShieldCheck className="size-4 text-green-600" />
-                        <p className="text-sm font-bold text-gray-900 uppercase">{doc.status}</p>
+                        <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        <p className="text-xs font-black text-slate-900 dark:text-white uppercase">{doc.status}</p>
                     </div>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Created</p>
+                <div className="p-4 bg-slate-50 dark:bg-cyber-surface/50 rounded-2xl border border-slate-100 dark:border-cyber-border">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Created</p>
                     <div className="flex items-center gap-2">
-                        <Clock className="size-4 text-gray-500" />
-                        <p className="text-sm font-bold text-gray-900">{formatDateTime(doc.created_at)}</p>
+                        <Clock className="size-4 text-indigo-600 dark:text-indigo-400" />
+                        <p className="text-xs font-black text-slate-900 dark:text-white">{formatDate(doc.created_at)}</p>
                     </div>
                 </div>
             </div>
 
             {/* Timeline */}
             <div className="space-y-4">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Activity Timeline</h3>
+                <div className="flex items-center gap-2 mb-2">
+                    <History className="size-4 text-cyan-500" />
+                    <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Audit Logs</h3>
+                </div>
                 
                 {isLoading ? (
-                    <div className="p-12 flex flex-col items-center justify-center text-gray-400">
+                    <div className="p-10 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
                         <Loader2 className="size-10 animate-spin mb-4" />
-                        <span className="text-sm font-medium">Retrieving audit logs...</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Retrieving logs...</span>
                     </div>
                 ) : activities.length > 0 ? (
-                    <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-indigo-100 before:via-gray-100 before:to-transparent">
+                    <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-slate-200 dark:before:from-cyber-border before:via-slate-100 dark:before:via-cyber-surface before:to-transparent">
                         {activities.map((activity, index) => (
                             <div key={activity.id} className="relative flex items-start gap-4 group">
-                                <div className="flex items-center justify-center size-10 rounded-full bg-white border-2 border-gray-100 shadow-sm z-10 group-hover:border-indigo-200 transition-colors">
+                                <div className="flex items-center justify-center size-10 rounded-xl bg-white dark:bg-cyber-void border border-slate-200 dark:border-cyber-border shadow-sm z-10 group-hover:border-cyan-500 dark:group-hover:border-cyber-accent transition-all">
                                     {getActionIcon(activity.action)}
                                 </div>
                                 <div className="flex-1 pt-1">
-                                    <div className="text-sm text-gray-600 leading-snug">
+                                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed">
                                         {getActionText(activity)}
                                     </div>
-                                    <p className="text-[11px] text-gray-400 font-medium mt-1">
+                                    <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
                                         {formatDateTime(activity.created_at)}
                                     </p>
                                 </div>
@@ -140,21 +149,21 @@ export function FileInfoModal({ document: doc, onClose }) {
                         ))}
                     </div>
                 ) : (
-                    <div className="p-12 text-center border-2 border-dashed border-gray-100 rounded-3xl">
-                        <div className="size-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <History className="size-6 text-gray-200" />
+                    <div className="p-10 text-center border-2 border-dashed border-slate-100 dark:border-cyber-border rounded-2xl bg-slate-50/30 dark:bg-cyber-surface/10">
+                        <div className="size-12 bg-white dark:bg-cyber-void rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-slate-100 dark:border-cyber-border">
+                            <History className="size-6 text-slate-200 dark:text-slate-700" />
                         </div>
-                        <p className="text-sm text-gray-400 font-medium">No activity recorded for this file yet.</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-600 font-black uppercase tracking-widest">No history found</p>
                     </div>
                 )}
             </div>
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end">
+        <div className="p-6 bg-slate-50 dark:bg-cyber-surface border-t border-slate-100 dark:border-cyber-border/50 flex justify-end">
             <button
               onClick={onClose}
-              className="px-6 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-200 rounded-xl transition-all"
+              className="px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-cyber-border/30 rounded-xl transition-all"
             >
               Close
             </button>
@@ -163,3 +172,4 @@ export function FileInfoModal({ document: doc, onClose }) {
     </div>
   );
 }
+

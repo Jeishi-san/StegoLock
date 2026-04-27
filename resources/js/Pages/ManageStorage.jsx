@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import axios from 'axios';
 import { FileInfoModal } from '@/Components/modals/FileInfoModal';
 
+import { ConfirmModal } from '@/Components/modals/ConfirmModal';
+
 export default function ManageStorage({ 
   documents, 
   totalStorage, 
@@ -16,6 +18,8 @@ export default function ManageStorage({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedType, setSelectedType] = useState('all');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedDocToDelete, setSelectedDocToDelete] = useState(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [selectedDocForInfo, setSelectedDocForInfo] = useState(null);
   
@@ -89,18 +93,25 @@ export default function ManageStorage({
       setSortConfig({ key: 'date', direction: 'desc' });
   };
 
-  const handleDelete = async (docId, filename) => {
-    if (!window.confirm(`Are you sure you want to permanently delete "${filename}"?`)) return;
+  const confirmDelete = (doc) => {
+    setSelectedDocToDelete(doc);
+    setShowDeleteModal(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedDocToDelete) return;
     
-    setIsDeleting(docId);
+    setIsDeleting(selectedDocToDelete.document_id);
+    setShowDeleteModal(false);
     try {
-        await axios.delete(`/documents/${docId}`);
-        toast.success(`${filename} deleted successfully`);
+        await axios.delete(`/documents/${selectedDocToDelete.document_id}`);
+        toast.success(`${selectedDocToDelete.filename} deleted successfully`);
         router.reload();
     } catch (err) {
         toast.error('Failed to delete document');
     } finally {
         setIsDeleting(null);
+        setSelectedDocToDelete(null);
     }
   };
 
@@ -314,7 +325,7 @@ export default function ManageStorage({
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            handleDelete(doc.document_id, doc.filename);
+                                            confirmDelete(doc);
                                         }}
                                         disabled={isDeleting === doc.document_id}
                                         className="p-3 text-slate-300 dark:text-slate-600 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all"
@@ -342,6 +353,16 @@ export default function ManageStorage({
       {showInfoModal && selectedDocForInfo && (
           <FileInfoModal document={selectedDocForInfo} onClose={() => setShowInfoModal(false)} />
       )}
+
+      <ConfirmModal 
+          show={showDeleteModal}
+          title="Delete Document"
+          message={`Are you sure you want to permanently delete "${selectedDocToDelete?.filename}"? This action cannot be undone.`}
+          confirmText="Delete Permanently"
+          isDanger={true}
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteModal(false)}
+      />
     </AuthenticatedLayout>
   );
 }

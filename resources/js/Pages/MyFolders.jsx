@@ -9,6 +9,9 @@ import Dropdown from '@/Components/Dropdown';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import { SearchBar } from '@/Components/SearchBar';
+import CreateFolderModal from '@/Components/modals/CreateFolderModal';
+import RenameFolderModal from '@/Components/modals/RenameFolderModal';
+import DeleteFolderModal from '@/Components/modals/DeleteFolderModal';
 
 export default function MyFolders({ folders, totalStorage, storageLimit  }) {
     const [showNewMenu, setShowNewMenu] = useState(false);
@@ -223,171 +226,33 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
                 )}
             </div>
 
-            {showCreateModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowCreateModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
-                            <button 
-                                onClick={() => setShowCreateModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
-                            >
-                                <X className="size-5" />
-                            </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <Plus className="size-10 text-white" />
-                            </div>
-                            <h2 className="text-xl font-bold">New Folder</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Organize your workspace</p>
-                        </div>
-                        
-                        <div className="p-6">
-                            <form onSubmit={submitCreate}>
-                                <div className="mb-6">
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Folder Name</label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Folder className="size-5 text-gray-400" />
-                                        </div>
-                                        <TextInput
-                                            id="name"
-                                            type="text"
-                                            name="name"
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all font-medium text-gray-700"
-                                            placeholder="Enter folder name"
-                                            isFocused
-                                        />
-                                    </div>
-                                    <InputError message={errors.name} className="mt-2" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCreateModal(false)}
-                                        className="px-4 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={processing}
-                                        className="px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-100 disabled:opacity-50"
-                                    >
-                                        Create Folder
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <CreateFolderModal 
+                show={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                onSubmit={submitCreate}
+                name={name}
+                setName={setName}
+                errors={errors}
+                processing={processing}
+            />
 
-            {/* Rename Folder Modal */}
-            {showRenameModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowRenameModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
-                            <button 
-                                onClick={() => setShowRenameModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
-                            >
-                                <X className="size-5" />
-                            </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <Pencil className="size-10 text-white" />
-                            </div>
-                            <h2 className="text-xl font-bold">Rename Folder</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Enter a new name</p>
-                        </div>
-                        
-                        <div className="p-6">
-                            <form onSubmit={submitRename}>
-                                <div className="mb-6">
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Folder Name</label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Folder className="size-5 text-gray-400" />
-                                        </div>
-                                        <TextInput
-                                            id="rename-name"
-                                            type="text"
-                                            name="name"
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all font-medium text-gray-700"
-                                            placeholder="Enter folder name"
-                                            isFocused
-                                        />
-                                    </div>
-                                    <InputError message={errors.name} className="mt-2" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowRenameModal(false)}
-                                        className="px-4 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={processing}
-                                        className="px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-100 disabled:opacity-50"
-                                    >
-                                        Save Changes
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <RenameFolderModal 
+                show={showRenameModal}
+                onClose={() => setShowRenameModal(false)}
+                onSubmit={submitRename}
+                name={name}
+                setName={setName}
+                errors={errors}
+                processing={processing}
+            />
 
-            {/* Delete Folder Modal */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDeleteModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-red-600 p-6 text-white text-center relative">
-                            <button 
-                                onClick={() => setShowDeleteModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
-                            >
-                                <X className="size-5" />
-                            </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <Trash2 className="size-10 text-white" />
-                            </div>
-                            <h2 className="text-xl font-bold">Delete Folder</h2>
-                            <p className="text-red-100 text-sm mt-1">This action cannot be undone</p>
-                        </div>
-                        
-                        <div className="p-6">
-                            <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
-                                Are you sure you want to delete <span className="font-bold text-gray-900">{selectedFolder?.name}</span>? 
-                                All contained items will be moved to the root directory.
-                            </p>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDeleteModal(false)}
-                                    className="px-4 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={submitDelete}
-                                    disabled={processing}
-                                    className="px-4 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-lg shadow-red-100 disabled:opacity-50"
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DeleteFolderModal 
+                show={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={submitDelete}
+                folderName={selectedFolder?.name}
+                processing={processing}
+            />
         </AuthenticatedLayout>
     );
 }

@@ -16,6 +16,9 @@ import {
 } from '@floating-ui/react';
 import { FileInfoModal } from '@/Components/modals/FileInfoModal';
 import { ConfirmModal } from '@/Components/modals/ConfirmModal';
+import { DownloadReadyModal } from '@/Components/modals/DownloadReadyModal';
+import MoveFileModal from '@/Components/modals/MoveFileModal';
+import FileRetrievedModal from '@/Components/modals/FileRetrievedModal';
 import { SearchBar } from '@/Components/SearchBar';
 import { ViewToggle } from '@/Components/ViewToggle';
 import { DocumentList } from '@/Components/DocumentList';
@@ -569,134 +572,27 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                 )}
             </div>
 
-            {showDownloadReadyModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDownloadReadyModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
-                            <button 
-                                onClick={() => setShowDownloadReadyModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
-                            >
-                                <X className="size-5" />
-                            </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <CheckCircle className="size-10 text-white" />
-                            </div>
-                            <h2 className="text-xl font-bold">File Unlocked</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Your document is ready for retrieval</p>
-                        </div>
-                        
-                        <div className="p-6">
-                            <div className="bg-gray-50 rounded-xl p-4 mb-6 flex items-center gap-4">
-                                <div className="bg-white p-2 rounded-lg shadow-sm">
-                                    <Shield className="size-6 text-indigo-600" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 truncate">
-                                        {localDocs.find(d => d.document_id === selectedDocId)?.filename}
-                                    </p>
-                                    <p className="text-xs text-gray-500">Decryption complete</p>
-                                </div>
-                            </div>
+            <DownloadReadyModal 
+                show={showDownloadReadyModal}
+                onClose={() => setShowDownloadReadyModal(false)}
+                document={localDocs.find(d => d.document_id === selectedDocId)}
+                onDownload={handleDownloadAndProceed}
+            />
 
-                            <div className="grid grid-cols-2 gap-3">
-                                <button 
-                                    onClick={() => setShowDownloadReadyModal(false)}
-                                    className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    onClick={() => handleDownloadAndProceed(selectedDocId)}
-                                    className="px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Download className="size-4 mr-2" />
-                                    Download
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <FileRetrievedModal 
+                show={showKeepFileModal}
+                onClose={() => setShowKeepFileModal(null)}
+                onKeep={() => setShowKeepFileModal(null)}
+                onDelete={() => { setShowKeepFileModal(null); toast.info("Contact owner to request deletion"); }}
+            />
 
-            {showKeepFileModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowKeepFileModal(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <CheckCircle className="size-10 text-white" />
-                            </div>
-                            <h2 className="text-xl font-bold">File Retrieved</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Shared file successfully decrypted</p>
-                        </div>
-                        
-                        <div className="p-6">
-                            <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
-                                You've successfully downloaded the shared file. We recommend removing the decrypted version from the server for maximum security.
-                            </p>
-
-                            <button 
-                                onClick={() => setShowKeepFileModal(null)}
-                                className="w-full px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-100"
-                            >
-                                Done
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showMoveModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMoveModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="bg-indigo-600 p-6 text-white text-center relative">
-                            <button 
-                                onClick={() => setShowMoveModal(false)}
-                                className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
-                            >
-                                <X className="size-5" />
-                            </button>
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                                <FolderOpen className="size-10 text-white" />
-                            </div>
-                            <h2 className="text-xl font-bold">Move to Folder</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Organize your document</p>
-                        </div>
-                        
-                        <div className="p-6">
-                            <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar mb-6">
-                                <button 
-                                    onClick={() => handleMove(null)} 
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 group text-left"
-                                >
-                                    <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white">
-                                        <FolderOpen className="size-5 text-gray-400 group-hover:text-indigo-600" />
-                                    </div>
-                                    <span className="text-sm font-medium text-gray-700">Root Directory</span>
-                                </button>
-                                {folders.map(folder => (
-                                    <button 
-                                        key={folder.folder_id} 
-                                        onClick={() => handleMove(folder.folder_id)} 
-                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 group text-left"
-                                    >
-                                        <div className="p-2 bg-indigo-50 rounded-lg group-hover:bg-white">
-                                            <FolderTree className="size-5 text-indigo-500" />
-                                        </div>
-                                        <span className="text-sm font-medium text-gray-700 truncate">{folder.name}</span>
-                                    </button>
-                                ))}
-                            </div>
-                            
-                            <div className="flex justify-end">
-                                <button onClick={() => setShowMoveModal(false)} className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all">
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <MoveFileModal 
+                show={showMoveModal}
+                onClose={() => setShowMoveModal(false)}
+                onMove={(docId, folderId) => handleMove(folderId)}
+                folders={folders}
+                selectedDocId={selectedDocId}
+            />
 
             {showInfoModal && (
                 <FileInfoModal 
