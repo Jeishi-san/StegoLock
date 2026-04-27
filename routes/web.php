@@ -92,6 +92,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/documents/activity/{id}', [DocumentController::class, 'getActivity']);
     Route::get('/documents/recipients/{id}', [DocumentController::class, 'getRecipients']);
 
+    // Folder Sharing
+    Route::post('/folders/share', [DocumentController::class, 'shareFolder'])
+        ->name('folders.share');
+    Route::post('/folders/share/accept', [DocumentController::class, 'acceptFolderShare'])
+        ->name('folders.share.accept');
+
 });
 
 use App\Http\Controllers\WikiFeedController;

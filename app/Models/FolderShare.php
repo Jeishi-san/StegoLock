@@ -4,22 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class DocumentShare extends Model
+class FolderShare extends Model
 {
     protected $primaryKey = 'share_id';
 
     protected $fillable = [
-        'document_id',
+        'folder_id',
         'sender_id',
         'recipient_id',
-        'folder_id',
-        'folder_share_id',
-        'encrypted_dek',
-        'dek_nonce',
-        'dek_tag',
-        'dk_salt',
         'status',
-        'processing_status',
         'expires_at',
     ];
 
@@ -27,14 +20,9 @@ class DocumentShare extends Model
         'expires_at' => 'datetime',
     ];
 
-    public function folderShare()
+    public function folder()
     {
-        return $this->belongsTo(FolderShare::class, 'folder_share_id', 'share_id');
-    }
-
-    public function document()
-    {
-        return $this->belongsTo(Document::class, 'document_id');
+        return $this->belongsTo(Folder::class, 'folder_id', 'folder_id');
     }
 
     public function sender()
@@ -45,5 +33,10 @@ class DocumentShare extends Model
     public function recipient()
     {
         return $this->belongsTo(User::class, 'recipient_id');
+    }
+
+    public function documentShares()
+    {
+        return $this->hasMany(DocumentShare::class, 'folder_share_id', 'share_id');
     }
 }

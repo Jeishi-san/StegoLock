@@ -31,6 +31,7 @@ use App\Models\StegoFile;
 use App\Models\StegoMap;
 use App\Models\Folder;
 use App\Models\DocumentShare;
+use App\Models\FolderShare;
 use App\Models\DocumentActivity;
 use App\Services\CryptoService;
 
@@ -208,10 +209,28 @@ class DocumentController extends Controller
                 return $doc;
             });
 
-        // Fetch pending shares
+        // Fetch pending folder shares
+        $pendingFolderShares = FolderShare::with(['folder', 'sender'])
+            ->where('recipient_id', Auth::id())
+            ->where('status', 'pending')
+            ->get()
+            ->map(function ($share) {
+                $share->is_expired = $share->expires_at && $share->expires_at->isPast();
+                $share->document_count = DocumentShare::where('folder_share_id', $share->share_id)->count();
+                return $share;
+            });
+
+        // Fetch accepted folder shares
+        $acceptedFolderShares = FolderShare::with(['folder', 'sender'])
+            ->where('recipient_id', Auth::id())
+            ->where('status', 'accepted')
+            ->get();
+
+        // Fetch pending standalone shares (not part of a folder share)
         $pendingShares = DocumentShare::with(['document', 'sender'])
             ->where('recipient_id', Auth::id())
             ->where('status', 'pending')
+            ->whereNull('folder_share_id')
             ->get()
             ->map(function ($share) {
                 $share->is_expired = $share->expires_at && $share->expires_at->isPast();
@@ -251,6 +270,8 @@ class DocumentController extends Controller
         return Inertia::render('SharedDocuments', [
             'documents' => $acceptedShares,
             'pendingShares' => $pendingShares,
+            'pendingFolderShares' => $pendingFolderShares,
+            'acceptedFolderShares' => $acceptedFolderShares,
             'sentShares' => $sentShares,
             'folders' => $folders,
             'totalStorage' => $user->storage_used,
@@ -847,6 +868,184 @@ class DocumentController extends Controller
         ]);
 
         return response()->json(['message' => 'Share accepted successfully.']);
+    }
+
+    public function shareFolder(Request $request)
+    {
+        $request->validate([
+            'folder_id' => 'required|exists:folders,folder_id',
+            'email' => 'required|email',
+        ]);
+
+        $folder = Folder::where('folder_id', $request->folder_id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $recipient = \App\Models\User::where('email', $request->email)->first();
+        if (!$recipient) {
+            return response()->json(['error' => "User not found."], 404);
+        }
+        if ($recipient->id === Auth::id()) {
+            return response()->json(['error' => 'You cannot share with yourself.'], 422);
+        }
+
+        $masterKey = session('master_key');
+        if (!$masterKey) {
+            return response()->json(['error' => 'Master key not found in session.'], 403);
+        }
+
+        // 1. Recursive Document Discovery (OWNED ONLY)
+        $documentIds = $this->getRecursiveOwnedDocumentIds($folder->folder_id, Auth::id());
+        
+        if (empty($documentIds)) {
+            return response()->json(['error' => 'This folder contains no documents that you own.'], 422);
+        }
+
+        $systemKey = $this->parseKey(config('app.share_key') ?? config('app.key'));
+
+        try {
+            DB::transaction(function() use ($folder, $recipient, $documentIds, $masterKey, $systemKey) {
+                // 2. Create FolderShare entry
+                $folderShare = FolderShare::updateOrCreate(
+                    ['folder_id' => $folder->folder_id, 'recipient_id' => $recipient->id],
+                    ['sender_id' => Auth::id(), 'status' => 'pending', 'expires_at' => now()->addHours(24)]
+                );
+
+                // 3. Process each document
+                foreach ($documentIds as $docId) {
+                    $document = Document::find($docId);
+                    
+                    // Unwrap with Owner's Master Key
+                    $dek = $this->cryptoService->unwrapDek(
+                        base64_decode($document->encrypted_dek),
+                        $masterKey,
+                        base64_decode($document->dek_nonce),
+                        base64_decode($document->dek_tag),
+                        base64_decode($document->dk_salt)
+                    );
+
+                    if (!$dek) continue;
+
+                    // Wrap with System Share Key
+                    $wrapped = $this->cryptoService->wrapDek($dek, $systemKey);
+
+                    // Create/Update DocumentShare
+                    DocumentShare::updateOrCreate(
+                        ['document_id' => $document->document_id, 'recipient_id' => $recipient->id],
+                        [
+                            'sender_id' => Auth::id(),
+                            'folder_share_id' => $folderShare->share_id,
+                            'encrypted_dek' => base64_encode($wrapped['encrypted_dek']),
+                            'dek_nonce' => base64_encode($wrapped['nonce']),
+                            'dek_tag' => base64_encode($wrapped['tag']),
+                            'dk_salt' => base64_encode($wrapped['salt']),
+                            'status' => 'pending',
+                            'expires_at' => now()->addHours(24),
+                        ]
+                    );
+                }
+
+                DocumentActivity::create([
+                    'document_id' => $documentIds[0],
+                    'user_id' => Auth::id(),
+                    'action' => 'shared',
+                    'metadata' => [
+                        'folder_name' => $folder->name,
+                        'recipient_email' => $recipient->email,
+                        'is_folder_share' => true,
+                        'document_count' => count($documentIds)
+                    ]
+                ]);
+            });
+
+            return response()->json(['message' => "Folder '{$folder->name}' shared successfully with {$recipient->name}."]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Failed to share folder: ' . $e->getMessage()], 500);
+        }
+    }
+
+    private function getRecursiveOwnedDocumentIds($folderId, $userId)
+    {
+        $docIds = Document::where('folder_id', $folderId)
+            ->where('user_id', $userId)
+            ->pluck('document_id')
+            ->toArray();
+
+        $subfolders = Folder::where('parent_id', $folderId)->get();
+        foreach ($subfolders as $sub) {
+            $docIds = array_merge($docIds, $this->getRecursiveOwnedDocumentIds($sub->folder_id, $userId));
+        }
+
+        return $docIds;
+    }
+
+    public function acceptFolderShare(Request $request)
+    {
+        $request->validate([
+            'share_id' => 'required|exists:folder_shares,share_id',
+        ]);
+
+        $folderShare = FolderShare::where('share_id', $request->share_id)
+            ->where('recipient_id', Auth::id())
+            ->where('status', 'pending')
+            ->firstOrFail();
+
+        if ($folderShare->expires_at && $folderShare->expires_at->isPast()) {
+            return response()->json(['error' => 'This invitation has expired.'], 403);
+        }
+
+        $masterKey = session('master_key');
+        if (!$masterKey) {
+            return response()->json(['error' => 'Master key not found in session.'], 403);
+        }
+
+        $systemKey = $this->parseKey(config('app.share_key') ?? config('app.key'));
+
+        try {
+            DB::transaction(function() use ($folderShare, $masterKey, $systemKey) {
+                $docShares = DocumentShare::where('folder_share_id', $folderShare->share_id)
+                    ->where('status', 'pending')
+                    ->get();
+
+                foreach ($docShares as $share) {
+                    // 1. Unwrap with System Key
+                    $dek = $this->cryptoService->unwrapDek(
+                        base64_decode($share->encrypted_dek),
+                        $systemKey,
+                        base64_decode($share->dek_nonce),
+                        base64_decode($share->dek_tag),
+                        base64_decode($share->dk_salt)
+                    );
+
+                    if (!$dek) continue;
+
+                    // 2. Re-wrap with User B's Master Key
+                    $wrapped = $this->cryptoService->wrapDek($dek, $masterKey);
+
+                    // 3. Update share
+                    $share->update([
+                        'encrypted_dek' => base64_encode($wrapped['encrypted_dek']),
+                        'dek_nonce' => base64_encode($wrapped['nonce']),
+                        'dek_tag' => base64_encode($wrapped['tag']),
+                        'dk_salt' => base64_encode($wrapped['salt']),
+                        'status' => 'accepted',
+                    ]);
+                }
+
+                $folderShare->update(['status' => 'accepted']);
+
+                DocumentActivity::create([
+                    'document_id' => $docShares->first()->document_id,
+                    'user_id' => Auth::id(),
+                    'action' => 'accepted',
+                    'metadata' => ['is_folder_share' => true]
+                ]);
+            });
+
+            return response()->json(['message' => 'Folder share accepted successfully.']);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Failed to accept folder share: ' . $e->getMessage()], 500);
+        }
     }
 
     public function removeAccess(Request $request)

@@ -1,4 +1,4 @@
-import { Shield, ArrowLeft, FolderOpen, FolderTree, Download, CheckCircle, X, Trash2, Pencil, AlertTriangle, FileText, LayoutGrid, List, MoreVertical, Plus, Folder, Lock } from 'lucide-react';
+import { Shield, ArrowLeft, FolderOpen, FolderTree, Download, CheckCircle, X, Trash2, Pencil, AlertTriangle, FileText, LayoutGrid, List, MoreVertical, Plus, Folder, Lock, Share2 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router, Link } from '@inertiajs/react';
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -12,6 +12,7 @@ import FileRetrievedModal from '@/Components/modals/FileRetrievedModal';
 import CreateFolderModal from '@/Components/modals/CreateFolderModal';
 import RenameFolderModal from '@/Components/modals/RenameFolderModal';
 import DeleteFolderModal from '@/Components/modals/DeleteFolderModal';
+import { ShareFolderModal } from '@/Components/modals/ShareFolderModal';
 import DocumentCard from '@/Components/DocumentCard';
 import { DocumentList } from '@/Components/DocumentList';
 import { SearchBar } from '@/Components/SearchBar';
@@ -101,6 +102,7 @@ export default function MyDocuments({ documents, folders, currentFolder, breadcr
     const [showFolderCreateModal, setShowFolderCreateModal] = useState(false);
     const [showFolderRenameModal, setShowFolderRenameModal] = useState(false);
     const [showFolderDeleteModal, setShowFolderDeleteModal] = useState(false);
+    const [showFolderShareModal, setShowFolderShareModal] = useState(false);
     const [selectedFolderForAction, setSelectedFolderForAction] = useState(null);
     const [folderName, setFolderName] = useState('');
     const [folderErrors, setFolderErrors] = useState({});
@@ -122,6 +124,11 @@ export default function MyDocuments({ documents, folders, currentFolder, breadcr
     const openFolderDeleteModal = (folder) => {
         setSelectedFolderForAction(folder);
         setShowFolderDeleteModal(true);
+    };
+
+    const openFolderShareModal = (folder) => {
+        setSelectedFolderForAction(folder);
+        setShowFolderShareModal(true);
     };
 
     const submitFolderCreate = async (e) => {
@@ -393,7 +400,7 @@ export default function MyDocuments({ documents, folders, currentFolder, breadcr
                                         key={folder.folder_id}
                                         className="group relative w-full p-3 bg-white dark:bg-cyber-void rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg hover:shadow-cyan-500/20 dark:hover:shadow-[0_0_15px_rgba(34,211,238,0.3)] hover:ring-1 hover:ring-cyan-500 dark:hover:ring-cyber-accent transition-all cursor-pointer"
                                     >
-                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition">
+                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition z-10">
                                             <Dropdown>
                                                 <Dropdown.Trigger>
                                                     <button>
@@ -401,6 +408,12 @@ export default function MyDocuments({ documents, folders, currentFolder, breadcr
                                                     </button>
                                                 </Dropdown.Trigger>
                                                 <Dropdown.Content>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); openFolderShareModal(folder); }}
+                                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-surface flex items-center"
+                                                    >
+                                                        <Share2 className="size-4 mr-2" /> Share Folder
+                                                    </button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); openFolderRenameModal(folder); }}
                                                         className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-surface flex items-center"
@@ -537,6 +550,13 @@ export default function MyDocuments({ documents, folders, currentFolder, breadcr
                 folderName={selectedFolderForAction?.name}
                 processing={folderProcessing}
             />
+
+            {showFolderShareModal && (
+                <ShareFolderModal 
+                    folder={selectedFolderForAction}
+                    onClose={() => setShowFolderShareModal(false)}
+                />
+            )}
         </AuthenticatedLayout>
     );
 }

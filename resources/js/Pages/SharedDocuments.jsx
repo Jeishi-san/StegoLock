@@ -25,7 +25,7 @@ import { DocumentList } from '@/Components/DocumentList';
 import { sortDocuments } from '@/Utils/fileUtils';
 import DocumentCard from '@/Components/DocumentCard';
 
-export default function SharedDocuments({ documents, pendingShares, sentShares, folders, totalStorage, storageLimit, pendingSharesCount }) {
+export default function SharedDocuments({ documents, pendingShares, pendingFolderShares, acceptedFolderShares, sentShares, folders, totalStorage, storageLimit, pendingSharesCount }) {
     const [viewMode, setViewMode] = useState(() => localStorage.getItem('stegolock_view_mode_shared') || 'grid');
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({
@@ -185,6 +185,19 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
         }
     };
 
+    const handleAcceptFolderShare = async (id) => {
+        const toastId = toast.loading('Accepting folder share...');
+        try {
+            await axios.post(route('folders.share.accept'), {
+                share_id: id
+            });
+            toast.success('Folder share accepted successfully', { id: toastId });
+            router.reload();
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to accept folder share', { id: toastId });
+        }
+    };
+
     const handleUnlock = async (id) => {
         setOpenMenuId(null);
         const toastId = toast.loading('Unlocking file...');
@@ -308,7 +321,50 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
             <Head title="Shared With Me" />
 
             <div className="p-6 space-y-8 h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide custom-scrollbar">
-                {/* Pending Shares Section - Only show if not searching or if results found */}
+                {/* Pending Folder Shares Section */}
+                {pendingFolderShares && pendingFolderShares.length > 0 && !searchQuery && (
+                    <section>
+                        <div className="flex items-center gap-2 mb-4">
+                            <FolderTree className="size-5 text-indigo-600 dark:text-indigo-400" />
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Pending Folder Shares</h3>
+                            <span className="bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-xs font-bold px-2 py-1 rounded-full border border-indigo-200 dark:border-indigo-500/30">
+                                {pendingFolderShares.length}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {pendingFolderShares.map(share => (
+                                <div key={share.share_id} className="bg-white dark:bg-cyber-void p-5 rounded-2xl shadow-lg border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-between group hover:shadow-indigo-500/10 transition-all border-l-4 border-l-indigo-500">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
+                                            <FolderOpen className="size-6 text-indigo-600 dark:text-indigo-400" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-black text-slate-900 dark:text-white truncate max-w-[150px] uppercase tracking-tight">
+                                                {share.folder.name}
+                                            </p>
+                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                                                from <span className="text-indigo-600 dark:text-indigo-400">{share.sender.name}</span> • {share.document_count} files
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {share.is_expired ? (
+                                        <span className="text-[10px] font-black text-red-500 uppercase px-2 py-1 bg-red-50 dark:bg-red-500/10 rounded-lg">Expired</span>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleAcceptFolderShare(share.share_id)}
+                                            className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-all shadow-md shadow-indigo-500/20 flex items-center gap-2"
+                                        >
+                                            <UserCheck className="size-4" />
+                                            Accept
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* Pending Standalone Shares Section */}
                 {pendingShares.length > 0 && !searchQuery && filters.fileFormat === 'all' && filters.status === 'all' && (
                     <section>
                         <div className="flex items-center gap-2 mb-4">
@@ -356,9 +412,39 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                     </section>
                 )}
 
+                {/* Accepted Folder Shares Section */}
+                {acceptedFolderShares && acceptedFolderShares.length > 0 && !searchQuery && (
+                    <section>
+                        <div className="flex items-center gap-2 mb-4">
+                            <FolderOpen className="size-5 text-indigo-600 dark:text-indigo-400" />
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Shared Folders</h3>
+                            <span className="bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-xs font-bold px-2 py-1 rounded-full border border-indigo-200 dark:border-indigo-500/30">
+                                {acceptedFolderShares.length}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                            {acceptedFolderShares.map(share => (
+                                <div
+                                    key={share.share_id}
+                                    onClick={() => toast.info("Deep navigation into shared folders coming soon. For now, see the files in the list below.")}
+                                    className="group relative w-full p-3 bg-white dark:bg-cyber-void rounded-xl shadow-sm border border-indigo-100 dark:border-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/20 transition-all cursor-pointer border-l-4 border-l-indigo-500"
+                                >
+                                    <div className="flex flex-col items-center justify-center py-2">
+                                        <FolderOpen className="size-10 text-indigo-500 dark:text-indigo-400 mb-1" />
+                                        <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 truncate w-full text-center px-1 uppercase tracking-tighter">
+                                            {share.folder.name}
+                                        </h3>
+                                        <p className="text-[8px] text-slate-400 font-bold">from {share.sender.name}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
                 {/* Accepted Documents Grid */}
                 <section>
-                    {pendingShares.length > 0 && !searchQuery && (
+                    {(pendingShares.length > 0 || (pendingFolderShares && pendingFolderShares.length > 0)) && !searchQuery && (
                         <div className="flex items-center gap-2 mb-4">
                             <FolderOpen className="size-5 text-gray-600" />
                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Shared Files</h3>
