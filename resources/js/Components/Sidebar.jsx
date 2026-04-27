@@ -54,9 +54,20 @@ export function Sidebar({
     const [showNewMenu, setShowNewMenu] = useState(false);
 
     const [isUploading, setIsUploading] = useState(false);
+    const globalHasProcessingDocs = usePage().props.hasProcessingDocs || false;
 
     // Any ongoing process (either local or background)
-    const isProcessOngoing = isUploading || hasProcessingDocs;
+    const isProcessOngoing = isUploading || hasProcessingDocs || globalHasProcessingDocs;
+
+    useEffect(() => {
+        const handleTriggerUpload = () => {
+            if (!isProcessOngoing) {
+                setShowUploadModal(true);
+            }
+        };
+        window.addEventListener('trigger-upload-modal', handleTriggerUpload);
+        return () => window.removeEventListener('trigger-upload-modal', handleTriggerUpload);
+    }, [isProcessOngoing]);
 
 
     const storagePercentage = (totalStorage / storageLimit) * 100;
@@ -72,7 +83,7 @@ export function Sidebar({
     );
 
   return (
-    <nav className="w-64 h-screen flex flex-col border-r border-slate-200 dark:border-cyber-border/50 bg-white dark:bg-cyber-void transition-colors duration-300 shadow-lg">
+    <nav className="w-72 h-screen flex flex-col border-r border-slate-200 dark:border-cyber-border/50 bg-white dark:bg-cyber-void transition-colors duration-300 shadow-lg z-30 relative">
         <div className='flex-1'>
             {/* HEADER */}
             <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
@@ -143,10 +154,7 @@ export function Sidebar({
                 </div>
             </div>
 
-            {/* Divider */}
-            <div className="relative">
-                <div className="w-full border-t border-slate-200 dark:border-cyber-border/50"></div>
-            </div>
+
 
             {/* NEW BUTTON */}
             <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
@@ -180,7 +188,14 @@ export function Sidebar({
                             />
                             <MenuButton icon={Plus}
                                         label="New Folder"
-                                        onClick={onNewFolderClick || (() => router.visit(route('myFolders')))}
+                                        onClick={() => {
+                                            setShowNewMenu(false);
+                                            if (onNewFolderClick) {
+                                                onNewFolderClick();
+                                            } else {
+                                                router.visit(route('myDocuments'));
+                                            }
+                                        }}
                             />
                         </div>
                         </>
@@ -197,11 +212,6 @@ export function Sidebar({
                 uploaded={() => setIsUploading(true)}
             />
 
-            {/* Divider */}
-            <div className="relative">
-                <div className="w-full border-t border-slate-200 dark:border-cyber-border/50"></div>
-            </div>
-
             {/* NAVIGATION LINKS */}
             <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
                 <div className="flex mt-4">
@@ -215,18 +225,6 @@ export function Sidebar({
                         >
                             My Documents
                         </NavLink>
-                        <NavLink
-                            href={route('myFolders')}
-                            active={route().current('myFolders')}
-                            icon={FolderTree}
-                        >
-                            My Folders
-                        </NavLink>
-
-                        {/* Divider */}
-                        <div className="relative">
-                            <div className="w-full border-t border-slate-200 dark:border-cyber-border/50"></div>
-                        </div>
 
                         <NavLink
                             href={route('allDocuments')}
@@ -260,10 +258,7 @@ export function Sidebar({
             </div>
         </div>
 
-        {/* Divider */}
-        <div className="relative">
-            <div className="w-full border-t border-gray-300"></div>
-        </div>
+
 
 
         {/* Storage Info */}
@@ -292,13 +287,13 @@ export function Sidebar({
                     className={
                         'w-full flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all group ' +
                         (route().current('manageStorage') ?
-                            'bg-gradient-to-r from-cyber-accent/10 to-indigo-500/10 dark:from-cyber-accent/20 dark:to-indigo-500/20 text-indigo-700 dark:text-white shadow-md shadow-cyan-500/20 dark:shadow-[0_0_10px_rgba(34,211,238,0.2)] font-bold ' :
-                            'text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-cyber-accent/10 hover:to-indigo-500/10 dark:hover:from-cyber-accent/20 dark:hover:to-indigo-500/20 hover:text-indigo-700 dark:hover:text-white hover:shadow-md hover:shadow-cyan-500/20 dark:hover:shadow-[0_0_10px_rgba(34,211,238,0.2)] font-medium ')
+                            'bg-gradient-to-r from-cyber-accent/10 to-cyan-500/10 dark:from-cyber-accent/20 dark:to-cyan-500/20 text-cyan-700 dark:text-white shadow-md shadow-cyan-500/20 dark:shadow-[0_0_10px_rgba(34,211,238,0.2)] font-bold ' :
+                            'text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-cyber-accent/10 hover:to-cyan-500/10 dark:hover:from-cyber-accent/20 dark:hover:to-cyan-500/20 hover:text-cyan-700 dark:hover:text-white hover:shadow-md hover:shadow-cyan-500/20 dark:hover:shadow-[0_0_10px_rgba(34,211,238,0.2)] font-medium ')
                     }
                 >
                     <HardDrive className={
                         'size-5 transition-colors ' +
-                        (route().current('manageStorage') ? 'text-indigo-700 dark:text-cyber-accent' : 'text-slate-500 dark:text-slate-400 group-hover:text-cyber-accent')
+                        (route().current('manageStorage') ? 'text-cyan-700 dark:text-cyber-accent' : 'text-slate-500 dark:text-slate-400 group-hover:text-cyber-accent')
                     } />
                     <span>Manage Storage</span>
                 </button>

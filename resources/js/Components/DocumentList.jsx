@@ -46,13 +46,25 @@ export function DocumentList({
                                 >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className={`p-2 rounded-lg ${colorClass} transition-transform group-hover:scale-110`}>
-                                                <Icon className="size-5" />
+                                            <div className="relative">
+                                                <div className={`p-2 rounded-lg ${colorClass} transition-transform group-hover:scale-110`}>
+                                                    <Icon className="size-5" />
+                                                </div>
+                                                {(doc.shares_count > 0 || doc.is_shared) && (
+                                                    <div className="absolute -bottom-1 -right-1 bg-cyan-600 dark:bg-cyber-accent rounded-full p-0.5 shadow-sm border border-white dark:border-cyber-surface">
+                                                        <Users className="size-2 text-white dark:text-cyber-void" />
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="font-bold text-gray-900 truncate max-w-[200px]" title={doc.filename}>
-                                                    {doc.filename}
-                                                </p>
+                                                <div className="flex items-center gap-1.5">
+                                                    <p className="font-bold text-gray-900 dark:text-slate-100 truncate max-w-[200px]" title={doc.filename}>
+                                                        {doc.filename}
+                                                    </p>
+                                                    {(doc.shares_count > 0 || doc.is_shared) && (
+                                                        <span className="text-[10px] text-cyan-600 dark:text-cyber-accent font-bold bg-cyan-50 dark:bg-cyber-accent/10 px-1 rounded">SHARED</span>
+                                                    )}
+                                                </div>
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
                                                     {doc.file_type || 'File'}
                                                 </p>

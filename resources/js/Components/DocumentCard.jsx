@@ -50,11 +50,11 @@ export default function DocumentCard({
 
     const getFileColor = (type) => {
         switch (type) {
-            case 'pdf': return 'text-red-500 bg-red-50';
+            case 'pdf': return 'text-red-500 bg-red-50 dark:bg-red-500/10 dark:text-red-400';
             case 'doc':
-            case 'docx': return 'text-blue-500 bg-blue-50';
-            case 'txt': return 'text-gray-600 bg-gray-50';
-            default: return 'text-gray-600 bg-gray-50';
+            case 'docx': return 'text-blue-500 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400';
+            case 'txt': return 'text-slate-600 bg-slate-50 dark:bg-slate-400/10 dark:text-slate-400';
+            default: return 'text-slate-600 bg-slate-50 dark:bg-slate-400/10 dark:text-slate-400';
         }
     };
 
@@ -87,9 +87,9 @@ export default function DocumentCard({
         switch (status) {
             case 'stored':
             case 'decrypted':
-            case 'retrieved': return 'bg-green-100 text-green-700';
-            case 'failed': return 'bg-red-100 text-red-700';
-            default: return 'bg-indigo-100 text-indigo-700';
+            case 'retrieved': return 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-500/20';
+            case 'failed': return 'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20';
+            default: return 'bg-cyan-100 dark:bg-cyber-accent/10 text-cyan-700 dark:text-cyber-accent border border-cyan-200 dark:border-cyber-accent/20';
         }
     };
 
@@ -97,8 +97,8 @@ export default function DocumentCard({
         <div
             key={doc.document_id}
             title={isProcessing ? `${processType} file is ongoing...` : undefined}
-            className={"group relative w-full p-4 bg-white rounded-lg shadow transition " + 
-                (isProcessing ? "border-2 border-indigo-100 bg-indigo-50/10 cursor-wait" : "hover:shadow-lg hover:ring-1 hover:ring-purple-600 cursor-pointer")}
+            className={"group relative w-full p-4 bg-white dark:bg-cyber-void rounded-xl shadow-md border border-slate-200 dark:border-slate-700 transition-all " + 
+                (isProcessing ? "border-2 border-cyan-100 dark:border-cyber-accent/30 bg-cyan-50/10 dark:bg-cyber-accent/5 cursor-wait" : "hover:shadow-lg hover:shadow-cyan-500/20 dark:hover:shadow-[0_0_15px_rgba(34,211,238,0.3)] hover:ring-1 hover:ring-cyan-500 dark:hover:ring-cyber-accent cursor-pointer")}
             onClick={() => !isProcessing && onFileInfo(doc)}
         >
             {!isProcessing && (
@@ -111,8 +111,8 @@ export default function DocumentCard({
                         }}
                     >
                         <Star 
-                            className={"size-8 hover:bg-gray-100 rounded-md p-1.5 transition " + 
-                                (doc.is_starred ? "text-yellow-400 fill-yellow-400" : "text-gray-400")} 
+                            className={"size-8 hover:bg-slate-100 dark:hover:bg-cyber-surface rounded-md p-1.5 transition " + 
+                                (doc.is_starred ? "text-yellow-400 fill-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]" : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300")} 
                         />
                     </button>
 
@@ -123,32 +123,32 @@ export default function DocumentCard({
                             setOpenMenu(!openMenu);
                         }}
                     >
-                        <MoreVertical className="size-8 text-gray-400 hover:bg-gray-100 rounded-md p-1.5" />
+                        <MoreVertical className="size-8 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-cyber-surface rounded-md p-1.5 transition-colors" />
                     </button>
                 </div>
             )}
 
-            <div className="relative">
+            <div className="relative inline-block">
                 <FileText className={"size-14 rounded-xl p-2 " + getFileColor(doc.file_type)} />
                 {isProcessing && (
-                    <div className="absolute -top-1 -right-1 bg-white rounded-full p-1 shadow-sm">
-                        <Loader2 className="size-5 text-indigo-600 animate-spin" />
+                    <div className="absolute -top-1 -right-1 bg-white dark:bg-cyber-surface rounded-full p-1 shadow-sm border border-slate-200 dark:border-cyber-border">
+                        <Loader2 className="size-5 text-cyan-600 dark:text-cyber-accent animate-spin" />
                     </div>
                 )}
-                {doc.shares_count > 0 && !isProcessing && (
-                    <div className="absolute -bottom-1 -right-1 bg-indigo-600 rounded-full p-1 shadow-sm border-2 border-white" title={`Shared with ${doc.shares_count} people`}>
-                        <Users className="size-3 text-white" />
+                {(doc.shares_count > 0 || doc.is_shared) && !isProcessing && (
+                    <div className="absolute -bottom-1 -right-1 bg-cyan-600 dark:bg-cyber-accent rounded-full p-1 shadow-sm border-2 border-white dark:border-cyber-surface" title={doc.is_shared ? `Shared with you` : `Shared with ${doc.shares_count} people`}>
+                        <Users className="size-3 text-white dark:text-cyber-void" />
                     </div>
                 )}
             </div>
 
-            <h3 className="text-md font-semibold text-gray-800 my-3 truncate" title={doc.filename}>
+            <h3 className="text-md font-bold text-slate-800 dark:text-slate-100 my-3 truncate" title={doc.filename}>
                 {doc.filename}
             </h3>
 
             {showOwner && doc.owner_name && (
-                <p className="text-xs text-gray-500 mb-2">
-                    {ownerLabel} {doc.owner_name}
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                    {ownerLabel} <span className="font-semibold text-slate-700 dark:text-slate-300">{doc.owner_name}</span>
                 </p>
             )}
 
@@ -156,30 +156,30 @@ export default function DocumentCard({
                 {isProcessing ? (
                     <div className="flex flex-col w-full mt-2 gap-1.5">
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-indigo-600 tracking-wider animate-pulse">
+                            <span className="text-[10px] font-bold text-cyan-600 dark:text-cyber-accent tracking-wider animate-pulse">
                                 {getStatusDisplay(doc.status, doc.document_id)}
                             </span>
                         </div>
-                        <div className="w-full bg-indigo-100 rounded-full h-1 overflow-hidden">
-                            <div className="bg-indigo-600 h-full animate-progress" style={{width: '30%'}}></div>
+                        <div className="w-full bg-slate-200 dark:bg-cyber-border/50 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-cyan-500 dark:bg-cyber-accent h-full animate-progress shadow-[0_0_8px_rgba(34,211,238,0.6)]" style={{width: '30%'}}></div>
                         </div>
                     </div>
                 ) : doc.status === 'failed' ? (
                     <Tooltip content={doc.error_message ? (typeof doc.error_message === 'object' ? JSON.stringify(doc.error_message) : doc.error_message) : "Error occurred during processing"}>
                         <div className="flex items-center gap-1 group/error">
-                            <AlertCircle className="size-3 text-red-500" />
+                            <AlertCircle className="size-3 text-red-500 dark:text-red-400" />
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
                                 Error
                             </span>
                         </div>
                     </Tooltip>
                 ) : (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                         {formatBytes(doc.in_cloud_size || doc.original_size)}
                     </p>
                 )}
 
-                <p className="text-sm text-gray-500">
+                <p className="text-sm font-medium text-slate-400 dark:text-slate-500">
                     {formatDate(new Date(doc.created_at))}
                 </p>
             </div>

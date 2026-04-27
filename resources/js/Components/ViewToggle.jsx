@@ -8,7 +8,7 @@ export function ViewToggle({ view, onViewChange }) {
         title="Grid View"
         className={`p-2 rounded-lg transition-all ${
           view === 'grid'
-            ? 'bg-white dark:bg-cyber-accent text-indigo-600 dark:text-cyber-void shadow-sm border border-slate-200 dark:border-transparent'
+            ? 'bg-white dark:bg-cyber-accent text-cyan-600 dark:text-cyber-void shadow-sm border border-slate-200 dark:border-transparent'
             : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
         }`}
       >
@@ -19,7 +19,7 @@ export function ViewToggle({ view, onViewChange }) {
         title="List View"
         className={`p-2 rounded-lg transition-all ${
           view === 'list'
-            ? 'bg-white dark:bg-cyber-accent text-indigo-600 dark:text-cyber-void shadow-sm border border-slate-200 dark:border-transparent'
+            ? 'bg-white dark:bg-cyber-accent text-cyan-600 dark:text-cyber-void shadow-sm border border-slate-200 dark:border-transparent'
             : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
         }`}
       >

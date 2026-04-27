@@ -52,7 +52,7 @@ export default function GuestLayout({ children, mode = 'login' }) {
                         <div className={`w-1/2 flex flex-col items-center justify-center p-12 transition-all duration-1000 cubic-bezier(0.7, 0, 0.3, 1) ${
                             isLogin ? '-translate-x-1/2' : 'translate-x-1/2'
                         }`}>
-                            <div className="max-w-md text-center space-y-8 group cursor-default">
+                            <Link href="/" className="max-w-md text-center space-y-8 group cursor-pointer inline-block">
                                 <div className="relative inline-flex items-center justify-center p-8 bg-gradient-to-br from-cyber-accent via-indigo-500 to-purple-600 rounded-[3rem] shadow-2xl shadow-cyan-500/50 dark:shadow-[0_0_40px_rgba(34,211,238,0.6)] animate-bounce-subtle group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
                                     <Shield className="size-24 text-white drop-shadow-lg relative z-10" />
                                     <div className="absolute inset-0 rounded-[3rem] bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -66,7 +66,7 @@ export default function GuestLayout({ children, mode = 'login' }) {
                                         Advanced steganographic security layer.
                                     </p>
                                 </div>
-                            </div>
+                            </Link>
                         </div>
                     </div>
                 </div>

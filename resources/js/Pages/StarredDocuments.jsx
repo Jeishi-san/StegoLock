@@ -224,7 +224,7 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white transition-colors">Starred Documents</h2>
+                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white transition-colors">Starred</h2>
             }
             headerActions={
                 <ViewToggle view={viewMode} onViewChange={setViewMode} />
@@ -241,50 +241,50 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
             storageLimit={storageLimit}
             hasProcessingDocs={localDocs.some(doc => !['stored', 'decrypted', 'retrieved', 'failed'].includes(doc.status))}
         >
-            <Head title="Starred Documents"/>
+            <Head title="Starred"/>
 
-            {filteredDocs.length > 0 || localDocs.length > 0 ? (
-                <div className="h-full overflow-hidden flex flex-col">
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
-                        {viewMode === 'grid' ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-6">
-                                {filteredDocs.map(doc => (
-                                    <DocumentCard
-                                        key={doc.document_id}
-                                        doc={doc}
-                                        unlockingProgress={unlockingProgress}
-                                        onToggleStar={() => handleToggleStar(doc.document_id)}
-                                        onDelete={() => openDeleteModal(doc.document_id)}
-                                        onShare={(d) => { setSelectedDoc(d); setShowShareModal(true); }}
-                                        onInfo={(d) => { setSelectedDoc(d); setShowInfoModal(true); }}
-                                        onUnlock={handleUnlock}
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <DocumentList
-                                documents={filteredDocs}
-                                unlockingProgress={unlockingProgress}
-                                onToggleStar={handleToggleStar}
-                                onDelete={openDeleteModal}
-                                onShare={(d) => { setSelectedDoc(d); setShowShareModal(true); }}
-                                onInfo={(d) => { setSelectedDoc(d); setShowInfoModal(true); }}
-                                onUnlock={handleUnlock}
-                            />
-                        )}
-                    </div>
-                </div>
-            ) : (
-                <div className="flex-1 flex items-center justify-center p-8">
-                    <div className="text-center">
-                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Star className="size-10 text-gray-400" />
+            <div className="h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar p-6">
+                {filteredDocs.length > 0 || localDocs.length > 0 ? (
+                    viewMode === 'grid' ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-6">
+                            {filteredDocs.map(doc => (
+                                <DocumentCard
+                                    key={doc.document_id}
+                                    doc={doc}
+                                    unlockingProgress={unlockingProgress}
+                                    onToggleStar={() => handleToggleStar(doc.document_id)}
+                                    onDelete={() => openDeleteModal(doc.document_id)}
+                                    onShare={(d) => { setSelectedDoc(d); setShowShareModal(true); }}
+                                    onInfo={(d) => { setSelectedDoc(d); setShowInfoModal(true); }}
+                                    onUnlock={handleUnlock}
+                                />
+                            ))}
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Starred Documents</h3>
-                        <p className="text-gray-500">Star your important documents to find them easily</p>
+                    ) : (
+                        <DocumentList
+                            documents={filteredDocs}
+                            unlockingProgress={unlockingProgress}
+                            onToggleStar={handleToggleStar}
+                            onDelete={openDeleteModal}
+                            onShare={(d) => { setSelectedDoc(d); setShowShareModal(true); }}
+                            onInfo={(d) => { setSelectedDoc(d); setShowInfoModal(true); }}
+                            onUnlock={handleUnlock}
+                        />
+                    )
+                ) : (
+                    <div className="bg-slate-50 dark:bg-cyber-surface/30 rounded-3xl p-12 text-center border-2 border-dashed border-slate-300 dark:border-cyber-border">
+                        <div className="w-16 h-16 bg-cyan-50 dark:bg-cyber-accent/10 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-cyan-100 dark:border-cyber-accent/30">
+                            <Star className="size-8 text-cyan-500 dark:text-cyber-accent" />
+                        </div>
+                        <h4 className="text-slate-900 dark:text-white font-bold mb-1 text-xl">
+                            {searchQuery || filters.fileFormat !== 'all' ? "No matching stars" : "No starred files yet"}
+                        </h4>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                            {searchQuery || filters.fileFormat !== 'all' ? "Try adjusting your filters or search query" : "Mark files as important to see them here."}
+                        </p>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
 
             <ConfirmModal 
                 show={showDeleteModal}

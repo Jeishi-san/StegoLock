@@ -90,15 +90,27 @@ class DocumentController extends Controller
         }
 
         $folders = \App\Models\Folder::where('user_id', Auth::id())
+            ->where('parent_id', $folderId)
             ->orderBy('name')
             ->get();
 
         $currentFolder = $folderId ? \App\Models\Folder::find($folderId) : null;
 
+        $breadcrumbs = [];
+        $tempFolder = $currentFolder;
+        while ($tempFolder) {
+            array_unshift($breadcrumbs, [
+                'folder_id' => $tempFolder->folder_id,
+                'name' => $tempFolder->name
+            ]);
+            $tempFolder = $tempFolder->parent_id ? \App\Models\Folder::find($tempFolder->parent_id) : null;
+        }
+
         return Inertia::render('MyDocuments', [
             'documents' => $documents,
             'folders' => $folders,
             'currentFolder' => $currentFolder,
+            'breadcrumbs' => $breadcrumbs,
             'totalStorage' => $user->storage_used,
             'storageLimit' => $user->storage_limit,
             'title' => $currentFolder ? $currentFolder->name : 'My Documents'

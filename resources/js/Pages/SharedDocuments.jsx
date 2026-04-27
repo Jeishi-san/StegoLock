@@ -254,11 +254,11 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
 
     const getFileColor = (type) => {
         switch (type) {
-            case 'pdf': return 'text-red-500 bg-red-50';
+            case 'pdf': return 'text-red-500 bg-red-50 dark:bg-red-500/10 dark:text-red-400';
             case 'doc':
-            case 'docx': return 'text-blue-500 bg-blue-50';
-            case 'txt': return 'text-gray-600 bg-gray-50';
-            default: return 'text-indigo-500 bg-indigo-50';
+            case 'docx': return 'text-blue-500 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400';
+            case 'txt': return 'text-slate-600 bg-slate-50 dark:bg-slate-400/10 dark:text-slate-400';
+            default: return 'text-cyan-500 bg-cyan-50 dark:bg-cyber-accent/10 dark:text-cyber-accent';
         }
     };
 
@@ -309,31 +309,31 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                 {pendingShares.length > 0 && !searchQuery && filters.fileFormat === 'all' && filters.status === 'all' && (
                     <section>
                         <div className="flex items-center gap-2 mb-4">
-                            <Clock className="size-5 text-indigo-600" />
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Pending Shares</h3>
-                            <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">
+                            <Clock className="size-5 text-cyan-600 dark:text-cyber-accent" />
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Pending Shares</h3>
+                            <span className="bg-cyan-100 dark:bg-cyber-accent/20 text-cyan-700 dark:text-cyber-accent text-xs font-bold px-2 py-1 rounded-full border border-cyan-200 dark:border-cyber-accent/30">
                                 {pendingShares.length}
                             </span>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {pendingShares.map(share => (
-                                <div key={share.share_id} className="bg-white p-4 rounded-xl shadow-sm border border-indigo-100 flex items-center justify-between group hover:shadow-md transition-all">
+                                <div key={share.share_id} className="bg-white dark:bg-cyber-void p-4 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 flex items-center justify-between group hover:shadow-lg hover:shadow-cyan-500/20 dark:hover:shadow-[0_0_15px_rgba(34,211,238,0.2)] hover:ring-1 hover:ring-cyan-500 dark:hover:ring-cyber-accent transition-all">
                                     <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-indigo-50 rounded-lg">
-                                            <UserPlus className="size-6 text-indigo-600" />
+                                        <div className="p-3 bg-cyan-50 dark:bg-cyber-accent/10 rounded-lg">
+                                            <UserPlus className="size-6 text-cyan-600 dark:text-cyber-accent" />
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-gray-900 truncate max-w-[150px]">
+                                            <p className="font-bold text-slate-900 dark:text-slate-100 truncate max-w-[150px]">
                                                 {share.document.filename}
                                             </p>
-                                            <p className="text-xs text-gray-500">
-                                                from {share.sender.name}
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                from <span className="font-semibold text-slate-700 dark:text-slate-300">{share.sender.name}</span>
                                             </p>
                                         </div>
                                     </div>
                                     {share.is_expired ? (
                                         <Tooltip content="Invitation expired. Please ask the owner to share again.">
-                                            <div className="px-4 py-2 bg-red-100 text-red-600 text-xs font-bold rounded-lg flex items-center gap-2 cursor-help">
+                                            <div className="px-4 py-2 bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 text-xs font-bold rounded-lg flex items-center gap-2 cursor-help">
                                                 <AlertCircle className="size-4" />
                                                 EXPIRED
                                             </div>
@@ -341,7 +341,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                     ) : (
                                         <button
                                             onClick={() => handleAcceptShare(share.document_id)}
-                                            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                                            className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 dark:from-cyber-accent dark:to-indigo-500 text-white text-sm font-bold rounded-lg hover:opacity-90 transition-all shadow-md shadow-cyan-500/30 flex items-center gap-2"
                                         >
                                             <UserCheck className="size-4" />
                                             Accept
@@ -401,14 +401,14 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                             />
                         )
                     ) : (
-                        <div className="bg-gray-50 rounded-3xl p-12 text-center border-2 border-dashed border-gray-200">
-                            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                                <Share2 className="size-8 text-gray-300" />
+                        <div className="bg-slate-50 dark:bg-cyber-surface/30 rounded-3xl p-12 text-center border-2 border-dashed border-slate-300 dark:border-cyber-border">
+                            <div className="w-16 h-16 bg-cyan-50 dark:bg-cyber-accent/10 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-cyan-100 dark:border-cyber-accent/30">
+                                <Share2 className="size-8 text-cyan-500 dark:text-cyber-accent" />
                             </div>
-                            <h4 className="text-gray-900 font-semibold mb-1">
+                            <h4 className="text-slate-900 dark:text-white font-bold mb-1 text-xl">
                                 {searchQuery || filters.fileFormat !== 'all' ? "No matching files" : "No shared files yet"}
                             </h4>
-                            <p className="text-gray-500 text-sm">
+                            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
                                 {searchQuery || filters.fileFormat !== 'all' ? "Try adjusting your filters or search query" : "When someone shares a file with you, it will appear here."}
                             </p>
                         </div>
@@ -417,48 +417,48 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
 
                 {/* Sent Shares Section */}
                 {sentShares && sentShares.length > 0 && (
-                    <section className="pt-8 border-t border-gray-100">
+                    <section className="pt-8 border-t border-slate-200 dark:border-cyber-border/50">
                         <div className="flex items-center gap-2 mb-4">
-                            <Share2 className="size-5 text-indigo-600" />
-                            <h3 className="text-lg font-bold text-gray-900">Shared by Me</h3>
-                            <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded-full">
+                            <Share2 className="size-5 text-cyan-600 dark:text-cyber-accent" />
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Shared by Me</h3>
+                            <span className="bg-slate-100 dark:bg-cyber-surface text-slate-600 dark:text-slate-400 text-xs font-bold px-2 py-1 rounded-full border border-slate-200 dark:border-cyber-border/50">
                                 {sentShares.length}
                             </span>
                         </div>
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="bg-white dark:bg-cyber-void rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm">
-                                    <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+                                    <thead className="bg-slate-50 dark:bg-cyber-surface/50 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-cyber-border/50">
                                         <tr>
                                             <th className="px-6 py-3">Document</th>
                                             <th className="px-6 py-3">Recipients</th>
                                             <th className="px-6 py-3">Date</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-50">
+                                    <tbody className="divide-y divide-slate-100 dark:divide-cyber-border/30">
                                         {sentShares.map(group => (
-                                            <tr key={group.document_id} className="hover:bg-gray-50/50 transition-colors">
+                                            <tr key={group.document_id} className="hover:bg-slate-50 dark:hover:bg-cyber-surface/50 transition-colors">
                                                 <td className="px-6 py-4 align-top">
                                                     <div className="flex items-center gap-3">
                                                         <FileText className={`size-5 ${getFileColor(group.file_type)}`} />
-                                                        <span className="font-medium text-gray-900">{group.filename}</span>
+                                                        <span className="font-bold text-slate-900 dark:text-slate-100">{group.filename}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {group.recipients.length === 1 ? (
                                                         <div className="flex items-center justify-between group/single">
                                                             <div className="flex flex-col">
-                                                                <p className="text-sm font-medium text-gray-700">{group.recipients[0].name}</p>
-                                                                <p className="text-xs text-gray-400">{group.recipients[0].email}</p>
+                                                                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{group.recipients[0].name}</p>
+                                                                <p className="text-xs text-slate-400 dark:text-slate-500">{group.recipients[0].email}</p>
                                                                 <span className={`text-[9px] font-bold uppercase tracking-wider mt-1 ${
-                                                                    group.recipients[0].status === 'accepted' ? 'text-green-600' : 'text-yellow-600'
+                                                                    group.recipients[0].status === 'accepted' ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-500'
                                                                 }`}>
                                                                     {group.recipients[0].status}
                                                                 </span>
                                                             </div>
                                                             <button 
                                                                 onClick={() => confirmRemoveAccess({ shareId: group.recipients[0].share_id })}
-                                                                className="p-1 text-gray-400 hover:text-red-600 opacity-0 group-hover/single:opacity-100 transition-all"
+                                                                className="p-1 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover/single:opacity-100 transition-all"
                                                                 title="Remove Access"
                                                             >
                                                                 <Trash2 className="size-4" />
@@ -469,7 +469,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                             <button
                                                                 ref={(node) => openRecipientsId === group.document_id && rRefs.setReference(node)}
                                                                 onClick={() => setOpenRecipientsId(openRecipientsId === group.document_id ? null : group.document_id)}
-                                                                className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-medium text-sm transition-colors"
+                                                                className="flex items-center gap-2 text-cyan-600 dark:text-cyber-accent hover:text-cyan-700 dark:hover:text-cyan-400 font-bold text-sm transition-colors"
                                                             >
                                                                 Shared to {group.recipients.length} people
                                                                 {openRecipientsId === group.document_id ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
@@ -479,24 +479,24 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                                 <div
                                                                     ref={(node) => { recipientMenuRef.current = node; rRefs.setFloating(node); }}
                                                                     style={{ position: rStrategy, top: ry ?? 0, left: rx ?? 0 }}
-                                                                    className="w-72 p-4 bg-white rounded-xl shadow-xl border border-gray-100 space-y-3 z-[60]"
+                                                                    className="w-72 p-4 bg-white dark:bg-cyber-surface rounded-xl shadow-xl border border-slate-100 dark:border-cyber-border space-y-3 z-[60]"
                                                                 >
-                                                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Manage Access</h4>
-                                                                    <div className="max-h-60 overflow-y-auto pr-1 space-y-3 scrollbar-thin scrollbar-thumb-gray-200">
+                                                                    <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Manage Access</h4>
+                                                                    <div className="max-h-60 overflow-y-auto pr-1 space-y-3 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-cyber-border">
                                                                         {group.recipients.map(recipient => (
-                                                                            <div key={recipient.share_id} className="flex items-center justify-between gap-4 border-b border-gray-50 last:border-0 pb-2 last:pb-0 group/item">
+                                                                            <div key={recipient.share_id} className="flex items-center justify-between gap-4 border-b border-slate-50 dark:border-cyber-border/50 last:border-0 pb-2 last:pb-0 group/item">
                                                                                 <div className="flex flex-col">
-                                                                                    <p className="text-sm font-medium text-gray-700">{recipient.name}</p>
-                                                                                    <p className="text-xs text-gray-400">{recipient.email}</p>
+                                                                                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{recipient.name}</p>
+                                                                                    <p className="text-xs text-slate-400 dark:text-slate-500">{recipient.email}</p>
                                                                                     <span className={`text-[9px] font-bold uppercase tracking-wider mt-1 ${
-                                                                                        recipient.status === 'accepted' ? 'text-green-600' : 'text-yellow-600'
+                                                                                        recipient.status === 'accepted' ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-500'
                                                                                     }`}>
                                                                                         {recipient.status}
                                                                                     </span>
                                                                                 </div>
                                                                                 <button 
                                                                                     onClick={() => confirmRemoveAccess({ shareId: recipient.share_id })}
-                                                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                                    className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
                                                                                     title="Remove Access"
                                                                                 >
                                                                                     <Trash2 className="size-4" />
@@ -509,7 +509,7 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 text-gray-500 align-top relative group/row">
+                                                <td className="px-6 py-4 text-slate-500 dark:text-slate-400 align-top relative group/row">
                                                     <div className="flex items-center justify-between">
                                                         {formatDate(new Date(group.created_at))}
                                                         <button
@@ -518,9 +518,9 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                                 e.stopPropagation();
                                                                 setOpenRowMenuId(openRowMenuId === group.document_id ? null : group.document_id);
                                                             }}
-                                                            className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover/row:opacity-100 transition-opacity"
+                                                            className="p-1.5 hover:bg-slate-100 dark:hover:bg-cyber-surface/80 rounded-lg opacity-0 group-hover/row:opacity-100 transition-opacity"
                                                         >
-                                                            <MoreVertical className="size-4 text-gray-400" />
+                                                            <MoreVertical className="size-4 text-slate-400 dark:text-slate-500" />
                                                         </button>
                                                     </div>
 
@@ -528,32 +528,32 @@ export default function SharedDocuments({ documents, pendingShares, sentShares, 
                                                         <div
                                                             ref={(node) => { rowMenuRef.current = node; tRefs.setFloating(node); }}
                                                             style={{ position: tStrategy, top: ty ?? 0, left: tx ?? 0 }}
-                                                            className="w-48 bg-white border rounded-xl shadow-lg z-[70] overflow-hidden py-1"
+                                                            className="w-48 bg-white dark:bg-cyber-surface border border-slate-200 dark:border-cyber-border rounded-xl shadow-lg z-[70] overflow-hidden py-1"
                                                         >
-                                                            <button onClick={() => { setOpenRowMenuId(null); confirmRemoveAccess({ docId: group.document_id }); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                            <button onClick={() => { setOpenRowMenuId(null); confirmRemoveAccess({ docId: group.document_id }); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
                                                                 <Trash2 className="size-4" /> Remove All Access
                                                             </button>
-                                                            <div className="h-px bg-gray-100 my-1" />
-                                                            <button onClick={() => { setOpenRowMenuId(null); handleUnlock(group.document_id); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            <div className="h-px bg-slate-100 dark:bg-cyber-border/50 my-1" />
+                                                            <button onClick={() => { setOpenRowMenuId(null); handleUnlock(group.document_id); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30">
                                                                 <Unlock className="size-4" /> Unlock File
                                                             </button>
-                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Rename coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Rename coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30">
                                                                 <Pencil className="size-4" /> Rename
                                                             </button>
-                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Move coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Move coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30">
                                                                 <FolderInput className="size-4" /> Move File
                                                             </button>
-                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Sharing coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Sharing coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30">
                                                                 <Share2 className="size-4" /> Share File
                                                             </button>
                                                             <button onClick={() => { 
                                                                 setOpenRowMenuId(null); 
                                                                 setSelectedDocForInfo({ ...group, document_id: group.document_id }); // Simulating doc object for group
                                                                 setShowInfoModal(true);
-                                                            }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30">
                                                                 <Info className="size-4" /> File Info
                                                             </button>
-                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Delete coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium">
+                                                            <button onClick={() => { setOpenRowMenuId(null); toast.info("Delete coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold">
                                                                 <Trash2 className="size-4" /> Delete
                                                             </button>
                                                         </div>
