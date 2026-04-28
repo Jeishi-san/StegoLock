@@ -1,21 +1,28 @@
-import { FolderOpen, Star, HardDrive, Shield, Lock, Unlock, Plus, ChevronDown, Upload, Users, FolderTree, Moon, Sun } from 'lucide-react';
+import { 
+    FolderOpen, 
+    Star, 
+    HardDrive, 
+    Shield, 
+    Lock, 
+    Unlock, 
+    Plus, 
+    ChevronDown, 
+    Upload, 
+    Users, 
+    FolderTree, 
+    Moon, 
+    Sun,
+    LayoutDashboard,
+    Database,
+    UserCog
+} from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { formatBytes } from '@/Utils/fileUtils';
 import { Link, usePage, router } from '@inertiajs/react';
 
-import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
-
 import UploadModal from '@/Components/modals/UploadModal';
-
-const folderIcons = {
-  'Starred': Star,
-  'My Secured Files': Lock,
-  'My Original Files': Unlock,
-  'Shared With Me': Users,
-  'My Folders': FolderTree,
-};
 
 export function Sidebar({
   folders,
@@ -28,8 +35,18 @@ export function Sidebar({
   onNewFolderClick,
   hasProcessingDocs = false,
 }) {
-
     const user = usePage().props.auth.user;
+    const role = user.role;
+
+    // Fallback logic for storage if props are missing (e.g. in Admin views)
+    const effectiveTotalStorage = totalStorage ?? user.storage_used ?? 0;
+    const effectiveStorageLimit = storageLimit ?? user.storage_limit ?? 1073741824;
+
+    // Role-based access logic
+    const isUserAdmin = role === 'user_admin' || role === 'superadmin';
+    const isSystemAdmin = role === 'db_storage_admin' || role === 'superadmin';
+    const isSuperadmin = role === 'superadmin';
+    const isAdmin = isUserAdmin || isSystemAdmin || isSuperadmin;
 
     const [darkMode, setDarkMode] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -69,8 +86,9 @@ export function Sidebar({
         return () => window.removeEventListener('trigger-upload-modal', handleTriggerUpload);
     }, [isProcessOngoing]);
 
-
-    const storagePercentage = (totalStorage / storageLimit) * 100;
+    const storagePercentage = effectiveStorageLimit > 0 
+        ? (effectiveTotalStorage / effectiveStorageLimit) * 100 
+        : 0;
 
     const MenuButton = ({ icon: Icon, label, onClick, className = ""}) => (
         <button
@@ -83,12 +101,11 @@ export function Sidebar({
     );
 
   return (
-    <nav className="w-72 h-screen flex flex-col border-r border-slate-200 dark:border-cyber-border/50 bg-white dark:bg-cyber-void transition-colors duration-300 shadow-lg z-30 relative">
-        <div className='flex-1'>
+    <nav className="w-72 h-screen flex flex-col border-r border-slate-200 dark:border-cyber-border/50 bg-white dark:bg-cyber-void transition-colors duration-300 shadow-lg z-30 relative overflow-hidden">
+        <div className='flex-1 overflow-y-auto no-scrollbar'>
             {/* HEADER */}
-            <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
+            <div className="mx-auto max-w-7xl px-6">
                 <div className="flex items-center justify-between my-4">
-                    {/* Icon */}
                     <Link href="/myDocuments" className="group">
                         <div className="flex items-center space-x-3 my-3">
                             <div className="relative inline-flex items-center justify-center p-2.5 bg-gradient-to-br from-cyber-accent via-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-cyan-500/40 dark:shadow-[0_0_20px_rgba(34,211,238,0.6)] group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
@@ -109,57 +126,12 @@ export function Sidebar({
                             <Sun className="size-4 group-hover:drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]" />
                         )}
                     </button>
-
-                    {/* Mobile Navigation */}
-                    <div className="-me-2 flex items-center sm:hidden">
-                        <button
-                            onClick={() =>
-                                setShowingNavigationDropdown(
-                                    (previousState) => !previousState,
-                                )
-                            }
-                            className="inline-flex items-center justify-center rounded-md p-2 text-slate-400 transition duration-150 ease-in-out hover:bg-slate-100 hover:text-slate-500 focus:bg-slate-100 focus:text-slate-500 focus:outline-none dark:hover:bg-cyber-surface dark:focus:bg-cyber-surface dark:text-slate-400 dark:hover:text-slate-300 dark:focus:text-slate-300"
-                        >
-                            <svg
-                                className="h-6 w-6"
-                                stroke="currentColor"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    className={
-                                        !showingNavigationDropdown
-                                            ? 'inline-flex'
-                                            : 'hidden'
-                                    }
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M4 6h16M4 12h16M4 18h16"
-                                />
-                                <path
-                                    className={
-                                        showingNavigationDropdown
-                                            ? 'inline-flex'
-                                            : 'hidden'
-                                    }
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M6 18L18 6M6 6l12 12"
-                                />
-                            </svg>
-                        </button>
-                    </div>
                 </div>
             </div>
 
-
-
             {/* NEW BUTTON */}
-            <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
+            <div className="mx-auto max-w-7xl px-6">
                 <div className="flex my-4 relative">
-                    {/* New Button with Dropdown */}
                     <button
                         onClick={() => { setShowNewMenu(!showNewMenu); }}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-cyber-accent to-indigo-500 text-white rounded-xl hover:opacity-90 transition-all font-bold shadow-lg shadow-cyan-500/30 dark:shadow-[0_0_15px_rgba(34,211,238,0.4)]"
@@ -169,7 +141,6 @@ export function Sidebar({
                         <ChevronDown className="size-4 ml-auto" />
                     </button>
 
-                    {/* Dropdown Menu */}
                     {showNewMenu && (
                         <>
                         <div
@@ -200,7 +171,6 @@ export function Sidebar({
                         </div>
                         </>
                     )}
-
                 </div>
             </div>
 
@@ -212,63 +182,106 @@ export function Sidebar({
                 uploaded={() => setIsUploading(true)}
             />
 
-            {/* NAVIGATION LINKS */}
-            <div className="mx-auto max-w-7xl sm:px-6 lg:px-6">
-                <div className="flex mt-4">
+            {/* PERSONAL SECTION */}
+            <div className="mx-auto max-w-7xl px-6">
+                <div className="w-full space-y-1">
+                    <NavLink
+                        href={route('myDocuments')}
+                        active={route().current('myDocuments')}
+                        icon={FolderOpen}
+                    >
+                        My Documents
+                    </NavLink>
 
-                    {/* Navigation Links */}
-                    <div className="w-full space-y-2">
-                        <NavLink
-                            href={route('myDocuments')}
-                            active={route().current('myDocuments')}
-                            icon={FolderOpen}
-                        >
-                            My Documents
-                        </NavLink>
+                    <NavLink
+                        href={route('allDocuments')}
+                        active={route().current('allDocuments')}
+                        icon={FolderOpen}
+                    >All Documents</NavLink>
 
-                        <NavLink
-                            href={route('allDocuments')}
-                            active={route().current('allDocuments')}
-                            icon={FolderOpen}
-                        >All Documents</NavLink>
+                    <NavLink
+                        href={route('sharedDocuments')}
+                        active={route().current('sharedDocuments')}
+                        icon={Users}
+                    >
+                        <div className="flex items-center justify-between w-full">
+                            <span>Shared With Me</span>
+                            {usePage().props.pendingSharesCount > 0 && (
+                                <span className="flex items-center justify-center size-5 text-[10px] font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
+                                    {usePage().props.pendingSharesCount}
+                                </span>
+                            )}
+                        </div>
+                    </NavLink>
 
-                        <NavLink
-                            href={route('sharedDocuments')}
-                            active={route().current('sharedDocuments')}
-                            icon={Users}
-                        >
-                            <div className="flex items-center justify-between w-full">
-                                <span>Shared With Me</span>
-                                {usePage().props.pendingSharesCount > 0 && (
-                                    <span className="flex items-center justify-center size-5 text-[10px] font-bold text-white bg-red-500 rounded-full shadow-sm animate-pulse">
-                                        {usePage().props.pendingSharesCount}
-                                    </span>
-                                )}
-                            </div>
-                        </NavLink>
-
-                        <NavLink
-                            href={route('starredDocuments')}
-                            active={route().current('starredDocuments')}
-                            icon={Star}
-                        >Starred</NavLink>
-                    </div>
-
+                    <NavLink
+                        href={route('starredDocuments')}
+                        active={route().current('starredDocuments')}
+                        icon={Star}
+                    >Starred</NavLink>
                 </div>
             </div>
+
+            {/* MANAGEMENT SECTION */}
+            {isAdmin && (
+                <div className="mx-auto max-w-7xl px-6 mt-6">
+                    <div className="my-4 border-t border-slate-200 dark:border-cyber-border/30" />
+                    <p className="px-4 pb-2 text-[12px] font-black uppercase tracking-[0.2em] text-indigo-500 dark:text-indigo-400/80">System Control</p>
+                    <div className="w-full space-y-1">
+                         <NavLink
+                            href={route('admin.dashboard')}
+                            active={route().current('admin.dashboard')}
+                            icon={LayoutDashboard}
+                            variant="indigo"
+                        >
+                            Dashboard
+                        </NavLink>
+
+                        {isUserAdmin && (
+                            <NavLink
+                                href={route('admin.users.index')}
+                                active={route().current('admin.users.index')}
+                                icon={Users}
+                                variant="indigo"
+                            >
+                                Users
+                            </NavLink>
+                        )}
+
+                        {isSystemAdmin && (
+                            <NavLink
+                                href={route('admin.system.stats')}
+                                active={route().current('admin.system.stats')}
+                                icon={Database}
+                                variant="indigo"
+                            >
+                                System Stats
+                            </NavLink>
+                        )}
+
+                        {isSuperadmin && (
+                            <NavLink
+                                href={route('admin.admins.index')}
+                                active={route().current('admin.admins.index')}
+                                icon={UserCog}
+                                variant="indigo"
+                            >
+                                Admin Access
+                            </NavLink>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
 
-
-
-
         {/* Storage Info */}
-        <div className="">
-            <div className="mx-auto max-w-7xl my-4 space-y-1 sm:px-6 lg:px-6">
+        <div className="mt-auto">
+            <div className="mx-auto max-w-7xl my-4 space-y-1 px-6">
                 <div className="p-4 bg-slate-100 dark:bg-cyber-surface/50 rounded-xl border border-slate-200 dark:border-cyber-border/30">
                     <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-slate-600 dark:text-slate-400 font-medium">Storage</span>
+                        <span className="text-slate-600 dark:text-slate-400 font-medium">Personal Space</span>
                         <span className="text-slate-900 dark:text-white font-semibold">
-                            {formatBytes(totalStorage)} / {formatBytes(storageLimit)}
+                            {formatBytes(effectiveTotalStorage)} / {formatBytes(effectiveStorageLimit)}
                         </span>
                     </div>
                     <div className="w-full bg-slate-200 dark:bg-cyber-border rounded-full h-2 overflow-hidden">
@@ -295,53 +308,28 @@ export function Sidebar({
                         'size-5 transition-colors ' +
                         (route().current('manageStorage') ? 'text-cyan-700 dark:text-cyber-accent' : 'text-slate-500 dark:text-slate-400 group-hover:text-cyber-accent')
                     } />
-                    <span>Manage Storage</span>
+                    <span>Manage Personal Space</span>
                 </button>
             </div>
-
         </div>
 
-
-        {/* RESPONSIVE LAYOUT */}
-        <div
-            className={
-                (showingNavigationDropdown ? 'block' : 'hidden') +
-                ' sm:hidden'
-            }
-        >
+        {/* RESPONSIVE LAYOUT MOBILE */}
+        <div className={ (showingNavigationDropdown ? 'block' : 'hidden') + ' sm:hidden' }>
             <div className="space-y-1 pb-3 pt-2">
-                <ResponsiveNavLink
-                    href={route('myDocuments')}
-                    active={route().current('myDocuments')}
-                >
-                    My Documents
-                </ResponsiveNavLink>
+                <ResponsiveNavLink href={route('myDocuments')} active={route().current('myDocuments')}>My Documents</ResponsiveNavLink>
             </div>
-
             <div className="border-t border-slate-200 dark:border-cyber-border/50 pb-1 pt-4">
                 <div className="px-4">
-                    <div className="text-base font-medium text-slate-800 dark:text-slate-200">
-                        {user.name}
-                    </div>
-                    <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                        {user.email}
-                    </div>
+                    <div className="text-base font-medium text-slate-800 dark:text-slate-200">{user.name}</div>
+                    <div className="text-sm font-medium text-slate-500 dark:text-slate-400">{user.email}</div>
                 </div>
-
                 <div className="mt-3 space-y-1">
-                    <ResponsiveNavLink href={route('profile.edit')}>
-                        Profile
-                    </ResponsiveNavLink>
-                    <ResponsiveNavLink
-                        method="post"
-                        href={route('logout')}
-                        as="button"
-                    >
-                        Log Out
-                    </ResponsiveNavLink>
+                    <ResponsiveNavLink href={route('profile.edit')}>Profile</ResponsiveNavLink>
+                    <ResponsiveNavLink method="post" href={route('logout')} as="button">Log Out</ResponsiveNavLink>
                 </div>
             </div>
         </div>
     </nav>
   );
 }
+

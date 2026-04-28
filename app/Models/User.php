@@ -26,6 +26,7 @@ class User extends Authenticatable
         'name',
         'email',
         'role',
+        'is_active',
         'password_hash',
         'auth_salt',
         'ek_salt',
@@ -58,6 +59,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'storage_used' => 'integer',
             'storage_limit' => 'integer',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -115,5 +117,10 @@ class User extends Authenticatable
     public function isSuperadmin(): bool
     {
         return $this->role === self::ROLE_SUPERADMIN;
+    }
+
+    public function activities()
+    {
+        return $this->hasMany(ActivityLog::class);
     }
 }

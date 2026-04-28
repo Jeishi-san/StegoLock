@@ -105,7 +105,7 @@ export default function AuthenticatedLayout({
 
                                             <Dropdown.Link href={route('manageStorage')} className="flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30 transition-colors rounded-xl group">
                                                 <HardDrive className="size-4 text-slate-400 group-hover:text-cyber-accent transition-colors" />
-                                                Manage Storage
+                                                Manage Personal Space
                                             </Dropdown.Link>
                                         </div>
 

@@ -104,14 +104,14 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     
     // Dashboard
-    Route::get('/dashboard', function () {
-        return inertia('Admin/Dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', [\App\Http\Controllers\Admin\AdminDashboardController::class, 'index'])->name('dashboard');
 
     // User Management
-    Route::get('/users', function () {
-        return inertia('Admin/Users');
-    })->name('users.index');
+    Route::get('/users', [\App\Http\Controllers\Admin\UserManagementController::class, 'index'])->name('users.index');
+    Route::get('/users/{user}/activities', [\App\Http\Controllers\Admin\UserManagementController::class, 'getUserActivities'])->name('users.activities');
+    Route::patch('/users/{user}/toggle-status', [\App\Http\Controllers\Admin\UserManagementController::class, 'toggleStatus'])->name('users.toggle-status');
+    Route::patch('/users/{user}/update-quota', [\App\Http\Controllers\Admin\UserManagementController::class, 'updateQuota'])->name('users.update-quota');
+    Route::delete('/users/{user}', [\App\Http\Controllers\Admin\UserManagementController::class, 'deleteUser'])->name('users.destroy');
 
     // System Monitoring
     Route::get('/system/stats', function () {

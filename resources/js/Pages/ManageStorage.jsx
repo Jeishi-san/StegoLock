@@ -189,7 +189,7 @@ export default function ManageStorage({
       totalStorage={totalStorage}
       storageLimit={storageLimit}
       header={
-        <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white transition-colors">Manage Storage</h2>
+        <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white transition-colors">Manage Personal Space</h2>
       }
       headerActions={
         <button
