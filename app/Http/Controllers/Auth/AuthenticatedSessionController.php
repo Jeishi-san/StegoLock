@@ -86,6 +86,11 @@ class AuthenticatedSessionController extends Controller
         // Regenerate session
         $request->session()->regenerate();
 
+        // Redirect based on role
+        if ($user->isUserAdmin() || $user->isDbStorageAdmin() || $user->isSuperadmin()) {
+            return redirect()->intended(route('admin.dashboard', absolute: false));
+        }
+
         return redirect()->intended(route('myDocuments', absolute: false));
     }
 

@@ -22,6 +22,9 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
 
+        // Seed Admin Users
+        $this->call(AdminUserSeeder::class);
+
         // Seed Covers
         $this->call(CoverTextSeeder::class);
     }

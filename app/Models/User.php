@@ -12,6 +12,11 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
+    const ROLE_USER = 'user';
+    const ROLE_USER_ADMIN = 'user_admin';
+    const ROLE_DB_STORAGE_ADMIN = 'db_storage_admin';
+    const ROLE_SUPERADMIN = 'superadmin';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -20,6 +25,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'role',
         'password_hash',
         'auth_salt',
         'ek_salt',
@@ -86,5 +92,28 @@ class User extends Authenticatable
     {
         $totalUsed = $this->documents()->sum('in_cloud_size');
         $this->update(['storage_used' => $totalUsed]);
+    }
+
+    /**
+     * Role checks
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    public function isUserAdmin(): bool
+    {
+        return in_array($this->role, [self::ROLE_USER_ADMIN, self::ROLE_SUPERADMIN]);
+    }
+
+    public function isDbStorageAdmin(): bool
+    {
+        return in_array($this->role, [self::ROLE_DB_STORAGE_ADMIN, self::ROLE_SUPERADMIN]);
+    }
+
+    public function isSuperadmin(): bool
+    {
+        return $this->role === self::ROLE_SUPERADMIN;
     }
 }

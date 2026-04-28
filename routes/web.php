@@ -100,6 +100,39 @@ Route::middleware('auth')->group(function () {
 
 });
 
+// Admin Routes
+Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    
+    // Dashboard
+    Route::get('/dashboard', function () {
+        return inertia('Admin/Dashboard');
+    })->name('dashboard');
+
+    // User Management
+    Route::get('/users', function () {
+        return inertia('Admin/Users');
+    })->name('users.index');
+
+    // System Monitoring
+    Route::get('/system/stats', function () {
+        return inertia('Admin/SystemMonitoring');
+    })->name('system.stats');
+
+    // Administrative Group (Superadmin Only)
+    Route::middleware(['role:superadmin'])->group(function () {
+        Route::get('/admins', function () {
+            return inertia('Admin/Users'); // Placeholder or specific Admin management page
+        })->name('admins.index');
+        Route::post('/admins/{user}/promote', [\App\Http\Controllers\Admin\AdminManagementController::class, 'promote'])->name('admins.promote');
+        Route::post('/admins/{user}/demote', [\App\Http\Controllers\Admin\AdminManagementController::class, 'demote'])->name('admins.demote');
+    });
+
+    // System Management (DB & Storage Admin + Superadmin)
+    Route::middleware('role:db_storage_admin,superadmin')->group(function () {
+        Route::patch('/users/{user}/storage-limit', [\App\Http\Controllers\Admin\SystemManagementController::class, 'updateStorageLimit'])->name('system.storage-limit');
+    });
+});
+
 use App\Http\Controllers\WikiFeedController;
 Route::get('/wiki/random/{p}', [WikiFeedController::class, 'fetchRandomWiki']);
 Route::get('/wiki/export', [WikiFeedController::class, 'exportToTxt']);
