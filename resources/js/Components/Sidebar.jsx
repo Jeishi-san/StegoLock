@@ -104,10 +104,10 @@ export function Sidebar({
     );
 
   return (
-    <nav className="w-72 h-screen flex flex-col border-r border-slate-200 dark:border-cyber-border/50 bg-white dark:bg-cyber-void transition-colors duration-300 shadow-lg z-30 relative overflow-hidden">
-        <div className='flex-1 overflow-y-auto no-scrollbar'>
+    <nav className="w-72 h-screen flex flex-col border-r border-slate-200 dark:border-cyber-border/50 bg-white dark:bg-cyber-void transition-colors duration-300 shadow-lg z-30 relative overflow-hidden shrink-0">
+        <div className="flex flex-col shrink-0 w-full">
             {/* HEADER */}
-            <div className="mx-auto max-w-7xl px-6">
+            <div className="w-full px-6">
                 <div className="flex items-center justify-between my-4">
                     <Link href="/myDocuments" className="group">
                         <div className="flex items-center space-x-3 my-3">
@@ -133,7 +133,7 @@ export function Sidebar({
             </div>
 
             {/* NEW BUTTON */}
-            <div className="mx-auto max-w-7xl px-6">
+            <div className="w-full px-6">
                 <div className="flex my-4 relative">
                     <button
                         onClick={() => { setShowNewMenu(!showNewMenu); }}
@@ -176,7 +176,6 @@ export function Sidebar({
                     )}
                 </div>
             </div>
-
             {/* Upload Modal */}
             <UploadModal
                 isOpen={showUploadModal}
@@ -184,9 +183,12 @@ export function Sidebar({
                 allowUpload={() => setIsUploading(false)}
                 uploaded={() => setIsUploading(true)}
             />
+        </div>
 
+        {/* SCROLLABLE NAVIGATION SECTION */}
+        <div className='flex-1 overflow-y-auto no-scrollbar py-2'>
             {/* PERSONAL SECTION */}
-            <div className="mx-auto max-w-7xl px-6">
+            <div className="w-full px-6">
                 <div className="w-full space-y-1">
                     <NavLink
                         href={route('myDocuments')}
@@ -227,7 +229,7 @@ export function Sidebar({
 
             {/* MANAGEMENT SECTION */}
             {isAdmin && (
-                <div className="mx-auto max-w-7xl px-6 mt-6">
+                <div className="w-full px-6 mt-6">
                     <div className="my-4 border-t border-slate-200 dark:border-cyber-border/30" />
                     <p className="px-4 pb-2 text-[12px] font-black uppercase tracking-[0.2em] text-indigo-500 dark:text-indigo-400/80">System Control</p>
                     <div className="w-full space-y-1">
@@ -247,7 +249,7 @@ export function Sidebar({
                                 icon={Users}
                                 variant="indigo"
                             >
-                                Users
+                                User Management
                             </NavLink>
                         )}
 
@@ -280,24 +282,15 @@ export function Sidebar({
                             </>
                         )}
 
-                        {isSuperadmin && (
-                            <NavLink
-                                href={route('admin.admins.index')}
-                                active={route().current('admin.admins.index')}
-                                icon={UserCog}
-                                variant="indigo"
-                            >
-                                Admin Access
-                            </NavLink>
-                        )}
+
                     </div>
                 </div>
             )}
         </div>
 
-        {/* Storage Info */}
-        <div className="mt-auto">
-            <div className="mx-auto max-w-7xl my-4 space-y-1 px-6">
+        {/* FIXED BOTTOM SECTION */}
+        <div className="shrink-0 border-t border-slate-100 dark:border-cyber-border/20 mt-auto w-full">
+            <div className="w-full my-4 space-y-1 px-6">
                 <div className="p-4 bg-slate-100 dark:bg-cyber-surface/50 rounded-xl border border-slate-200 dark:border-cyber-border/30">
                     <div className="flex items-center justify-between text-sm mb-2">
                         <span className="text-slate-600 dark:text-slate-400 font-medium">Personal Space</span>

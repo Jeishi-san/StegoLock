@@ -8,7 +8,8 @@ export default function AdminLayout({
     headerActions,
     totalStorage, 
     storageLimit, 
-    hasProcessingDocs = false 
+    hasProcessingDocs = false,
+    noScroll = false
 }) {
     const { auth } = usePage().props;
 
@@ -32,8 +33,8 @@ export default function AdminLayout({
                     headerActions={headerActions} 
                 />
                 
-                <main className="flex-1 overflow-y-auto p-6 sm:p-8">
-                    <div className="max-w-[1600px] mx-auto">
+                <main className={`flex-1 ${noScroll ? 'overflow-hidden' : 'overflow-y-auto'} p-6 sm:p-8`}>
+                    <div className="max-w-[1600px] mx-auto h-full">
                         {children}
                     </div>
                 </main>

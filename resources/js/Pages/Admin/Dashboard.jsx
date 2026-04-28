@@ -1,11 +1,12 @@
 import AdminLayout from '@/Layouts/Admin/AdminLayout';
 import { Head, usePage, Link } from '@inertiajs/react';
+import { useState } from 'react';
 import { 
     Users, UserCheck, UserMinus, AlertCircle, 
     Database, Shield, HardDrive, TrendingUp,
     LayoutDashboard, Activity, UserPlus, Upload, Trash2,
     ImagePlus, ShieldAlert, ShieldCheck, Cloud, Server,
-    ArrowRight, PieChart, Layers, Zap, Info
+    ArrowRight, PieChart, Layers, Zap, Info, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 export default function Dashboard({ stats }) {
@@ -13,6 +14,8 @@ export default function Dashboard({ stats }) {
     const isSystemAdmin = auth.user.role === 'db_storage_admin' || auth.user.role === 'superadmin';
     const isUserAdmin = auth.user.role === 'user_admin' || auth.user.role === 'superadmin';
     const isSuperadmin = auth.user.role === 'superadmin';
+
+    const [currentPage, setCurrentPage] = useState(1); // 1: User Oversight, 2: Infrastructure
 
     const formatBytes = (bytes, decimals = 2) => {
         if (!+bytes) return '0 Bytes';
@@ -29,6 +32,7 @@ export default function Dashboard({ stats }) {
 
     return (
         <AdminLayout
+            noScroll={true}
             header={
                 <div className="flex items-center gap-3">
                     <div className="size-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
@@ -36,10 +40,12 @@ export default function Dashboard({ stats }) {
                     </div>
                     <div>
                         <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white transition-colors">
-                            {isSuperadmin ? 'System Control Center' : 'Administrative Dashboard'}
+                            {isSuperadmin 
+                                ? (currentPage === 1 ? 'Master Control: User Administration' : 'Master Control: System Oversight') 
+                                : 'Administrative Dashboard'}
                         </h2>
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide uppercase mt-0.5">
-                            Real-time metrics & oversight
+                            {isSuperadmin ? `Dashboard Page ${currentPage} of 2` : 'Real-time metrics & oversight'}
                         </p>
                     </div>
                 </div>
@@ -47,10 +53,43 @@ export default function Dashboard({ stats }) {
         >
             <Head title="Admin Dashboard" />
 
-            <div className="space-y-8 flex flex-col pb-8">
-                {/* 3-COLUMN INFRASTRUCTURE INSIGHTS (System Admin Only) */}
-                {isSystemAdmin && stats.infrastructure && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div 
+                key={currentPage} 
+                className="h-full flex flex-col space-y-6 relative overflow-hidden animate-in fade-in slide-in-from-right-12 duration-500"
+            >
+                {/* PAGINATION CONTROLS (Superadmin Only) */}
+                {isSuperadmin && (
+                    <div className="fixed bottom-10 right-10 flex items-center gap-4 z-50 animate-in fade-in slide-in-from-right-10 duration-700">
+                        <div className="flex bg-white dark:bg-cyber-surface rounded-2xl border border-slate-200 dark:border-cyber-border shadow-2xl p-1.5 gap-1.5">
+                            <button 
+                                onClick={() => setCurrentPage(1)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+                                    currentPage === 1 
+                                    ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
+                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                                }`}
+                            >
+                                <UserPlus className="size-4" />
+                                <span className="text-[10px] font-black uppercase tracking-wider">Users</span>
+                            </button>
+                            <button 
+                                onClick={() => setCurrentPage(2)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+                                    currentPage === 2 
+                                    ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30' 
+                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                                }`}
+                            >
+                                <Cloud className="size-4" />
+                                <span className="text-[10px] font-black uppercase tracking-wider">System</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* 3-COLUMN INFRASTRUCTURE INSIGHTS (System Admin Only or Page 2 for Superadmin) */}
+                {isSystemAdmin && stats.infrastructure && (!isSuperadmin || currentPage === 2) && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                         {/* Pillar 1: Cloud Storage Intelligence */}
                         <div className="flex flex-col bg-slate-900 rounded-[2.5rem] text-white p-8 shadow-2xl relative overflow-hidden group border border-white/5">
                             <div className="absolute -top-12 -right-12 p-24 opacity-5 group-hover:rotate-12 transition-transform duration-1000">
@@ -200,7 +239,7 @@ export default function Dashboard({ stats }) {
                         color="indigo"
                     />
 
-                    {isUserAdmin && (
+                    {isUserAdmin && (!isSuperadmin || currentPage === 1) && (
                         <>
                             <StatCard 
                                 title="Suspended"
@@ -247,9 +286,9 @@ export default function Dashboard({ stats }) {
                     </div>
                 </div>
 
-                {/* Split Row: Activities + Top Consumers (For User Admins) */}
-                {isUserAdmin && stats.recent_activities && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-[400px]">
+                {/* Split Row: Activities + Top Consumers (For User Admins or Page 1 for Superadmin) */}
+                {isUserAdmin && stats.recent_activities && (!isSuperadmin || currentPage === 1) && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                         <div className="lg:col-span-2 flex flex-col bg-white dark:bg-cyber-surface/30 rounded-2xl border border-slate-200 dark:border-cyber-border/50 backdrop-blur-sm shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
                             <div className="p-6 border-b border-slate-100 dark:border-cyber-border/30 shrink-0 flex items-center justify-between">
                                 <div className="flex items-center gap-2">

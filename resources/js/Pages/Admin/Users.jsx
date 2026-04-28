@@ -11,9 +11,10 @@ import UserActivityModal from '@/Components/Admin/UserActivityModal';
 import Dropdown from '@/Components/Dropdown';
 
 export default function Users({ users = [] }) {
-    const { auth } = usePage().props;
+    const { auth, ziggy } = usePage().props;
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
+    const [roleGroup, setRoleGroup] = useState(ziggy?.query?.roleGroup || 'all'); // 'all', 'standard', 'admin'
     const [storageFilter, setStorageFilter] = useState('all');
     const [sortBy, setSortBy] = useState('newest');
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -55,6 +56,12 @@ export default function Users({ users = [] }) {
         }
 
         // 2. Role Filter
+        if (roleGroup === 'admin') {
+            result = result.filter(user => user.role !== 'user');
+        } else if (roleGroup === 'standard') {
+            result = result.filter(user => user.role === 'user');
+        }
+
         if (roleFilter !== 'all') {
             result = result.filter(user => user.role === roleFilter);
         }
@@ -146,6 +153,14 @@ export default function Users({ users = [] }) {
         }
     };
 
+    const handleUpdateRole = (user, newRole) => {
+        if (confirm(`Are you sure you want to change ${user.name}'s role to ${newRole.replace('_', ' ')}?`)) {
+            router.patch(route('admin.users.update-role', user.id), {
+                role: newRole
+            });
+        }
+    };
+
     return (
         <AdminLayout
             header={
@@ -190,8 +205,32 @@ export default function Users({ users = [] }) {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                        {/* Role Filter (Superadmin only) */}
+                        {/* Role Group Toggle (Superadmin only) */}
                         {isSuperadmin && (
+                            <div className="flex items-center bg-slate-50 dark:bg-cyber-void/50 rounded-xl border border-slate-200 dark:border-cyber-border/50 p-1">
+                                <button
+                                    onClick={() => setRoleGroup('all')}
+                                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${roleGroup === 'all' ? 'bg-white dark:bg-cyber-surface text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    onClick={() => setRoleGroup('standard')}
+                                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${roleGroup === 'standard' ? 'bg-white dark:bg-cyber-surface text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    Users
+                                </button>
+                                <button
+                                    onClick={() => setRoleGroup('admin')}
+                                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${roleGroup === 'admin' ? 'bg-white dark:bg-cyber-surface text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    Admins
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Role Filter (Superadmin only) */}
+                        {isSuperadmin && roleGroup === 'all' && (
                             <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-cyber-void/50 rounded-xl border border-slate-200 dark:border-cyber-border/50 min-w-[140px]">
                                 <Shield className="size-4 text-slate-400" />
                                 <select 
@@ -199,8 +238,8 @@ export default function Users({ users = [] }) {
                                     onChange={(e) => setRoleFilter(e.target.value)}
                                     className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-0 cursor-pointer w-full p-0"
                                 >
-                                    <option value="all">All Roles</option>
-                                    <option value="user">Users</option>
+                                    <option value="all">Any Role</option>
+                                    <option value="user">Users Only</option>
                                     <option value="user_admin">User Admins</option>
                                     <option value="db_storage_admin">Storage Admins</option>
                                     <option value="superadmin">Superadmins</option>
@@ -347,6 +386,34 @@ export default function Users({ users = [] }) {
                                                                 {user.is_active ? 'Suspend Account' : 'Activate Account'}
                                                             </button>
                                                             <div className="border-t border-slate-100 dark:border-cyber-border/30 my-1" />
+                                                            {isSuperadmin && user.id !== auth.user.id && (
+                                                                <>
+                                                                    <div className="px-4 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/50 dark:bg-cyber-void/30">
+                                                                        Assign Role
+                                                                    </div>
+                                                                    {user.role !== 'user' && (
+                                                                        <button onClick={() => handleUpdateRole(user, 'user')} className="flex items-center gap-2 w-full px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30 transition-colors">
+                                                                            Demote to User
+                                                                        </button>
+                                                                    )}
+                                                                    {user.role !== 'user_admin' && (
+                                                                        <button onClick={() => handleUpdateRole(user, 'user_admin')} className="flex items-center gap-2 w-full px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30 transition-colors">
+                                                                            Make User Admin
+                                                                        </button>
+                                                                    )}
+                                                                    {user.role !== 'db_storage_admin' && (
+                                                                        <button onClick={() => handleUpdateRole(user, 'db_storage_admin')} className="flex items-center gap-2 w-full px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-border/30 transition-colors">
+                                                                            Make Storage Admin
+                                                                        </button>
+                                                                    )}
+                                                                    {user.role !== 'superadmin' && (
+                                                                        <button onClick={() => handleUpdateRole(user, 'superadmin')} className="flex items-center gap-2 w-full px-4 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors">
+                                                                            Promote to Superadmin
+                                                                        </button>
+                                                                    )}
+                                                                    <div className="border-t border-slate-100 dark:border-cyber-border/30 my-1" />
+                                                                </>
+                                                            )}
                                                             {auth.user.id !== user.id && (
                                                                 <button 
                                                                     onClick={() => handleDeleteUser(user)}

@@ -123,13 +123,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('/database', [\App\Http\Controllers\Admin\SystemManagementController::class, 'databaseIndex'])->name('database.index');
     });
 
-    // Administrative Group (Superadmin Only)
+    // Administrative Group (Superadmin Only Actions)
     Route::middleware(['role:superadmin'])->group(function () {
-        Route::get('/admins', function () {
-            return inertia('Admin/Users'); // Placeholder or specific Admin management page
-        })->name('admins.index');
-        Route::post('/admins/{user}/promote', [\App\Http\Controllers\Admin\AdminManagementController::class, 'promote'])->name('admins.promote');
-        Route::post('/admins/{user}/demote', [\App\Http\Controllers\Admin\AdminManagementController::class, 'demote'])->name('admins.demote');
+        Route::post('/users/{user}/promote', [\App\Http\Controllers\Admin\AdminManagementController::class, 'promote'])->name('admins.promote');
+        Route::post('/users/{user}/demote', [\App\Http\Controllers\Admin\AdminManagementController::class, 'demote'])->name('admins.demote');
     });
 
     // System Management (DB & Storage Admin + Superadmin)
