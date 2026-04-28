@@ -61,7 +61,7 @@ class ScanCoversJob implements ShouldQueue
     }
 
     /**
-     * Processes an individual file: validates capacity, checks for duplicates, and records in DB.
+     * Processes an individual file: validates capacity, checks for duplicates, uploads to cloud, and records in DB.
      */
     private function processFile(string $type, string $filePath, string $folderName, string $scriptPath)
     {
@@ -73,7 +73,7 @@ class ScanCoversJob implements ShouldQueue
         $hash = hash('sha256', $contents);
 
         // Deduplication: Skip if a cover with the same hash already exists
-        if (Cover::where('hash', $hash)->exists()) {
+        if (\App\Models\Cover::where('hash', $hash)->exists()) {
             return;
         }
 
@@ -98,32 +98,79 @@ class ScanCoversJob implements ShouldQueue
         $usableBytes = (int) $parts[0];
         $totalBytes = (int) $parts[1];
 
-        if ($usableBytes !== -1) {
-            // Generate standardized filename: [hex]_cover_[timestamp].[ext]
+        // STRICT ELIGIBILITY: 
+        // 1. Script must return valid capacity
+        // 2. Usable capacity must be at least 128KB to be useful for fragments
+        $minCapacity = 128 * 1024; 
+
+        if ($usableBytes >= $minCapacity) {
+            // Standardize filename
             $extension = pathinfo($filePath, PATHINFO_EXTENSION);
             $randomHex = bin2hex(random_bytes(16));
             $newFilename = "{$randomHex}_cover_" . time() . ".{$extension}";
             $newFilePath = dirname($filePath) . DIRECTORY_SEPARATOR . $newFilename;
 
-            // Rename the physical file on disk
             if (rename($filePath, $newFilePath)) {
                 $filePath = $newFilePath;
             }
 
-            // Store data to table if file qualified for embedding
-            Cover::create([
-                'cover_id' => (string) Str::uuid(),
-                'type' => $type,
-                'filename' => basename($filePath),
-                'path' => "{$folderName}/" . basename($filePath), // Relative path for Storage facade
-                'size_bytes' => $totalBytes,
-                'metadata' => [
-                    'valid' => true,
-                    'capacity' => $usableBytes
-                ],
-                'hash' => $hash,
-            ]);
-            Log::info("Successfully scanned and standardized cover: " . basename($filePath));
+            Log::info("Uploading cover to cloud: " . basename($filePath));
+
+            // Upload to Backblaze B2
+            try {
+                $b2Service = new \App\Providers\B2Service();
+                // B2Service::storeFile expects a local path and uploads to 'locked/'. 
+                // We might want a 'covers/' prefix instead.
+                // Let's modify storeFile or use a custom call.
+                
+                $upload = $b2Service->getUploadUrl();
+                
+                $prefixMap = [
+                    'audio' => 'cover_audios',
+                    'image' => 'cover_images',
+                    'text' => 'cover_texts'
+                ];
+                $b2FileName = $prefixMap[$type] . '/' . basename($filePath);
+                
+                $sha1 = sha1_file($filePath);
+
+                $client = new \GuzzleHttp\Client(['timeout' => 0]);
+                $response = $client->request('POST', $upload['uploadUrl'], [
+                    'headers' => [
+                        'Authorization' => $upload['authorizationToken'],
+                        'X-Bz-File-Name' => $b2FileName,
+                        'Content-Type' => 'b2/x-auto',
+                        'X-Bz-Content-Sha1' => $sha1,
+                    ],
+                    'body' => fopen($filePath, 'r'),
+                ]);
+
+                $b2Data = json_decode($response->getBody(), true);
+
+                if (isset($b2Data['fileId'])) {
+                    // Record in DB
+                    \App\Models\Cover::create([
+                        'cover_id' => (string) Str::uuid(),
+                        'type' => $type,
+                        'filename' => basename($filePath),
+                        'path' => $b2FileName, // Cloud path
+                        'size_bytes' => $totalBytes,
+                        'metadata' => [
+                            'valid' => true,
+                            'capacity' => $usableBytes,
+                            'b2_file_id' => $b2Data['fileId'],
+                            'cloud_synced' => true
+                        ],
+                        'hash' => $hash,
+                    ]);
+
+                    // Clean up local file
+                    unlink($filePath);
+                    Log::info("Successfully synced cover to cloud and database: " . basename($filePath));
+                }
+            } catch (\Exception $e) {
+                Log::error("Cloud upload failed for cover {$filePath}: " . $e->getMessage());
+            }
         } else {
             // Move invalid files to a failed folder
             $failedFolder = storage_path('app/public/failed/');

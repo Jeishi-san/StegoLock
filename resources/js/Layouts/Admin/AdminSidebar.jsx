@@ -12,7 +12,10 @@ import {
     ChevronDown, 
     LogOut,
     HardDrive,
-    UserPlus
+    UserPlus,
+    Cloud,
+    Server,
+    ImagePlus
 } from 'lucide-react';
 import NavLink from '@/Components/NavLink';
 
@@ -146,13 +149,29 @@ export default function AdminSidebar({ role, onLogout }) {
                             )}
 
                             {isSystemAdmin && (
-                                <NavLink
-                                    href={route('admin.system.stats')}
-                                    active={route().current('admin.system.stats')}
-                                    icon={Database}
-                                >
-                                    System Monitoring
-                                </NavLink>
+                                <>
+                                    <NavLink
+                                        href={route('admin.cloud.index')}
+                                        active={route().current('admin.cloud.index')}
+                                        icon={Cloud}
+                                    >
+                                        Cloud Management
+                                    </NavLink>
+                                    <NavLink
+                                        href={route('admin.database.index')}
+                                        active={route().current('admin.database.index')}
+                                        icon={Server}
+                                    >
+                                        Database Management
+                                    </NavLink>
+                                    <NavLink
+                                        href={route('admin.covers.index')}
+                                        active={route().current('admin.covers.index')}
+                                        icon={ImagePlus}
+                                    >
+                                        Cover Management
+                                    </NavLink>
+                                </>
                             )}
 
                             {isSuperadmin && (

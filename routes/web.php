@@ -113,10 +113,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::patch('/users/{user}/update-quota', [\App\Http\Controllers\Admin\UserManagementController::class, 'updateQuota'])->name('users.update-quota');
     Route::delete('/users/{user}', [\App\Http\Controllers\Admin\UserManagementController::class, 'deleteUser'])->name('users.destroy');
 
-    // System Monitoring
-    Route::get('/system/stats', function () {
-        return inertia('Admin/SystemMonitoring');
-    })->name('system.stats');
+    // Cloud Management
+    Route::middleware('role:db_storage_admin,superadmin')->group(function () {
+        Route::get('/cloud', [\App\Http\Controllers\Admin\SystemManagementController::class, 'cloudIndex'])->name('cloud.index');
+    });
+
+    // Database Management
+    Route::middleware('role:db_storage_admin,superadmin')->group(function () {
+        Route::get('/database', [\App\Http\Controllers\Admin\SystemManagementController::class, 'databaseIndex'])->name('database.index');
+    });
 
     // Administrative Group (Superadmin Only)
     Route::middleware(['role:superadmin'])->group(function () {
@@ -130,6 +135,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // System Management (DB & Storage Admin + Superadmin)
     Route::middleware('role:db_storage_admin,superadmin')->group(function () {
         Route::patch('/users/{user}/storage-limit', [\App\Http\Controllers\Admin\SystemManagementController::class, 'updateStorageLimit'])->name('system.storage-limit');
+        
+        // Covers
+        Route::get('/covers', [\App\Http\Controllers\CoverController::class, 'index'])->name('covers.index');
+        Route::post('/covers/upload-candidate', [\App\Http\Controllers\CoverController::class, 'uploadCandidate'])->name('covers.upload-candidate');
+        Route::post('/covers/scan', [\App\Http\Controllers\CoverController::class, 'scan_cover'])->name('covers.scan');
+        Route::post('/covers/audit', [\App\Http\Controllers\CoverController::class, 'auditIntegrity'])->name('covers.audit');
+        Route::post('/covers/cleanup', [\App\Http\Controllers\CoverController::class, 'cleanupOrphans'])->name('covers.cleanup');
     });
 });
 

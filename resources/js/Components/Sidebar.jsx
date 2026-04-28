@@ -14,7 +14,10 @@ import {
     Sun,
     LayoutDashboard,
     Database,
-    UserCog
+    UserCog,
+    Cloud,
+    Server,
+    ImagePlus
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { formatBytes } from '@/Utils/fileUtils';
@@ -249,14 +252,32 @@ export function Sidebar({
                         )}
 
                         {isSystemAdmin && (
-                            <NavLink
-                                href={route('admin.system.stats')}
-                                active={route().current('admin.system.stats')}
-                                icon={Database}
-                                variant="indigo"
-                            >
-                                System Stats
-                            </NavLink>
+                            <>
+                                <NavLink
+                                    href={route('admin.cloud.index')}
+                                    active={route().current('admin.cloud.index')}
+                                    icon={Cloud}
+                                    variant="indigo"
+                                >
+                                    Cloud Management
+                                </NavLink>
+                                <NavLink
+                                    href={route('admin.database.index')}
+                                    active={route().current('admin.database.index')}
+                                    icon={Server}
+                                    variant="indigo"
+                                >
+                                    Database Management
+                                </NavLink>
+                                <NavLink
+                                    href={route('admin.covers.index')}
+                                    active={route().current('admin.covers.index')}
+                                    icon={ImagePlus}
+                                    variant="indigo"
+                                >
+                                    Cover Management
+                                </NavLink>
+                            </>
                         )}
 
                         {isSuperadmin && (
