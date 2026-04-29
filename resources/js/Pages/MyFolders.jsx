@@ -5,6 +5,7 @@ import { formatBytes, formatDate } from '@/Utils/fileUtils';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
+import axios from 'axios';
 import Dropdown from '@/Components/Dropdown';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
@@ -278,84 +279,6 @@ export default function MyFolders({ folders, totalStorage, storageLimit  }) {
                     onClose={() => setShowShareModal(false)}
                 />
             )}
-        </AuthenticatedLayout>
-    );
-}
-
-                                    <div 
-                                        className="flex flex-col items-center justify-center py-4 cursor-pointer"
-                                        onClick={() => router.visit(`/myDocuments?folder_id=${folder.folder_id}`)}
-                                    >
-                                        <FolderOpen className="size-16 text-cyan-500 dark:text-cyber-accent mb-2" />
-                                        <h3 className="text-md font-bold text-slate-800 dark:text-slate-100 truncate w-full text-center">
-                                            {folder.name}
-                                        </h3>
-                                    </div>
-
-                                    <div className="flex justify-between mt-2">
-                                        <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                                            {formatDate(new Date(folder.created_at))}
-                                        </p>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        
-                        {/* Add Folder Card */}
-                        <button
-                            onClick={openCreateModal}
-                            className="w-full p-4 bg-slate-50 dark:bg-cyber-surface/30 border-2 border-dashed border-slate-300 dark:border-cyber-border rounded-xl flex flex-col items-center justify-center hover:border-cyan-500 dark:hover:border-cyber-accent hover:bg-cyan-50 dark:hover:bg-cyber-accent/10 transition-all group"
-                        >
-                            <Plus className="size-10 text-slate-400 dark:text-slate-500 group-hover:text-cyan-500 dark:group-hover:text-cyber-accent transition-colors mb-2" />
-                            <span className="text-sm font-bold text-slate-600 dark:text-slate-400 group-hover:text-cyan-600 dark:group-hover:text-cyber-accent transition-colors">New Folder</span>
-                        </button>
-                    </div>
-                ) : (
-                    <div className="bg-slate-50 dark:bg-cyber-surface/30 rounded-3xl p-12 text-center border-2 border-dashed border-slate-300 dark:border-cyber-border">
-                        <div className="w-16 h-16 bg-cyan-50 dark:bg-cyber-accent/10 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-cyan-100 dark:border-cyber-accent/30">
-                            <Folder className="size-8 text-cyan-500 dark:text-cyber-accent" />
-                        </div>
-                        <h4 className="text-slate-900 dark:text-white font-bold mb-1 text-xl">No folders yet</h4>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-6">Create folders to organize your documents better</p>
-
-                        <button
-                            onClick={openCreateModal}
-                            className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-indigo-600 dark:from-cyber-accent dark:to-indigo-500 text-white px-6 py-3 rounded-xl hover:from-cyan-700 hover:to-indigo-700 dark:hover:from-cyan-400 dark:hover:to-indigo-400 transition-all font-bold shadow-lg shadow-cyan-500/30 dark:shadow-[0_0_15px_rgba(34,211,238,0.4)]"
-                        >
-                            <Plus className="size-5" />
-                            Create Your First Folder
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            <CreateFolderModal 
-                show={showCreateModal}
-                onClose={() => setShowCreateModal(false)}
-                onSubmit={submitCreate}
-                name={name}
-                setName={setName}
-                errors={errors}
-                processing={processing}
-            />
-
-            <RenameFolderModal 
-                show={showRenameModal}
-                onClose={() => setShowRenameModal(false)}
-                onSubmit={submitRename}
-                name={name}
-                setName={setName}
-                errors={errors}
-                processing={processing}
-            />
-
-            <DeleteFolderModal 
-                show={showDeleteModal}
-                onClose={() => setShowDeleteModal(false)}
-                onConfirm={submitDelete}
-                folderName={selectedFolder?.name}
-                processing={processing}
-            />
         </AuthenticatedLayout>
     );
 }
