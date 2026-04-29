@@ -80,7 +80,7 @@ export function useDocumentStatusPolling(initialDocuments, onDownloadTriggered) 
                 });
 
                 if (justFinished) {
-                    router.reload({ only: ['totalStorage', 'storageLimit'] });
+                    router.reload({ only: ['documents', 'totalStorage', 'storageLimit', 'hasProcessingDocs'] });
                     
                     if (justFinished.status === 'decrypted' && onDownloadTriggered) {
                         onDownloadTriggered(justFinished);

@@ -298,10 +298,10 @@ export default function MyDocuments({ documents, folders, currentFolder, breadcr
         >
             <Head title="My Documents"/>
 
-            <div className="h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar p-6 space-y-8">
-                {/* Documents Section */}
-                <section>
-                    <div className="flex items-center gap-2 mb-4">
+            <div className="h-[calc(100vh-140px)] flex flex-col overflow-hidden">
+                {/* Documents Section - Independent Scroll (Top) */}
+                <section className="flex-1 overflow-y-auto custom-scrollbar bg-white dark:bg-cyber-surface relative">
+                    <div className="sticky top-0 z-30 bg-white dark:bg-cyber-surface py-4 px-6 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/50 shadow-sm">
                         <FileText className="size-5 text-cyan-600 dark:text-cyber-accent" />
                         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">
                             {currentFolder ? 'Documents' : 'My Documents'}
@@ -311,9 +311,10 @@ export default function MyDocuments({ documents, folders, currentFolder, breadcr
                         </span>
                     </div>
                     
-                    {filteredDocs.length > 0 ? (
+                    <div className="p-6 pt-2">
+                        {filteredDocs.length > 0 ? (
                         viewMode === 'grid' ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                                 {filteredDocs.map(doc => (
                                     <DocumentCard 
                                         key={doc.document_id}
@@ -379,11 +380,12 @@ export default function MyDocuments({ documents, folders, currentFolder, breadcr
                             </button>
                         </div>
                     )}
+                    </div>
                 </section>
 
-                {/* Folders Section */}
-                <section>
-                    <div className="flex items-center gap-2 mb-4">
+                {/* Folders Section - Independent Scroll (Bottom) */}
+                <section className="flex-1 overflow-y-auto custom-scrollbar border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-cyber-surface relative">
+                    <div className="sticky top-0 z-30 bg-white dark:bg-cyber-surface py-4 px-6 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/50 shadow-sm">
                         <FolderTree className="size-5 text-cyan-600 dark:text-cyber-accent" />
                         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">
                             {currentFolder ? 'Subfolders' : 'My Folders'}
@@ -393,80 +395,70 @@ export default function MyDocuments({ documents, folders, currentFolder, breadcr
                         </span>
                     </div>
 
+                    <div className="p-6 pt-2">
                         {folders.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-                                {folders.map(folder => (
-                                    <div
-                                        key={folder.folder_id}
-                                        className="group relative w-full p-3 bg-white dark:bg-cyber-void rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg hover:shadow-cyan-500/20 dark:hover:shadow-[0_0_15px_rgba(34,211,238,0.3)] hover:ring-1 hover:ring-cyan-500 dark:hover:ring-cyber-accent transition-all cursor-pointer"
-                                    >
-                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition z-10">
-                                            <Dropdown>
-                                                <Dropdown.Trigger>
-                                                    <button>
-                                                        <MoreVertical className="size-6 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-cyber-surface rounded-md p-1 transition-colors" />
-                                                    </button>
-                                                </Dropdown.Trigger>
-                                                <Dropdown.Content>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); openFolderShareModal(folder); }}
-                                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-surface flex items-center"
-                                                    >
-                                                        <Share2 className="size-4 mr-2" /> Share Folder
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); openFolderRenameModal(folder); }}
-                                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-surface flex items-center"
-                                                    >
-                                                        <Pencil className="size-4 mr-2" /> Rename
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); openFolderDeleteModal(folder); }}
-                                                        className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
-                                                    >
-                                                        <Trash2 className="size-4 mr-2" /> Delete
-                                                    </button>
-                                                </Dropdown.Content>
-                                            </Dropdown>
-                                        </div>
-
-                                        <div 
-                                            className="flex flex-col items-center justify-center py-2 cursor-pointer"
-                                            onClick={() => router.visit(`/myDocuments?folder_id=${folder.folder_id}`)}
-                                        >
-                                            <FolderOpen className="size-10 text-cyan-500 dark:text-cyber-accent mb-1" />
-                                            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate w-full text-center px-1">
-                                                {folder.name}
-                                            </h3>
-                                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-4">
+                            {folders.map(folder => (
+                                <div
+                                    key={folder.folder_id}
+                                    className="group relative w-full p-2.5 bg-white dark:bg-cyber-void rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg hover:shadow-cyan-500/20 dark:hover:shadow-[0_0_15px_rgba(34,211,238,0.3)] hover:ring-1 hover:ring-cyan-500 dark:hover:ring-cyber-accent transition-all cursor-pointer"
+                                >
+                                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition z-10">
+                                        <Dropdown>
+                                            <Dropdown.Trigger>
+                                                <button>
+                                                    <MoreVertical className="size-6 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-cyber-surface rounded-md p-1 transition-colors" />
+                                                </button>
+                                            </Dropdown.Trigger>
+                                            <Dropdown.Content>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); openFolderShareModal(folder); }}
+                                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-surface flex items-center"
+                                                >
+                                                    <Share2 className="size-4 mr-2" /> Share Folder
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); openFolderRenameModal(folder); }}
+                                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-cyber-surface flex items-center"
+                                                >
+                                                    <Pencil className="size-4 mr-2" /> Rename
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); openFolderDeleteModal(folder); }}
+                                                    className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
+                                                >
+                                                    <Trash2 className="size-4 mr-2" /> Delete
+                                                </button>
+                                            </Dropdown.Content>
+                                        </Dropdown>
                                     </div>
-                                ))}
-                                <button
-                                    onClick={openFolderCreateModal}
-                                    className="w-full p-3 bg-slate-50 dark:bg-cyber-surface/30 border-2 border-dashed border-slate-300 dark:border-cyber-border rounded-xl flex flex-col items-center justify-center hover:border-cyan-500 dark:hover:border-cyber-accent hover:bg-cyan-50 dark:hover:bg-cyber-accent/10 transition-all group min-h-[100px]"
-                                >
-                                    <Plus className="size-6 text-slate-400 dark:text-slate-500 group-hover:text-cyan-500 dark:group-hover:text-cyber-accent transition-colors mb-1" />
-                                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 group-hover:text-cyan-600 dark:group-hover:text-cyber-accent transition-colors">New Folder</span>
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="bg-slate-50 dark:bg-cyber-surface/30 rounded-2xl p-8 text-center border-2 border-dashed border-slate-300 dark:border-cyber-border">
-                                <div className="w-14 h-14 bg-cyan-50 dark:bg-cyber-accent/10 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-cyan-100 dark:border-cyber-accent/30">
-                                    <Folder className="size-6 text-cyan-500 dark:text-cyber-accent" />
-                                </div>
-                                <h4 className="text-slate-900 dark:text-white font-bold mb-1 text-xl">No Folders Yet</h4>
-                                <p className="text-slate-500 dark:text-slate-400 text-xs mb-4 font-medium">Create folders to organize your documents better</p>
 
-                                <button
-                                    onClick={openFolderCreateModal}
-                                    className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-indigo-600 dark:from-cyber-accent dark:to-indigo-500 text-white px-5 py-2 rounded-xl hover:from-cyan-700 hover:to-indigo-700 dark:hover:from-cyan-400 dark:hover:to-indigo-400 transition-all font-bold shadow-lg shadow-cyan-500/30 dark:shadow-[0_0_15px_rgba(34,211,238,0.4)] text-sm"
-                                >
-                                    <Plus className="size-4" />
-                                    New Folder
-                                </button>
-                            </div>
-                        )}
-                    </section>
+                                    <div 
+                                        className="flex flex-col items-center justify-center py-2 cursor-pointer"
+                                        onClick={() => router.visit(`/myDocuments?folder_id=${folder.folder_id}`)}
+                                    >
+                                        <FolderOpen className="size-8 text-cyan-500 dark:text-cyber-accent mb-1" />
+                                        <h3 className="text-[10px] font-bold text-slate-800 dark:text-slate-100 truncate w-full text-center px-1">
+                                            {folder.name}
+                                        </h3>
+                                    </div>
+                                </div>
+                            ))}
+                            <button
+                                onClick={openFolderCreateModal}
+                                className="w-full p-3 bg-slate-50 dark:bg-cyber-surface/30 border-2 border-dashed border-slate-300 dark:border-cyber-border rounded-xl flex flex-col items-center justify-center hover:border-cyan-500 dark:hover:border-cyber-accent hover:bg-cyan-50 dark:hover:bg-cyber-accent/10 transition-all group min-h-[100px]"
+                            >
+                                <Plus className="size-6 text-slate-400 dark:text-slate-500 group-hover:text-cyan-500 dark:group-hover:text-cyber-accent transition-colors mb-1" />
+                                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 group-hover:text-cyan-600 dark:group-hover:text-cyber-accent transition-colors">New Folder</span>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="bg-slate-50/50 dark:bg-cyber-surface/10 rounded-2xl p-6 text-center border-2 border-dashed border-slate-200 dark:border-cyber-border">
+                            <p className="text-slate-400 dark:text-slate-500 text-xs font-medium">No folders created yet</p>
+                        </div>
+                    )}
+                    </div>
+                </section>
             </div>
 
             <ConfirmModal 

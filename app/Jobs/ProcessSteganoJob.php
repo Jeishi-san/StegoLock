@@ -16,13 +16,22 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Models\DocumentActivity;
+use App\Models\User;
+use App\Notifications\AdminPoolAlert;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Log;
 
 class ProcessSteganoJob implements ShouldQueue
 {
     use Queueable;
+    
+    public $tries = 5;
+    public $timeout = 300; // 5 minutes
 
     protected $documentId;
     protected $encryptedPath;
+    protected $jobId;
+    protected $jobTempPath;
     protected array $uploadedCloudFiles = []; // Track cloud file IDs for cleanup
     protected array $createdTempFiles = [];    // Track local temp files for cleanup
 
@@ -33,6 +42,8 @@ class ProcessSteganoJob implements ShouldQueue
     {
         $this->documentId = $documentId;
         $this->encryptedPath = $encryptedPath;
+        $this->jobId = (string) Str::uuid();
+        $this->jobTempPath = storage_path("app/private/temp/jobs/{$this->jobId}");
     }
 
     /**
@@ -41,44 +52,35 @@ class ProcessSteganoJob implements ShouldQueue
     public function handle(): void
     {
         $document = Document::findOrFail($this->documentId);
+        Log::info("[SteganoJob] Starting document locking process.", [
+            'document_id' => $this->documentId,
+            'job_id' => $this->jobId,
+            'filename' => $document->filename
+        ]);
 
         try {
-            // 1. Segmentation
-            $segmented = $this->segment($this->documentId, $this->encryptedPath);
-            if (!$segmented) {
-                throw new \Exception("Segmentation failed");
-            }
+            // 1. Select Covers (Right-Sized Diversity)
+            Log::info("[SteganoJob] Selecting covers based on capacity...", ['size' => $document->encrypted_size]);
+            $selectedCovers = $this->selectCovers($document);
+            Log::info("[SteganoJob] Covers selected.", ['count' => $selectedCovers->count()]);
 
-            // 2. Mapping
-            $mapId = $this->mapFragmentsToCovers($this->documentId);
-            if (!$mapId) {
-                throw new \Exception("Mapping failed");
-            }
+            // 2. Fetch & Lock (Short-Term copy mutex)
+            Log::info("[SteganoJob] Fetching covers from cloud/local cache...");
+            $this->fetchAndLockCovers($selectedCovers);
 
-            // 3. Fetch Covers
-            $maxAttempts = 3;
-            $attempt = 0;
-            $fetchedData = ['matched' => false];
+            // 3. Fluid Splitting
+            Log::info("[SteganoJob] Splitting document into fragments...");
+            $this->splitDocument($document, $selectedCovers);
 
-            do {
-                $fetchedData = $this->fetchCoverFiles($mapId);
-                $attempt++;
-                if ($fetchedData['matched']) {
-                    break;
-                }
-            } while ($attempt < $maxAttempts);
-
-            if (!$fetchedData['matched']) {
-                throw new \Exception("Cover mismatch after {$attempt} attempts");
+            // Immediate Cleanup of Encrypted Source (No longer needed after fragmentation)
+            if (Storage::disk('local')->exists($this->encryptedPath)) {
+                Storage::disk('local')->delete($this->encryptedPath);
+                Log::info("[SteganoJob] Encrypted source file purged from temp storage.");
             }
 
             // 4. Embedding
-            $this->embedFragments($mapId, $fetchedData['localCovers']);
-
-            // 5. Cleanup encrypted file
-            if (Storage::exists($this->encryptedPath)) {
-                Storage::delete($this->encryptedPath);
-            }
+            Log::info("[SteganoJob] Embedding fragments into covers...");
+            $this->embedDocument($document);
 
             DocumentActivity::create([
                 'document_id' => $this->documentId,
@@ -87,8 +89,15 @@ class ProcessSteganoJob implements ShouldQueue
                 'metadata' => ['filename' => $document->filename]
             ]);
 
+            Log::info("[SteganoJob] Document locking completed successfully.", ['document_id' => $this->documentId]);
+
         } catch (\Throwable $e) {
-            $this->cleanupOnFailure($this->documentId);
+            Log::error("[SteganoJob] Document locking failed.", [
+                'document_id' => $this->documentId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             $document->update([
                 'status' => 'failed',
                 'error_message' => $e->getMessage()
@@ -100,218 +109,307 @@ class ProcessSteganoJob implements ShouldQueue
                 'action' => 'locking_failed',
                 'metadata' => ['error' => $e->getMessage()]
             ]);
+        } finally {
+            $this->cleanup();
         }
     }
 
     /**
-     * Cleans up local files and partial database records on failure
+     * Cleans up local files after job completion (success or failure)
      */
-    private function cleanupOnFailure(int $documentId)
+    private function cleanup()
     {
-        // 1. Database Cleanup - REMOVED as per user request to keep records for manual deletion
-        // Fragment::where('document_id', $documentId)->delete();
-        // FragmentMap::where('document_id', $documentId)->delete();
-
-        // 2. Cloud Storage Cleanup - REMOVED as per user request to keep files for manual deletion
-        /*
-        $b2 = new B2Service();
-        foreach ($this->uploadedCloudFiles as $fileId) {
-            try {
-                $b2->deleteFile($fileId['id'], $fileId['path']);
-            } catch (\Exception $e) {
-                // Log or ignore if already deleted
-            }
-        }
-        */
-
-        // 3. Local Temp File Cleanup (KEEP)
-        foreach ($this->createdTempFiles as $filePath) {
-            if (file_exists($filePath)) {
-                @unlink($filePath);
-            }
+        // 1. Delete the entire job-specific temp directory
+        if (file_exists($this->jobTempPath)) {
+            $this->safeDeleteFolder($this->jobTempPath);
+            @rmdir($this->jobTempPath);
         }
 
-        // 4. Delete initial encrypted file if it exists
+        // 2. Delete the initial encrypted file
         if (Storage::exists($this->encryptedPath)) {
             Storage::delete($this->encryptedPath);
         }
 
-        // 5. Broad (safe) cleanup of temp directories
-        $this->safeDeleteDirectory(storage_path('app/private/temp/bin'));
-        $this->safeDeleteDirectory(storage_path('app/private/temp/cloud'));
-        $this->safeDeleteDirectory(storage_path('app/private/temp/covers'));
+        // 3. Purge system-generated cover records from database
+        // These were only needed for the duration of this job's selection/mapping logic
+        Cover::whereRaw("JSON_EXTRACT(metadata, '$.info') = 'System-generated'")
+             ->where('in_use', false) // Only delete if not being used by another concurrent job
+             ->delete();
     }
 
-    private function safeDeleteDirectory($path)
+    private function safeDeleteFolder($path)
     {
         if (file_exists($path) && is_dir($path)) {
-            $files = glob($path . '/*');
+            $files = array_diff(scandir($path), ['.', '..']);
             foreach ($files as $file) {
-                if (is_file($file)) unlink($file);
+                $filePath = $path . DIRECTORY_SEPARATOR . $file;
+                if (is_dir($filePath)) {
+                    $this->safeDeleteFolder($filePath);
+                    @rmdir($filePath);
+                } else {
+                    @unlink($filePath);
+                }
             }
         }
     }
 
-    private function segment(int $documentId, string $filePath)
+    private function selectCovers(Document $document)
     {
-        $document = Document::find($documentId);
-        if (!$document) return false;
+        $payloadSize = $document->encrypted_size;
+        
+        // 1. Categorize Tier (Strict Boxing)
+        if ($payloadSize > 2097152) { // > 2MB
+            $tier = 'large';
+            $minCap = 262144; // 256KB
+            $maxCap = 104857600; // 100MB+
+        } elseif ($payloadSize > 512000) { // 500KB - 2MB
+            $tier = 'medium';
+            $minCap = 65536; // 64KB
+            $maxCap = 262144; // 256KB
+        } else {
+            $tier = 'small';
+            $minCap = 1024; // 1KB
+            $maxCap = 65536; // 64KB
+        }
 
-        try {
-            $ciphertext = file_get_contents(Storage::path($filePath));
-            if ($ciphertext === false) return false;
+        $selectedCovers = collect();
+        $remainingCapacity = $payloadSize;
 
-            $ciphertextLength = strlen($ciphertext);
+        // 2. Mandate Selection (1 Text, 1 Audio, 1 Image)
+        $types = ['text', 'audio', 'image'];
+        
+        foreach ($types as $type) {
+            $cover = $this->findBestCover($type, $minCap, $maxCap, [], 'ASC');
+            
+            if (!$cover && $type === 'text') {
+                $cover = $this->generate_text_cover($minCap);
+            }
 
-            if ($ciphertextLength > 2097152) {
-                $fragmentSize = random_int(327680, 524288);
-                $fragments = str_split($ciphertext, $fragmentSize);
-            } elseif ($ciphertextLength > 512000) {
-                $fragmentSize = random_int(196608, 262144);
-                $fragments = str_split($ciphertext, $fragmentSize);
-            } elseif ($ciphertextLength > 102400) {
-                $numFragments = 5;
-                $fragments = [];
-                $partSize = intdiv($ciphertextLength, $numFragments);
-                $remainder = $ciphertextLength % $numFragments;
+            if (!$cover) {
+                // Fallback: try picking any capacity from this type if tier is empty
+                $cover = $this->findBestCover($type, 0, 104857600, [], 'ASC');
+            }
 
-                $offset = 0;
-                for ($i = 0; $i < $numFragments; $i++) {
-                    $size = $partSize + ($i < $remainder ? 1 : 0);
-                    $fragments[] = substr($ciphertext, $offset, $size);
-                    $offset += $size;
+            if (!$cover) {
+                $this->notifyAdmins("Critical: No covers of type '{$type}' available in pool.");
+                throw new \Exception("Unavailable cover files ({$type}) to continue locking. Admin notified.");
+            }
+
+            $selectedCovers->push($cover);
+            $remainingCapacity -= ($cover->metadata['capacity'] ?? 0);
+        }
+
+        // 3. Greedy Expansion (if 3 fragments aren't enough)
+        while ($remainingCapacity > 0) {
+            // During expansion, we pick DESC (largest) to ensure we fit the file within 15 fragments
+            $cover = $this->findBestCover('image', 0, 104857600, $selectedCovers->pluck('cover_id')->toArray(), 'DESC');
+            
+            if (!$cover) {
+                // Try audio if no images
+                $cover = $this->findBestCover('audio', 0, 104857600, $selectedCovers->pluck('cover_id')->toArray(), 'DESC');
+            }
+
+            if (!$cover) {
+                // Try text as final resort
+                $cover = $this->findBestCover('text', 0, 104857600, $selectedCovers->pluck('cover_id')->toArray(), 'DESC');
+            }
+
+            if (!$cover) break;
+
+            $selectedCovers->push($cover);
+            $remainingCapacity -= ($cover->metadata['capacity'] ?? 0);
+        }
+
+        if ($remainingCapacity > 0) {
+            $this->notifyAdmins("Critical: Total pool capacity exhausted for document (Size: {$payloadSize} bytes). No more covers available.");
+            throw new \Exception("Insufficient total cover capacity. The pool has been exhausted. Admin notified.");
+        }
+
+        return $selectedCovers;
+    }
+
+    private function findBestCover(string $type, int $minCap, int $maxCap, array $excludeIds = [], string $order = 'ASC')
+    {
+        return Cover::where('type', $type)
+            ->where('in_use', false)
+            ->whereNotIn('cover_id', $excludeIds)
+            ->where(function($query) use ($minCap, $maxCap) {
+                $query->whereRaw("CAST(JSON_EXTRACT(metadata, '$.capacity') AS UNSIGNED) >= ?", [$minCap])
+                      ->whereRaw("CAST(JSON_EXTRACT(metadata, '$.capacity') AS UNSIGNED) <= ?", [$maxCap]);
+            })
+            ->orderByRaw("CAST(JSON_EXTRACT(metadata, '$.capacity') AS UNSIGNED) {$order}") 
+            ->first();
+    }
+
+    private function fetchAndLockCovers($covers)
+    {
+        $b2 = new B2Service();
+        if (!file_exists($this->jobTempPath)) {
+            mkdir($this->jobTempPath, 0755, true);
+        }
+
+        foreach ($covers as $cover) {
+            // 1. Mark in_use (Short-term copy mutex)
+            $cover->update(['in_use' => true]);
+
+            try {
+                if (isset($cover->metadata['info']) && $cover->metadata['info'] === 'System-generated') {
+                    // System-generated covers are already in the job temp folder, skip B2
+                    $localPath = storage_path('app/private/temp/covers/' . $cover->filename);
+                    $targetPath = "{$this->jobTempPath}/{$cover->filename}";
+                    if (file_exists($localPath)) {
+                        copy($localPath, $targetPath);
+                    } else {
+                        throw new \Exception("System-generated cover missing locally: {$cover->filename}");
+                    }
+                } else {
+                    $localPath = "{$this->jobTempPath}/{$cover->filename}";
+                    $cachePath = storage_path("app/private/cache/covers/{$cover->filename}");
+
+                    if (file_exists($cachePath)) {
+                        copy($cachePath, $localPath);
+                    } else {
+                        $key = $this->getCoverFolder($cover->type) . $cover->filename;
+                        $file = $b2->findFileByName($key);
+                        if (!$file) throw new \Exception("Cover file not found in cloud: {$key}");
+                        
+                        $content = $b2->readfile($file['fileId']);
+                        file_put_contents($localPath, $content);
+                        
+                        // Cache it
+                        if (!file_exists(dirname($cachePath))) mkdir(dirname($cachePath), 0755, true);
+                        copy($localPath, $cachePath);
+                    }
                 }
-            } else {
-                $numFragments = 3;
-                $fragments = [];
-                $partSize = intdiv($ciphertextLength, $numFragments);
-                $remainder = $ciphertextLength % $numFragments;
 
-                $offset = 0;
-                for ($i = 0; $i < $numFragments; $i++) {
-                    $size = $partSize + ($i < $remainder ? 1 : 0);
-                    $fragments[] = substr($ciphertext, $offset, $size);
-                    $offset += $size;
-                }
+                $this->createdTempFiles[] = $localPath;
+
+            } finally {
+                // 2. Release immediately after copy
+                $cover->update(['in_use' => false]);
             }
-
-            $totalSize = 0;
-            foreach ($fragments as $index => $frag) {
-                Fragment::create([
-                    'fragment_id' => (string) Str::uuid(),
-                    'document_id' => $documentId,
-                    'index' => $index,
-                    'blob' => base64_encode($frag),
-                    'size' => strlen($frag),
-                    'hash' => hash('sha256', $frag),
-                    'status' => 'floating',
-                ]);
-                $totalSize += strlen($frag);
-            }
-
-            if ($totalSize !== $ciphertextLength) {
-                throw new \Exception('Fragmentation failed: size mismatch');
-            }
-
-            $document->update([
-                'fragment_count' => count($fragments),
-                'status' => 'fragmented'
-            ]);
-
-            return true;
-        } catch (\Throwable $e) {
-            $document->update([
-                'status' => 'failed',
-                'error_message' => 'Segmentation failed: ' . $e->getMessage()
-            ]);
-            throw $e; // Rethrow to trigger cleanupOnFailure
         }
     }
 
-    private function mapFragmentsToCovers(string $documentId)
+    private function splitDocument(Document $document, $covers)
     {
-        $document = Document::with('fragments')->find($documentId);
-        if (!$document) return null;
+        $ciphertext = file_get_contents(Storage::path($this->encryptedPath));
+        $offset = 0;
+        $totalLength = strlen($ciphertext);
+        $numCovers = $covers->count();
+        
+        $mappingArray = [];
+        
+        foreach ($covers as $index => $cover) {
+            $remainingData = $totalLength - $offset;
+            $remainingCovers = $numCovers - $index - 1;
 
-        try {
-            $fragments = $document->fragments->shuffle()->values();
-            $total = $fragments->count();
+            if ($remainingData <= 0) break;
 
-            if ($total < 1) throw new \Exception('No fragments available for mapping.');
-
-            if ($total <= 5) {
-                $textCount  = 1;
-                $audioCount = 1;
-                $imageCount = $total - 2;
+            if ($remainingCovers > 0) {
+                // Determine how much this cover should take
+                $capacity = (int) ($cover->metadata['capacity'] ?? 0);
+                
+                // Safety: Leave at least 1 byte for each remaining cover
+                $maxPossible = $remainingData - $remainingCovers;
+                
+                // Right-Sized Logic: 
+                // For large files, we want to fill the capacity.
+                // For small files, we want to distribute fairly.
+                $fairShare = ceil($remainingData / ($remainingCovers + 1));
+                
+                // Take the larger of fairShare or capacity-limited pour, 
+                // but never more than maxPossible and never more than capacity.
+                $chunkSize = min($capacity, $maxPossible, max($fairShare, min($capacity, $remainingData)));
+                
+                // If the file is small relative to capacity, we'll end up with balanced fragments.
+                // If the file is large, the first few will fill their capacity.
             } else {
-                $textCount  = max(1, ceil($total * 0.1));
-                $audioCount = max(1, ceil($total * 0.2));
-                $imageCount = $total - $textCount - $audioCount;
+                // Last cover takes everything else
+                $chunkSize = $remainingData;
             }
 
-            $fragmentSize = $fragments->max('size');
-
-            // Text Covers
-            $textCoverPool = Cover::where('type', 'text')
-                ->get()->map(fn ($c) => ['id' => $c->cover_id, 'capacity' => $c->metadata['capacity'] ?? null])
-                ->filter(fn ($c) => $c['capacity'] >= $fragmentSize)
-                ->values()->toArray();
-
-            if (empty($textCoverPool)) {
-                while (count($textCoverPool) < $textCount) {
-                    $newTextCover = $this->generate_text_cover($fragmentSize);
-                    $textCoverPool[] = ['id' => $newTextCover->cover_id, 'capacity' => $newTextCover->metadata['capacity'] ?? 0];
-                }
-            }
-
-            // Audio Covers
-            $audioCoverPool = Cover::where('type', 'audio')
-                ->get()->map(fn ($c) => ['id' => $c->cover_id, 'capacity' => $c->metadata['capacity'] ?? null])
-                ->filter(fn ($c) => $c['capacity'] >= $fragmentSize)
-                ->values()->toArray();
-
-            if ($audioCount > 0 && empty($audioCoverPool)) {
-                throw new \Exception('Unavailable cover files (audio) to continue locking, ask admin to update');
-            }
-
-            // Image Covers
-            $imageCoverPool = Cover::where('type', 'image')
-                ->get()->map(fn ($c) => ['id' => $c->cover_id, 'capacity' => $c->metadata['capacity'] ?? null])
-                ->filter(fn ($c) => $c['capacity'] >= $fragmentSize)
-                ->values()->toArray();
-
-            if ($imageCount > 0 && empty($imageCoverPool)) {
-                throw new \Exception('Unavailable cover files (image) to continue locking, ask admin to update');
-            }
-
-            $mappingArray = [];
-            foreach ($fragments->take($textCount) as $frag) {
-                $cover = collect($textCoverPool)->random();
-                $mappingArray[] = ['fragment_id' => $frag->fragment_id, 'cover_id' => $cover['id'], 'offset' => 0];
-            }
-            foreach ($fragments->slice($textCount, $audioCount) as $frag) {
-                $cover = collect($audioCoverPool)->random();
-                $mappingArray[] = ['fragment_id' => $frag->fragment_id, 'cover_id' => $cover['id'], 'offset' => 0];
-            }
-            foreach ($fragments->slice($textCount + $audioCount) as $frag) {
-                $cover = collect($imageCoverPool)->random();
-                $mappingArray[] = ['fragment_id' => $frag->fragment_id, 'cover_id' => $cover['id'], 'offset' => 0];
-            }
-
-            $map = FragmentMap::create([
-                'map_id' => (string) Str::uuid(),
+            $chunk = substr($ciphertext, $offset, $chunkSize);
+            
+            $fragment = Fragment::create([
+                'fragment_id' => (string) Str::uuid(),
                 'document_id' => $document->document_id,
-                'fragments_in_covers' => $mappingArray,
-                'status' => 'pending',
+                'index' => $index,
+                'blob' => base64_encode($chunk),
+                'size' => strlen($chunk),
+                'hash' => hash('sha256', $chunk),
+                'status' => 'floating',
             ]);
 
-            $document->update(['status' => 'mapped']);
-            return $map->map_id;
+            $mappingArray[] = [
+                'fragment_id' => $fragment->fragment_id,
+                'cover_id' => $cover->cover_id,
+                'offset' => 0 
+            ];
 
-        } catch (\Throwable $e) {
-            $document->update(['status' => 'failed', 'error_message' => 'Mapping failed: ' . $e->getMessage()]);
-            throw $e; // Rethrow to trigger cleanupOnFailure
+            $offset += $chunkSize;
         }
+
+        FragmentMap::create([
+            'map_id' => (string) Str::uuid(),
+            'document_id' => $document->document_id,
+            'fragments_in_covers' => $mappingArray,
+            'status' => 'pending',
+        ]);
+
+        $document->update([
+            'fragment_count' => count($mappingArray),
+            'status' => 'fragmented'
+        ]);
+    }
+
+    private function embedDocument(Document $document)
+    {
+        $document->update(['status' => 'mapped']);
+        $map = FragmentMap::where('document_id', $document->document_id)->firstOrFail();
+        $user = $document->user;
+        $b2 = new B2Service();
+        $stegoMap = [];
+
+        foreach ($map->fragments_in_covers as $m) {
+            $stegoMap[] = $this->embed($m['fragment_id'], $m['cover_id']);
+        }
+
+        $newStegoMap = StegoMap::create([
+            'stego_map_id' => (string) Str::uuid(),
+            'document_id' => $document->document_id,
+            'status' => 'pending',
+        ]);
+
+        $stegoFilePaths = collect($stegoMap)->pluck('stegoFile')->toArray();
+        Log::info("[SteganoJob] Uploading fragments to B2 cloud...", ['batch_size' => count($stegoFilePaths)]);
+        $document->update(['status' => 'embedded']);
+        
+        $b2->storeFilesBatch($stegoFilePaths, 5, function($path, $info) use ($newStegoMap, $stegoMap, $document) {
+            $stegoPath = 'locked/' . basename($path);
+            Log::debug("[SteganoJob] Fragment uploaded.", ['filename' => basename($path), 'size' => $info['contentLength']]);
+            $match = collect($stegoMap)->first(fn($s) => $s['stegoFile'] === $path);
+            
+            if ($match) {
+                $sFile = StegoFile::create([
+                    'stego_map_id' => $newStegoMap->stego_map_id,
+                    'cloud_file_id' => $info['fileId'],
+                    'fragment_id' => $match['fragmentId'],
+                    'offset' => $match['offset'],
+                    'filename' => basename($path),
+                    'stego_size' => $info['contentLength'],
+                    'status' => 'embedded',
+                ]);
+                $document->increment('in_cloud_size', $sFile->stego_size);
+            }
+            $this->uploadedCloudFiles[] = ['id' => $info['fileId'], 'path' => $stegoPath];
+            if (file_exists($path)) @unlink($path);
+        });
+
+        $user->refreshStorageUsed();
+        $newStegoMap->update(['status' => 'completed']);
+        $document->update(['status' => 'stored']);
+        Log::info("[SteganoJob] All fragments stored and database updated.");
     }
 
     private function generate_text_cover(int $fragmentSize)
@@ -342,6 +440,9 @@ class ProcessSteganoJob implements ShouldQueue
         $filePath = storage_path('app/private/temp/covers/' . $fileName);
         $this->createdTempFiles[] = $filePath;
 
+        // Note: No B2 upload here as per user request. 
+        // These covers stay local and are purged after the job.
+
         return Cover::create([
             'cover_id' => (string) Str::uuid(),
             'type' => 'text',
@@ -353,166 +454,25 @@ class ProcessSteganoJob implements ShouldQueue
         ]);
     }
 
-    private function fetchCoverFiles(string $mapId)
-    {
-        $b2 = new B2Service();
-        $tempPath = storage_path('app/private/temp/covers/');
-        $cachePath = storage_path('app/private/cache/covers/');
 
-        if (!file_exists($tempPath)) {
-            mkdir($tempPath, 0755, true);
-        }
-        if (!file_exists($cachePath)) {
-            mkdir($cachePath, 0755, true);
-        }
-
-        $map = FragmentMap::findOrFail($mapId);
-        $mappedCovers = $map->fragments_in_covers;
-        $document = Document::findOrFail($map->document_id);
-        $localCovers = [];
-        $uniqueCoversToDownload = collect($mappedCovers)->pluck('cover_id')->unique();
-
-        foreach ($uniqueCoversToDownload as $coverId) {
-            $cover = Cover::findOrFail($coverId);
-            $coverTempPath = $tempPath . $cover->filename;
-            $coverCachePath = $cachePath . $cover->filename;
-            $key = $this->getCoverFolder($cover->type) . trim(strval($cover->filename));
-
-            if (!file_exists($coverTempPath)) {
-                // 1. Check Cache first
-                if (file_exists($coverCachePath)) {
-                    copy($coverCachePath, $coverTempPath);
-                    $this->createdTempFiles[] = $coverTempPath;
-                    continue;
-                }
-
-                // 2. Download from Cloud if not in cache
-                $file = $b2->findFileByName($key);
-                if (!$file) {
-                    throw new \Exception("Cover file not found in cloud: {$key}");
-                }
-                
-                $content = $b2->readfile($file['fileId']);
-                if (file_put_contents($coverTempPath, $content) === false) {
-                    throw new \Exception("Failed to write cover file to local storage: {$coverTempPath}");
-                }
-                $this->createdTempFiles[] = $coverTempPath;
-
-                // 3. Save to Cache for future use
-                copy($coverTempPath, $coverCachePath);
-            }
-        }
-
-        // Now populate localCovers for ALL mapped fragments (including duplicates)
-        foreach ($mappedCovers as $mappedCover) {
-            $cover = Cover::findOrFail($mappedCover['cover_id']);
-            $coverTempPath = storage_path('app/private/temp/covers/' . $cover->filename);
-            
-            if (!file_exists($coverTempPath)) {
-                throw new \Exception("Cover file verified but missing for fragment: {$cover->filename}");
-            }
-            $localCovers[] = $coverTempPath;
-        }
-
-        return [
-            'matched' => count($localCovers) === $document->fragment_count,
-            'localCovers' => $localCovers
-        ];
-    }
-
-    private function embedFragments(string $mapId, array $localCovers)
-    {
-        $map = FragmentMap::findOrFail($mapId);
-        $document = Document::findOrFail($map->document_id);
-        $user = $document->user; // Use document owner
-        $mapping = $map->fragments_in_covers;
-        $b2 = new B2Service();
-        $stegoMap = [];
-
-        try {
-            foreach ($mapping as $m) {
-                $stegoMap[] = $this->embed($m['fragment_id'], $m['cover_id'], $localCovers);
-            }
-
-            $document->update(['status' => 'embedded']);
-
-            // Create StegoMap with 'pending' status
-            $newStegoMap = StegoMap::create([
-                'stego_map_id' => (string) Str::uuid(),
-                'document_id' => $document->document_id,
-                'status' => 'pending',
-            ]);
-
-            $stegoFilePaths = collect($stegoMap)->pluck('stegoFile')->toArray();
-            
-            // Upload files and create records INCREMENTALLY
-            $uploadResults = $b2->storeFilesBatch($stegoFilePaths, 10, function($path, $info) use ($newStegoMap, $stegoMap, $user, $document) {
-                $stegoPath = 'locked/' . basename($path);
-                
-                // Find matching fragment info from the local $stegoMap array
-                $match = collect($stegoMap)->first(fn($s) => $s['stegoFile'] === $path);
-                
-                if ($match) {
-                    $sFile = StegoFile::create([
-                        'stego_map_id' => $newStegoMap->stego_map_id,
-                        'cloud_file_id' => $info['fileId'],
-                        'fragment_id' => $match['fragmentId'],
-                        'offset' => $match['offset'],
-                        'filename' => basename($path),
-                        'stego_size' => $info['contentLength'],
-                        'status' => 'embedded',
-                    ]);
-
-                    // Update storage tracking immediately
-                    $document->increment('in_cloud_size', $sFile->stego_size);
-                }
-
-                $this->uploadedCloudFiles[] = ['id' => $info['fileId'], 'path' => $stegoPath];
-                
-                // Cleanup stego file after successful upload
-                if (file_exists($path)) @unlink($path);
-            });
-
-            $user->refreshStorageUsed();
-
-            // Mark stego map as completed after full batch upload
-            $newStegoMap->update(['status' => 'completed']);
-            $document->update(['status' => 'stored']);
-
-        } catch (\Throwable $e) {
-            $document->update(['status' => 'failed', 'error_message' => 'Embedding failed: ' . $e->getMessage()]);
-            throw $e;
-        }
-    }
-
-    private function embed(string $fragmentId, string $coverId, array $localCovers)
+    private function embed(string $fragmentId, string $coverId)
     {
         $cover = Cover::findOrFail($coverId);
-        if (!file_exists(storage_path('app/private/temp/bin'))) mkdir(storage_path('app/private/temp/bin'), 0755, true);
-        if (!file_exists(storage_path('app/private/temp/cloud/'))) mkdir(storage_path('app/private/temp/cloud/'), 0755, true);
+        $binDir = "{$this->jobTempPath}/bin";
+        $cloudDir = "{$this->jobTempPath}/cloud";
+        
+        if (!file_exists($binDir)) mkdir($binDir, 0755, true);
+        if (!file_exists($cloudDir)) mkdir($cloudDir, 0755, true);
 
         $fileName = bin2hex(random_bytes(16)) . time() . $this->getExtension($cover->type);
-        
-        $coverFile = '';
-        $localCovers = collect($localCovers)->flatten(1);
-        foreach ($localCovers as $localCover) {
-            if (basename($localCover) === $cover->filename) {
-                $coverFile = $localCover;
-                break;
-            }
-        }
-
-        if (!$coverFile) {
-            $expectedFiles = collect($localCovers)->map(fn($c) => basename($c))->implode(', ');
-            throw new \Exception("Cover file '{$cover->filename}' not found in local temp storage. Available files: [{$expectedFiles}]");
-        }
+        $coverFile = "{$this->jobTempPath}/{$cover->filename}";
 
         if (!file_exists($coverFile)) {
-            throw new \Exception("Cover file '{$cover->filename}' path found but file does not exist on disk: {$coverFile}");
+            throw new \Exception("Cover file '{$cover->filename}' missing for embedding.");
         }
 
-        $stegoFile = storage_path('app/private/temp/cloud/'. $fileName);
-        $binaryFile = storage_path('app/private/temp/bin/'. $fileName . '.bin');
+        $stegoFile = "{$cloudDir}/{$fileName}";
+        $binaryFile = "{$binDir}/{$fileName}.bin";
         $this->createdTempFiles[] = $stegoFile;
         $this->createdTempFiles[] = $binaryFile;
 
@@ -532,10 +492,10 @@ class ProcessSteganoJob implements ShouldQueue
 
         $offset = (int) end($output);
 
-        if (isset($cover->metadata['info'])) $cover->forceDelete();
-        // REMOVED: Premature unlink of coverFile and binaryFile here. 
-        // Binary file can be deleted as it's fragment-specific, but coverFile might be shared.
-        // Actually, binaryFile is fragment-specific, so unlinking it is fine.
+        if (isset($cover->metadata['info']) && $cover->metadata['info'] === 'System-generated') {
+             $cover->delete(); // Cleanup temp cover record
+        }
+
         if (file_exists($binaryFile)) unlink($binaryFile);
 
         return ['fragmentId' => $fragmentId, 'stegoFile' => $stegoFile, 'offset' => $offset];
@@ -564,5 +524,18 @@ class ProcessSteganoJob implements ShouldQueue
             'text' => 'cover_texts/', 'audio' => 'cover_audios/', 'image' => 'cover_images/',
             default => throw new \InvalidArgumentException("Unsupported cover type: $coverType"),
         };
+    }
+
+    private function notifyAdmins(string $message): void
+    {
+        $admins = User::whereIn('role', ['superadmin', 'db_storage_admin'])->get();
+        if ($admins->isEmpty()) return;
+
+        Notification::send($admins, new AdminPoolAlert(
+            title: "Critical Cover Pool Alert",
+            message: $message,
+            type: 'critical_error',
+            actionUrl: '/admin/covers'
+        ));
     }
 }

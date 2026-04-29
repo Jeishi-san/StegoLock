@@ -6,12 +6,13 @@ import Dropdown from '@/Components/Dropdown';
 import { Sidebar } from "@/Components/Sidebar";
 
 import { Link, usePage, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import CreateFolderModal from '@/Components/modals/CreateFolderModal';
+import UploadModal from '@/Components/modals/UploadModal';
 
 export default function AuthenticatedLayout({
     header,
@@ -28,6 +29,18 @@ export default function AuthenticatedLayout({
     const [folderName, setFolderName] = useState('');
     const [folderErrors, setFolderErrors] = useState({});
     const [folderProcessing, setFolderProcessing] = useState(false);
+    const [showUploadModal, setShowUploadModal] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+
+    useEffect(() => {
+        const handleTriggerUpload = () => {
+            if (!isUploading) {
+                setShowUploadModal(true);
+            }
+        };
+        window.addEventListener('trigger-upload-modal', handleTriggerUpload);
+        return () => window.removeEventListener('trigger-upload-modal', handleTriggerUpload);
+    }, [isUploading]);
 
     const submitFolderCreate = async (e) => {
         e.preventDefault();
@@ -68,8 +81,8 @@ export default function AuthenticatedLayout({
             />
 
             {/* RIGHT SIDE */}
-            <div className="flex flex-col flex-1 h-screen overflow-hidden">
-                <header className="bg-white/80 dark:bg-cyber-void/90 backdrop-blur-xl border-b border-slate-200 dark:border-cyber-border/50 relative z-20 transition-colors">
+            <div className="flex flex-col flex-1 h-screen overflow-hidden bg-slate-50 dark:bg-cyber-surface">
+                <header className="bg-white/80 dark:bg-cyber-void/90 backdrop-blur-xl border-b border-slate-200 dark:border-cyber-border/50 relative z-40 transition-colors">
                     <div className="max-w-[1600px] mx-auto px-4 lg:px-8 py-4">
                         {/* Row 1: Title & Actions */}
                         <div className="flex items-center justify-between min-h-[40px]">
@@ -133,6 +146,13 @@ export default function AuthenticatedLayout({
 
                 <main className="flex-1 overflow-hidden">
                     {children}
+
+                    <UploadModal 
+                        isOpen={showUploadModal}
+                        onClose={() => setShowUploadModal(false)}
+                        allowUpload={() => setIsUploading(false)}
+                        uploaded={() => setIsUploading(true)}
+                    />
 
                     <CreateFolderModal 
                         show={showFolderCreateModal}

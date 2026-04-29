@@ -25,7 +25,7 @@ import { Link, usePage, router } from '@inertiajs/react';
 
 import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
-import UploadModal from '@/Components/modals/UploadModal';
+
 
 export function Sidebar({
   folders,
@@ -70,14 +70,14 @@ export function Sidebar({
     }, [darkMode]);
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
-    const [showUploadModal, setShowUploadModal] = useState(false);
     const [showNewMenu, setShowNewMenu] = useState(false);
 
     const [isUploading, setIsUploading] = useState(false);
     const globalHasProcessingDocs = usePage().props.hasProcessingDocs || false;
 
     // Any ongoing process (either local or background)
-    const isProcessOngoing = isUploading || hasProcessingDocs || globalHasProcessingDocs;
+    // Only block if a LOCAL upload request is active
+    const isProcessOngoing = isUploading;
 
     useEffect(() => {
         const handleTriggerUpload = () => {
@@ -156,7 +156,7 @@ export function Sidebar({
                                         onClick={() => {
                                             if (isProcessOngoing) return;
                                             setShowNewMenu(false);
-                                            setShowUploadModal(true);
+                                            window.dispatchEvent(new CustomEvent('trigger-upload-modal'));
                                         }}
                                         className={isProcessOngoing ? 'text-slate-400 cursor-not-allowed bg-slate-50 dark:bg-cyber-surface/30' : ''}
                             />
@@ -176,17 +176,10 @@ export function Sidebar({
                     )}
                 </div>
             </div>
-            {/* Upload Modal */}
-            <UploadModal
-                isOpen={showUploadModal}
-                onClose={() => setShowUploadModal(false)}
-                allowUpload={() => setIsUploading(false)}
-                uploaded={() => setIsUploading(true)}
-            />
-        </div>
+            </div>
 
         {/* SCROLLABLE NAVIGATION SECTION */}
-        <div className='flex-1 overflow-y-auto no-scrollbar py-2'>
+        <div className='flex-1 overflow-y-auto custom-scrollbar py-2'>
             {/* PERSONAL SECTION */}
             <div className="w-full px-6">
                 <div className="w-full space-y-1">

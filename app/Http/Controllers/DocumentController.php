@@ -373,12 +373,8 @@ class DocumentController extends Controller
         } catch (QueryException $e) {
 
             return response()->json([
-                'file' => 'You already uploaded this document'
-            ]);
-
-            // return back()->withErrors([
-            //     'file' => ['You already uploaded this document', $e->getMessage()]
-            // ]);
+                'errors' => ['file' => ['You already uploaded this document']]
+            ], 422);
         }
 
         return [
@@ -394,9 +390,15 @@ class DocumentController extends Controller
             throw new \Exception("Missing document");
         }
         try {
-            // 1. Read the uploaded plaintext file and COMPRESS
-            $raw_plaintext = file_get_contents(Storage::path($temp_filePath));
-            $plaintext = gzcompress($raw_plaintext, 9); // Max compression
+            // 1. Read and Compress (ZLIB format)
+            $sourcePath = Storage::path($temp_filePath);
+            $raw_plaintext = file_get_contents($sourcePath);
+            
+            // Delete raw upload immediately to free space
+            Storage::delete($temp_filePath);
+
+            $compressed = gzcompress($raw_plaintext, 9); 
+            unset($raw_plaintext); // Free memory
 
             // 2. Generate a random Document Key (DEK)
             $dek = random_bytes(32);
@@ -424,20 +426,21 @@ class DocumentController extends Controller
                 $dek_tag
             );
 
-            // 6. AES-256-GCM encryption of the file using the raw DEK
+            // 6. AES-256-GCM encryption
             $file_nonce = random_bytes(Constant::NONCE_LEN);
             $file_tag = '';
             $ciphertext = openssl_encrypt(
-                $plaintext,
+                $compressed,
                 'aes-256-gcm',
                 $dek,
                 OPENSSL_RAW_DATA,
                 $file_nonce,
                 $file_tag
             );
+            unset($compressed); // Free memory
 
             // 7. Save encrypted file (store file_nonce + file_tag + ciphertext)
-            $encPath = 'temp/encrypted/' . pathinfo(basename(''.$temp_filePath), PATHINFO_FILENAME) . '.stegolock';
+            $encPath = 'temp/encrypted/' . Str::uuid() . '.stegolock';
             Storage::put($encPath, $file_nonce . $file_tag . $ciphertext);
 
             // 8. Update the database with encryption and wrapping info
@@ -696,6 +699,8 @@ class DocumentController extends Controller
         return response()->json([
             'status' => $document->status,
             'error_message' => $document->error_message,
+            'in_cloud_size' => $document->in_cloud_size,
+            'original_size' => $document->original_size,
         ]);
     }
 

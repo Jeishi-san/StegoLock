@@ -63,7 +63,7 @@ class B2Service
         $auth = $this->getAuth();
 
         /** @var \Illuminate\Http\Client\Response $response */
-        $response = Http::withHeaders([
+        $response = Http::timeout(60)->withHeaders([
             'Authorization' => $auth['token'],
         ])->post($auth['apiUrl'] . '/b2api/v2/b2_get_upload_url', [
             'bucketId' => env('B2_BUCKET_ID'),
@@ -294,24 +294,49 @@ class B2Service
         $results = [];
         $client = new \GuzzleHttp\Client(['timeout' => 0]);
 
-        // Pre-fetch multiple upload URLs to allow truly parallel uploading to different pods
+        // Pre-fetch upload URLs (one for each concurrent slot)
         $uploadUrls = [];
         for ($i = 0; $i < $concurrency; $i++) {
             $uploadUrls[] = $this->getUploadUrl(true);
+            usleep(100000); // Small stagger to ensure B2 allocates unique pods
         }
 
-        $requests = function () use ($filePaths, $uploadUrls, $concurrency) {
+        $requests = function () use ($client, $filePaths, $uploadUrls, $concurrency) {
             foreach ($filePaths as $i => $filePath) {
-                $store = $uploadUrls[$i % $concurrency];
+                $initialStore = $uploadUrls[$i % $concurrency];
                 $fileName = 'locked/' . basename($filePath);
                 $sha1 = sha1_file($filePath);
 
-                yield $filePath => new \GuzzleHttp\Psr7\Request('POST', $store['uploadUrl'], [
-                    'Authorization' => $store['authorizationToken'],
-                    'X-Bz-File-Name' => $fileName,
-                    'Content-Type' => 'b2/x-auto',
-                    'X-Bz-Content-Sha1' => $sha1,
-                ], fopen($filePath, 'r'));
+                yield $filePath => function () use ($client, $initialStore, $fileName, $sha1, $filePath) {
+                    $attemptUpload = function ($store, $attempt = 0) use (&$attemptUpload, $client, $fileName, $sha1, $filePath) {
+                        return $client->requestAsync('POST', $store['uploadUrl'], [
+                            'headers' => [
+                                'Authorization' => $store['authorizationToken'],
+                                'X-Bz-File-Name' => $fileName,
+                                'Content-Type' => 'b2/x-auto',
+                                'X-Bz-Content-Sha1' => $sha1,
+                            ],
+                            'body' => fopen($filePath, 'r'),
+                        ])->then(
+                            null, // Success passes through
+                            function ($reason) use ($store, $attempt, $attemptUpload) {
+                                if ($attempt < 3 && $reason instanceof \GuzzleHttp\Exception\ClientException) {
+                                    $response = $reason->getResponse();
+                                    $error = json_decode($response->getBody(), true);
+                                    
+                                    if (isset($error['code']) && $error['code'] === 'auth_token_limit') {
+                                        usleep(250000); // 250ms wait
+                                        $newStore = $this->getUploadUrl(true);
+                                        return $attemptUpload($newStore, $attempt + 1);
+                                    }
+                                }
+                                throw $reason;
+                            }
+                        );
+                    };
+
+                    return $attemptUpload($initialStore);
+                };
             }
         };
 
@@ -326,6 +351,50 @@ class B2Service
             },
             'rejected' => function ($reason, $path) {
                 throw new \Exception("Batch upload failed for {$path}: " . $reason->getMessage());
+            },
+        ]);
+
+        $pool->promise()->wait();
+
+        return $results;
+    }
+
+    /**
+     * Downloads multiple files in parallel using Guzzle Pool.
+     * 
+     * @param array $fileData Array of ['fileId' => ..., 'savePath' => ...]
+     * @param int $concurrency Number of simultaneous downloads
+     */
+    public function fetchFilesBatch(array $fileData, int $concurrency = 5)
+    {
+        $auth = $this->getAuth();
+        $client = new \GuzzleHttp\Client([
+            'base_uri' => $auth['downloadUrl'],
+            'timeout'  => 120,
+        ]);
+
+        $results = [];
+
+        $requests = function () use ($client, $fileData, $auth) {
+            foreach ($fileData as $item) {
+                yield $item['savePath'] => function () use ($client, $item, $auth) {
+                    return $client->requestAsync('GET', "/b2api/v2/b2_download_file_by_id?fileId=" . $item['fileId'], [
+                        'headers' => [
+                            'Authorization' => $auth['token'],
+                        ],
+                    ]);
+                };
+            }
+        };
+
+        $pool = new \GuzzleHttp\Pool($client, $requests(), [
+            'concurrency' => $concurrency,
+            'fulfilled' => function (\GuzzleHttp\Psr7\Response $response, $path) use (&$results) {
+                file_put_contents($path, $response->getBody());
+                $results[$path] = true;
+            },
+            'rejected' => function ($reason, $path) {
+                throw new \Exception("Batch download failed for {$path}: " . $reason->getMessage());
             },
         ]);
 

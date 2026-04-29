@@ -12,20 +12,22 @@ def to_bytes(binary_str):
 # Extract payload from image LSB
 def extract(image_path):
     img = Image.open(image_path)
-    img = img.convert('RGB')
+    # Match the embedder's logic: handle RGB and RGBA
+    if img.mode not in ['RGB', 'RGBA']:
+        img = img.convert('RGB')
+    
     pixels = list(img.getdata())
+    channels = len(img.getbands())
 
-    binary_data = ""
+    binary_data = []
 
-    # Read LSB from R, G, B channels
+    # Read LSB from all available channels (3 for RGB, 4 for RGBA)
     for pixel in pixels:
-        r, g, b = pixel
-        binary_data += str(r & 1)
-        binary_data += str(g & 1)
-        binary_data += str(b & 1)
+        for c in range(channels):
+            binary_data.append(str(pixel[c] & 1))
 
     # Convert binary to bytes
-    data_bytes = to_bytes(binary_data)
+    data_bytes = to_bytes("".join(binary_data))
 
     # Find delimiter
     end_index = data_bytes.find(DELIMITER)

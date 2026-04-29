@@ -18,7 +18,7 @@ export default {
             },
             colors: {
                 cyber: {
-                    void: '#020617', // Slate 950
+                    void: '#0b1224', 
                     surface: '#0f172a', // Slate 900
                     border: '#1e293b', // Slate 800
                     accent: '#22d3ee', // Cyan 400

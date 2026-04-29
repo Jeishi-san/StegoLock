@@ -93,6 +93,20 @@ class AdminDashboardController extends Controller
                     'b2_status' => 'connected'
                 ]
             ];
+
+            // Fetch unread critical alerts for infrastructure
+            $stats['pool_alerts'] = $user->unreadNotifications()
+                ->where('type', 'App\Notifications\AdminPoolAlert')
+                ->take(5)
+                ->get()
+                ->map(fn($n) => [
+                    'id' => $n->id,
+                    'title' => $n->data['title'] ?? 'System Alert',
+                    'message' => $n->data['message'] ?? '',
+                    'type' => $n->data['type'] ?? 'info',
+                    'action_url' => $n->data['action_url'] ?? null,
+                    'created_at' => $n->created_at
+                ]);
         }
 
         return Inertia::render('Admin/Dashboard', [

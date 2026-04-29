@@ -189,42 +189,61 @@ export default function Dashboard({ stats }) {
                             </div>
                         </div>
 
-                        {/* Pillar 3: Stego Library Utility */}
-                        <div className="flex flex-col bg-white dark:bg-cyber-surface/30 rounded-[2.5rem] p-8 border border-slate-200 dark:border-cyber-border/50 shadow-xl relative overflow-hidden group">
-                            <div className="absolute -top-12 -right-12 p-24 opacity-5 dark:opacity-[0.03] group-hover:scale-110 transition-transform duration-1000">
-                                <ImagePlus className="size-48" />
-                            </div>
-
-                            <div className="relative z-10 flex flex-col h-full">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-purple-500 dark:text-purple-400">Library Utility</h3>
-                                    <Zap className="size-4 text-amber-500 fill-amber-500" />
+                        {/* Pillar 3: Library & System Alerts */}
+                        <div className="flex flex-col bg-white dark:bg-cyber-surface/30 rounded-[2.5rem] border border-slate-200 dark:border-cyber-border/50 shadow-xl overflow-hidden group">
+                            {/* Library Stats (Top Half) */}
+                            <div className="p-8 border-b border-slate-100 dark:border-cyber-border/30 relative overflow-hidden">
+                                <div className="absolute -top-12 -right-12 p-20 opacity-5 dark:opacity-[0.03] group-hover:scale-110 transition-transform duration-1000">
+                                    <ImagePlus className="size-40" />
                                 </div>
-
-                                <div className="space-y-6 flex-1">
+                                <div className="relative z-10">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-purple-500 dark:text-purple-400">Library Utility</h3>
+                                        <Zap className="size-4 text-amber-500 fill-amber-500" />
+                                    </div>
                                     <div className="p-6 rounded-3xl bg-purple-500/5 border border-purple-500/10 flex flex-col items-center text-center">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Total Embedding Capacity</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Total Capacity</p>
                                         <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">{formatBytes(stats.infrastructure.library.total_capacity)}</p>
                                     </div>
+                                </div>
+                            </div>
 
-                                    <div className="space-y-3">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Library Distribution</p>
-                                        <div className="flex items-center gap-2">
-                                            {Object.entries(stats.infrastructure.library.types).map(([type, count]) => (
-                                                <div key={type} className="flex-1 p-2 rounded-xl bg-slate-50 dark:bg-cyber-void/30 border border-slate-100 dark:border-cyber-border/30 text-center">
-                                                    <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">{type}</p>
-                                                    <p className="text-xs font-black text-purple-500">{count}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
+                            {/* Infrastructure Alerts (Bottom Half) */}
+                            <div className="flex-1 flex flex-col min-h-0 bg-slate-50/30 dark:bg-cyber-void/10 p-8">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <ShieldAlert className="size-4 text-rose-500" />
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">System Health Alerts</h3>
                                 </div>
 
-                                <Link href={route('admin.covers.index')} className="mt-8 flex items-center justify-between p-4 rounded-2xl border-2 border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white transition-all group/btn">
-                                    <span className="text-xs font-black uppercase tracking-widest">Cover Management</span>
-                                    <ArrowRight className="size-4 group-hover/btn:translate-x-1 transition-transform" />
-                                </Link>
+                                <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
+                                    {stats.pool_alerts && stats.pool_alerts.length > 0 ? (
+                                        stats.pool_alerts.map(alert => (
+                                            <div key={alert.id} className="p-4 rounded-2xl bg-white dark:bg-cyber-surface border border-rose-100 dark:border-rose-900/30 shadow-sm transition-all hover:border-rose-500/30">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <p className="text-[9px] font-black text-rose-600 dark:text-rose-400 uppercase">{alert.title}</p>
+                                                    <span className="text-[9px] font-bold text-slate-400">{new Date(alert.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                </div>
+                                                <p className="text-[11px] font-bold text-slate-900 dark:text-white leading-tight mb-2">{alert.message}</p>
+                                                {alert.action_url && (
+                                                    <Link href={alert.action_url} className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-indigo-500 hover:text-indigo-600 tracking-widest">
+                                                        Resolve <ArrowRight className="size-3" />
+                                                    </Link>
+                                                )}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center h-full text-slate-300 dark:text-slate-700">
+                                            <ShieldCheck className="size-8 mb-2 opacity-20" />
+                                            <p className="text-[9px] font-black uppercase tracking-widest opacity-40">All Systems Nominal</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
+
+                            <Link href={route('admin.covers.index')} className="m-6 flex items-center justify-between p-4 rounded-2xl border-2 border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white transition-all group/btn shrink-0">
+                                <span className="text-xs font-black uppercase tracking-widest">Manage Covers</span>
+                                <ArrowRight className="size-4 group-hover/btn:translate-x-1 transition-transform" />
+                            </Link>
                         </div>
                     </div>
                 )}

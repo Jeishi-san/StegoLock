@@ -1,45 +1,41 @@
-# Implementation Plan - Compression and Marker Update
+# Stegolock Core Features Update Plan (Modernized Pipeline)
 
-This plan outlines the steps to implement data compression before encryption for improved efficiency and to update the steganography marker to a branded "###STEGOLOCK###" string.
+This document tracks the modernization of the Stegolock document processing pipeline and dashboard UI.
 
-## User Review Required
+## Completed Milestones
 
-> [!IMPORTANT]
-> The compression will use PHP's `gzcompress()` (zlib) which is standard. This will make all existing "locked" documents incompatible with the new system. Only new documents locked after this change will be unlockable.
+### 1. Granular Pipeline State Machine
+- [x] **Status Refinement:** Backend jobs now strictly adhere to database ENUM constraints (`mapped`, `embedded`, `stored`) to prevent SQL truncation.
+- [x] **Cinematic Translation:** Implemented a high-fidelity mapping system in the frontend that translates technical DB states into active labels (e.g., `mapped` → `Embedding fragments...`).
+- [x] **Audit Trail Expansion:** Added `DocumentActivity` logging for the entire unlocking lifecycle (`unlocking_started`, `unlocked`) to ensure system accountability.
+- [x] **Python Extraction Fix:** Resolved a critical bug in `image/extract.py` where 4-channel (RGBA) PNGs were losing data during extraction.
+- [x] **Resilience Tuning:** Increased job timeouts to 5 minutes and retry attempts to 5 to handle high-latency cloud synchronization (Backblaze B2).
 
-## Proposed Changes
+### 2. Cinematic Frontend UI
+- [x] **DocumentCard Refactor:** Centered the processing icon perfectly between the top border and filename. Reduced icon scale to `size-8` for a sharper look.
+- [x] **Puzzle Reassembly:** Upgraded the unlocking animation to use **Puzzle Piece** icons that implode from the card borders to the center.
+- [x] **Unified Animations:** Standardized the diagonal shimmer and fragment effects across both locking and unlocking workflows.
+- [x] **Global Stacking Strategy:** Moved `UploadModal` to the `AuthenticatedLayout` root (`z-[100]`) to resolve "Stacking Traps" and ensure consistent visibility above headers.
+- [x] **Reactive Status Sync:** Removed client-side timers in favor of real-time status polling with instant feedback upon action triggers.
 
-### Backend (PHP)
+### 3. "Midnight Void" Dashboard Architecture
+- [x] **Global Theme:** Updated the primary dark mode background to `#0b1224` for a premium aesthetic.
+- [x] **Independent Scroll Panes:** Split the document view into two separate scrollable areas (Documents on top, Folders on bottom).
+- [x] **Sticky Navigation Headers:** Implemented solid-background sticky headers for both sections to prevent content "ghosting".
+- [x] **Forced Synchronization:** Ensured the dashboard reloads after every upload attempt to keep storage metrics in sync.
 
-#### [MODIFY] [DocumentController.php](file:///d:/laragon/www/stegolock/app/Http/Controllers/DocumentController.php)
-- Update the `encrypt` method to compress the plaintext using `gzcompress()` before AES-256-GCM encryption.
+## Technical Specifications
 
-#### [MODIFY] [ProcessUnlockJob.php](file:///d:/laragon/www/stegolock/app/Jobs/ProcessUnlockJob.php)
-- Update the `decrypt` method to decompress the resulting plaintext using `gzuncompress()` after decryption.
+### Theme Constants
+- **Cyber Void:** `#0b1224`
+- **Cyber Surface:** `#0f172a`
+- **Cyber Accent:** `#22d3ee`
 
----
-
-### Python Steganography Scripts
-
-#### [MODIFY] [text/embed.py](file:///d:/laragon/www/stegolock/python_backend/embedding/text/embed.py)
-#### [MODIFY] [text/extract.py](file:///d:/laragon/www/stegolock/python_backend/embedding/text/extract.py)
-#### [MODIFY] [audio/embed.py](file:///d:/laragon/www/stegolock/python_backend/embedding/audio/embed.py)
-#### [MODIFY] [audio/extract.py](file:///d:/laragon/www/stegolock/python_backend/embedding/audio/extract.py)
-#### [MODIFY] [image/embed.py](file:///d:/laragon/www/stegolock/python_backend/embedding/image/embed.py)
-#### [MODIFY] [image/extract.py](file:///d:/laragon/www/stegolock/python_backend/embedding/image/extract.py)
-#### [MODIFY] [image/check_image.py](file:///d:/laragon/www/stegolock/python_backend/embedding/image/check_image.py)
-- Change `###END###` to `###STEGOLOCK###` in all embedding and extraction logic.
-- Update `check_image.py` to subtract the correct byte length (15 bytes) for the new marker.
-
----
-
-## Verification Plan
-
-### Automated Tests
-- I will perform a test run by:
-    1. Uploading a document.
-    2. Locking the document (verifying compression happens and stego files are created with the new marker).
-    3. Unlocking the document (verifying extraction works with the new marker and decompression recovers the original file).
-
-### Manual Verification
-- Check the size of the encrypted fragments to ensure they are smaller than the original plaintext for compressible files (like .txt or .doc).
+### Key Files Instrumented
+- `app/Jobs/ProcessSteganoJob.php`
+- `app/Jobs/ProcessUnlockJob.php`
+- `resources/js/Pages/MyDocuments.jsx`
+- `resources/js/Components/DocumentCard.jsx`
+- `resources/js/Components/modals/UploadModal.jsx`
+- `resources/js/Layouts/AuthenticatedLayout.jsx`
+- `resources/css/app.css`

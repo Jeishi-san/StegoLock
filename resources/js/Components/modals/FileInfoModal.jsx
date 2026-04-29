@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { X, History, FileText, User, Clock, CheckCircle2, Share2, Unlock, Trash2, ShieldCheck, Loader2, AlertCircle, Lock } from 'lucide-react';
-import { formatDate } from '@/Utils/fileUtils';
+import { formatDate, formatBytes } from '@/Utils/fileUtils';
 import axios from 'axios';
 
 export function FileInfoModal({ document: doc, onClose }) {
   const [activities, setActivities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const isShared = doc.shares_count > 0 || doc.is_shared;
 
   useEffect(() => {
     fetchActivity();
@@ -93,9 +95,23 @@ export function FileInfoModal({ document: doc, onClose }) {
             <History className="size-10 text-white dark:text-cyber-accent" />
           </div>
           <h2 className="text-xl font-bold dark:text-white uppercase tracking-tight">File History</h2>
-          <p className="text-indigo-100 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-1 truncate px-6">
-              {doc.filename}
-          </p>
+          
+          <div className="flex flex-col items-center mt-1">
+              <p className="text-indigo-100 dark:text-slate-400 text-xs font-bold uppercase tracking-widest truncate px-6">
+                  {doc.filename}
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-black bg-white/20 dark:bg-cyber-accent/20 px-2 py-0.5 rounded text-white dark:text-cyber-accent uppercase tracking-tighter">
+                      {formatBytes(doc.in_cloud_size || doc.original_size)}
+                  </span>
+                  {isShared && (
+                      <span className="flex items-center gap-1 text-[10px] font-black bg-indigo-400 dark:bg-indigo-500/30 px-2 py-0.5 rounded text-white dark:text-indigo-400 uppercase tracking-tighter">
+                          <Share2 className="size-2.5" />
+                          Shared
+                      </span>
+                  )}
+              </div>
+          </div>
         </div>
 
         {/* Content */}

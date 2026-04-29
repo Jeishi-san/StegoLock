@@ -23,6 +23,7 @@ export function useDocumentActions({
     };
 
     const handleUnlock = async (id) => {
+        updateUnlockingProgress(id);
         const toastId = toast.loading('Unlocking file...', { duration: 3000 });
         try {
             window.addEventListener('beforeunload', handleBeforeUnload);
@@ -33,7 +34,7 @@ export function useDocumentActions({
 
             if (resp.data.success) {
                 toast.dismiss(toastId);
-                updateUnlockingProgress(id);
+                // Already updated progress at start
                 
                 setLocalDocs(prev => prev.map(doc => 
                     doc.document_id === id ? { ...doc, status: resp.data.status } : doc

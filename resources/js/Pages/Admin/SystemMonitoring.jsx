@@ -97,21 +97,21 @@ export default function SystemMonitoring() {
                     </div>
 
                     <div className="divide-y divide-slate-800">
-                        {carriers.map((carrier) => (
-                            <div key={carrier.id} className="grid grid-cols-12 items-center gap-4 px-6 py-4 transition hover:bg-slate-800/30">
+                        {covers.map((cover) => (
+                            <div key={cover.id} className="grid grid-cols-12 items-center gap-4 px-6 py-4 transition hover:bg-slate-800/30">
                                 <div className="col-span-2">
-                                    <span className="text-sm font-mono text-slate-300">{carrier.id}</span>
+                                    <span className="text-sm font-mono text-slate-300">{cover.id}</span>
                                 </div>
                                 <div className="col-span-3">
-                                    <span className="text-sm text-white">{carrier.document}</span>
+                                    <span className="text-sm text-white">{cover.document}</span>
                                 </div>
-                                <div className="col-span-2">{getStatusBadge(carrier.status)}</div>
-                                <div className="col-span-2">{getIntegrityBar(carrier.integrity)}</div>
+                                <div className="col-span-2">{getStatusBadge(cover.status)}</div>
+                                <div className="col-span-2">{getIntegrityBar(cover.integrity)}</div>
                                 <div className="col-span-1">
-                                    <span className="text-sm text-slate-400">{carrier.size}</span>
+                                    <span className="text-sm text-slate-400">{cover.size}</span>
                                 </div>
                                 <div className="col-span-2">
-                                    <span className="text-xs text-slate-500">{carrier.lastVerified}</span>
+                                    <span className="text-xs text-slate-500">{cover.lastVerified}</span>
                                 </div>
                             </div>
                         ))}

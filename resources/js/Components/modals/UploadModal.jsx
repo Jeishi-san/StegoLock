@@ -106,23 +106,26 @@ export default function UploadModal({ isOpen, onClose, allowUpload, uploaded }) 
                     toast.dismiss(toastId);
                 }
                 
-                allowUpload();
-                router.reload();
-
             } finally {
                 // disable warning after request finishes
                 window.removeEventListener('beforeunload', handleBeforeUnload);
+                allowUpload();
+                
+                // Small delay to ensure state propagates before reload
+                setTimeout(() => {
+                    router.reload();
+                }, 100);
             }
 
         } catch (err) {
-            console.log('Error: ',err);
-            console.log('Lock response:', err.response?.data);
-            toast.error('Failed to process document. Please try again.', { id: toastId });
+            console.log('Error: ', err);
+            const errorMessage = err.response?.data?.errors?.file?.[0] || 'Failed to process document. Please try again.';
+            toast.error(errorMessage, { id: toastId });
         }
     };
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-md"
