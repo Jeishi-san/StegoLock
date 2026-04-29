@@ -78,7 +78,7 @@ class ScanCoversJob implements ShouldQueue
         }
 
         // Build Python command to get embedding capacity
-        $command = "python " . base_path($scriptPath) . " " . escapeshellarg($filePath) . " 2>&1";
+        $command = config('app.python_binary', 'python') . " " . base_path($scriptPath) . " " . escapeshellarg($filePath) . " 2>&1";
         $output = [];
         $status = 0;
         exec($command, $output, $status);

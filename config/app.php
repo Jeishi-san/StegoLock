@@ -53,6 +53,8 @@ return [
     */
 
     'url' => env('APP_URL', 'http://localhost'),
+    
+    'python_binary' => env('PYTHON_BINARY', 'python'),
 
     /*
     |--------------------------------------------------------------------------

@@ -479,7 +479,7 @@ class ProcessSteganoJob implements ShouldQueue
         $fragment = Fragment::findOrFail($fragmentId);
         file_put_contents($binaryFile, base64_decode($fragment->blob));
 
-        $command = "python " . base_path('python_backend/embedding/' . $this->getScript($cover->type)) . " "
+        $command = config('app.python_binary', 'python') . " " . base_path('python_backend/embedding/' . $this->getScript($cover->type)) . " "
             . escapeshellarg($coverFile) . " "
             . escapeshellarg($stegoFile) . " "
             . escapeshellarg($binaryFile) . " 2>&1";

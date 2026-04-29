@@ -162,7 +162,7 @@ class ProcessUnlockJob implements ShouldQueue
         file_put_contents($manifestPath, json_encode($manifest));
 
         // Call Batch Driver
-        $command = "python " . base_path('python_backend/batch_processor.py') . " " . escapeshellarg($manifestPath) . " 2>&1";
+        $command = config('app.python_binary', 'python') . " " . base_path('python_backend/batch_processor.py') . " " . escapeshellarg($manifestPath) . " 2>&1";
         $output = [];
         $status = 0;
         exec($command, $output, $status);

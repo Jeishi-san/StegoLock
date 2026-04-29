@@ -50,7 +50,7 @@ sudo apt install -y nodejs
 
 ### 4. Python Environment
 ```bash
-sudo apt install -y python3-pip python3-venv
+sudo apt install -y python3-pip python3-venv libjpeg-dev zlib1g-dev libopenblas-dev liblapack-dev gfortran
 ```
 
 ---
@@ -84,10 +84,13 @@ cd ..
    - Set `APP_DEBUG=false`
    - Set `APP_URL=https://your-domain.com`
    - Fill in `DB_*` and `B2_*` credentials.
+   - Set `PYTHON_BINARY=/var/www/stegolock/python_backend/venv/bin/python`
 3. Finalize Laravel:
    ```bash
    php artisan key:generate
    php artisan migrate --force
+   php artisan db:seed --force
+   php artisan storage:link
    php artisan config:cache
    php artisan route:cache
    ```
