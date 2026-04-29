@@ -2,7 +2,7 @@ import sys
 from PIL import Image
 
 # Constants — must match embed.py
-DELIMITER = b'###END###'
+DELIMITER = b'###STEGOLOCK###'
 
 # Convert binary string to bytes
 def to_bytes(binary_str):

@@ -39,7 +39,7 @@ def get_png_embedding_capacity(image_path):
         total_bytes = total_bits // 8
 
         usable_bits = int(total_bits * USAGE_RATIO)
-        usable_bytes = (usable_bits // 8) - 9 # Subtract 9 bytes for delimiter '###END###'
+        usable_bytes = (usable_bits // 8) - 15 # Subtract 15 bytes for delimiter '###STEGOLOCK###'
 
         return max(0, usable_bytes), total_bytes
 

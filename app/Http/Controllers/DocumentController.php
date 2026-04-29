@@ -394,8 +394,9 @@ class DocumentController extends Controller
             throw new \Exception("Missing document");
         }
         try {
-            // 1. Read the uploaded plaintext file
-            $plaintext = file_get_contents(Storage::path($temp_filePath));
+            // 1. Read the uploaded plaintext file and COMPRESS
+            $raw_plaintext = file_get_contents(Storage::path($temp_filePath));
+            $plaintext = gzcompress($raw_plaintext, 9); // Max compression
 
             // 2. Generate a random Document Key (DEK)
             $dek = random_bytes(32);

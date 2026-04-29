@@ -28,7 +28,7 @@ def extract(stego_file, output_file, offset):
     :param payload_length_bytes: number of bytes in the original payload including delimiter
     :param offset: starting index in the cover file
     """
-    delimiter = b'###END###'
+    delimiter = b'###STEGOLOCK###'
 
     with open(stego_file, 'rb') as f:
         stego_bytes = bytearray(f.read())

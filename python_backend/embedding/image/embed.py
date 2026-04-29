@@ -43,7 +43,7 @@ def embed(image_path, output_path, data_bytes):
     width, height = img.size
 
     # Add delimiter
-    DELIMITER = b'###END###'
+    DELIMITER = b'###STEGOLOCK###'
     full_payload = data_bytes + DELIMITER
     binary_data = to_binary(full_payload)
     data_len = len(binary_data)

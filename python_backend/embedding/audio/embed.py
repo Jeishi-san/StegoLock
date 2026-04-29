@@ -2,7 +2,7 @@ import sys
 import numpy as np
 from scipy.io import wavfile
 
-DELIMITER = b'###END###'  # Marks end of payload
+DELIMITER = b'###STEGOLOCK###'  # Marks end of payload
 
 def to_bitstream(data_bytes):
     

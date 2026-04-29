@@ -2,7 +2,7 @@ import sys
 import numpy as np
 from scipy.io import wavfile
 
-DELIMITER = b'###END###'
+DELIMITER = b'###STEGOLOCK###'
 
 def bits_to_bytes(bits):
     """Convert bit string to bytes"""

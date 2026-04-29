@@ -16,7 +16,7 @@ def embed(input_text_file, output_text_file, data_file):
         payload_bytes = f.read()
 
     # Add delimiter so we know where the payload ends
-    delimiter = b'###END###'
+    delimiter = b'###STEGOLOCK###'
     payload_bytes += delimiter
 
     binary_payload = to_binary(payload_bytes)

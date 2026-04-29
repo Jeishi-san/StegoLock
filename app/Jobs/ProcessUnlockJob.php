@@ -312,6 +312,17 @@ class ProcessUnlockJob implements ShouldQueue
             throw new \Exception('Decryption failed. Possible tampering or wrong key.');
         }
 
+        // --- DECOMPRESS ---
+        $decompressed = @gzuncompress($plaintext);
+        if ($decompressed === false) {
+            // Fallback for old files or failed decompression
+            // If the user tries to unlock an old file, gzuncompress might fail.
+            // But we already warned them. Still, we use $plaintext as a fallback if it looks like a valid doc?
+            // Actually, best to throw an error to be explicit.
+            throw new \Exception('Decompression failed. This file may have been locked with an older version of StegoLock or is corrupted.');
+        }
+        $plaintext = $decompressed;
+
         $tempDecDir = 'temp/decrypted/' . ($this->userId ?? $document->user_id) . '/' . $document->document_id;
         if (!Storage::exists($tempDecDir)) {
             Storage::makeDirectory($tempDecDir);
