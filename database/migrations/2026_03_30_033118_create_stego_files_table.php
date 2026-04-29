@@ -16,7 +16,7 @@ return new class extends Migration {
 
             $table->integer('offset');
 
-            $table->string('stego_path');
+            $table->string('filename');
             $table->bigInteger('stego_size');
 
             $table->string('status')->default('pending');

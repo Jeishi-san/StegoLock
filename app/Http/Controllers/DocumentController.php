@@ -1329,7 +1329,7 @@ class DocumentController extends Controller
             }
 
             foreach ($stegoFiles as $file) { //storage check
-                if (!file_exists(storage_path('app/public/' . $file['stego_path']))) {
+                if (!file_exists(storage_path('app/public/' . $file['filename']))) {
                     throw new \Exception("Corrupted file error: Missing stego file");
                 }
             }

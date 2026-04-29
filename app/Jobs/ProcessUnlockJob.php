@@ -16,6 +16,7 @@ use App\Models\DocumentShare;
 use App\Services\CryptoService;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 
 class ProcessUnlockJob implements ShouldQueue
 {
@@ -43,11 +44,30 @@ class ProcessUnlockJob implements ShouldQueue
     }
 
     /**
+     * Get the middleware the job should pass through.
+     */
+    public function middleware(): array
+    {
+        // Prevents multiple workers from unlocking the same document simultaneously.
+        return [
+            (new WithoutOverlapping($this->documentId))
+                ->expireAfter(900) // 15 minutes for large unlocks
+                ->releaseAfter(10)
+        ];
+    }
+
+    /**
      * Execute the job.
      */
     public function handle(): void
     {
         $document = Document::findOrFail($this->documentId);
+
+        // Status Guard: Prevent redundant unlocking if already decrypted or reconstructed
+        if (in_array($document->status, ['reconstructed', 'decrypted'])) {
+            Log::info("[UnlockJob] Document already unlocked or in final stages. Skipping.", ['document_id' => $this->documentId]);
+            return;
+        }
         Log::info("[UnlockJob] Starting optimized document unlocking process.", [
             'document_id' => $this->documentId,
             'job_id' => $this->jobId,

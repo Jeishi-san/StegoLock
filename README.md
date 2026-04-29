@@ -1,35 +1,81 @@
-# SETUP after git clone
-1. cd stegolock
-2. composer install
-3. copy .env.example .env
-4. edit .env
-   DB_CONNECTION=mysql
-   DB_HOST=127.0.0.1
-   DB_PORT=3306
-   DB_DATABASE=stegolock_app
-   DB_USERNAME=root
-   DB_PASSWORD=
+# Stegolock 🔐
 
-5. php artisan migrate
-6. php artisan key:generate
+Stegolock is a secure document management system featuring steganographic processing and robust access controls.
 
-7. npm install react react-dom
-8. npm install --save-dev @vitejs/plugin-react
-9. composer require inertiajs/inertia-laravel
+## 🚀 Getting Started (Local Development)
 
-10. npm install @inertiajs/react
-11. npm install lucide-react
-12. npm install tailwindcss @tailwindcss/vite
-13. npm install sonner
-14. npm install tw-animate-css
+This project is built with **Laravel 12**, **React**, and **Inertia.js**.
 
-15. php artisan serve
-16. npm run dev
+### Prerequisites
+- **PHP 8.2+** (PHP 8.5 recommended)
+- **Node.js & NPM**
+- **MySQL/MariaDB** (via Laragon recommended)
+- **Composer**
 
+### Installation Steps
 
-## to code
-- admin view
-- users must not be able to preview file content when its "Secured"
+1. **Clone & Install Dependencies**
+   ```bash
+   # Clone the repository
+   git clone <repo-url>
+   cd stegolock
 
-### During Cloud Integ
-- composer require league/flysystem-aws-s3-v3 "^3.0"
+   # Install PHP and JS dependencies
+   composer install
+   npm install
+   ```
+
+2. **Environment Setup**
+   ```bash
+   # Create environment file
+   copy .env.example .env
+
+   # Generate application key
+   php artisan key:generate
+   ```
+
+3. **Database Configuration**
+   - Create a new database named `stegolock_app` in your MySQL server.
+   - Update your `.env` file with your credentials:
+     ```env
+     DB_CONNECTION=mysql
+     DB_HOST=127.0.0.1
+     DB_PORT=3306
+     DB_DATABASE=stegolock_app
+     DB_USERNAME=root
+     DB_PASSWORD=
+     ```
+
+4. **Initialize Database**
+   ```bash
+   # Run migrations to build tables
+   php artisan migrate
+   ```
+
+5. **Seed the Database**
+   ```bash
+   # Populate initial data and admin users
+   php artisan db:seed
+   ```
+
+### 🔑 Default Credentials (Development)
+All default accounts use the password: `password`
+
+| Role | Email |
+| :--- | :--- |
+| **Superadmin** | `superadmin@stegolock.com` |
+| **System Admin** | `system.admin@stegolock.com` |
+| **Standard User** | `user@example.com` |
+
+### Running the Application
+Run both commands in separate terminal tabs to start the backend and frontend dev servers:
+```bash
+# Terminal 1: Backend
+php artisan serve
+
+# Terminal 2: Frontend (Vite)
+npm run dev
+```
+
+---
+

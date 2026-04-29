@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Notifications\AdminPoolAlert;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 
 class ProcessSteganoJob implements ShouldQueue
 {
@@ -47,11 +48,31 @@ class ProcessSteganoJob implements ShouldQueue
     }
 
     /**
+     * Get the middleware the job should pass through.
+     */
+    public function middleware(): array
+    {
+        // Prevents multiple workers from processing the same document's steganography simultaneously.
+        // The lock key is unique to the documentId.
+        return [
+            (new WithoutOverlapping($this->documentId))
+                ->expireAfter(600) // 10 minutes
+                ->releaseAfter(10) // Wait 10 seconds before trying again if locked
+        ];
+    }
+
+    /**
      * Execute the job.
      */
     public function handle(): void
     {
         $document = Document::findOrFail($this->documentId);
+
+        // Status Guard: Prevent redundant processing if already stored/mapped
+        if (in_array($document->status, ['mapped', 'embedded', 'stored'])) {
+            Log::info("[SteganoJob] Document already processed or in final stages. Skipping.", ['document_id' => $this->documentId]);
+            return;
+        }
         Log::info("[SteganoJob] Starting document locking process.", [
             'document_id' => $this->documentId,
             'job_id' => $this->jobId,
@@ -59,6 +80,19 @@ class ProcessSteganoJob implements ShouldQueue
         ]);
 
         try {
+            // 0. Idempotency Cleanup (Clear previous failed attempt's database state)
+            DB::transaction(function() use ($document) {
+                // Delete existing fragments and maps for this document
+                Fragment::where('document_id', $this->documentId)->delete();
+                FragmentMap::where('document_id', $this->documentId)->delete();
+                
+                $stegoMap = StegoMap::where('document_id', $this->documentId)->first();
+                if ($stegoMap) {
+                    StegoFile::where('stego_map_id', $stegoMap->stego_map_id)->delete();
+                    $stegoMap->delete();
+                }
+            });
+
             // 1. Select Covers (Right-Sized Diversity)
             Log::info("[SteganoJob] Selecting covers based on capacity...", ['size' => $document->encrypted_size]);
             $selectedCovers = $this->selectCovers($document);
@@ -72,12 +106,6 @@ class ProcessSteganoJob implements ShouldQueue
             Log::info("[SteganoJob] Splitting document into fragments...");
             $this->splitDocument($document, $selectedCovers);
 
-            // Immediate Cleanup of Encrypted Source (No longer needed after fragmentation)
-            if (Storage::disk('local')->exists($this->encryptedPath)) {
-                Storage::disk('local')->delete($this->encryptedPath);
-                Log::info("[SteganoJob] Encrypted source file purged from temp storage.");
-            }
-
             // 4. Embedding
             Log::info("[SteganoJob] Embedding fragments into covers...");
             $this->embedDocument($document);
@@ -90,6 +118,12 @@ class ProcessSteganoJob implements ShouldQueue
             ]);
 
             Log::info("[SteganoJob] Document locking completed successfully.", ['document_id' => $this->documentId]);
+
+            // Final Cleanup of Encrypted Source (ONLY on success)
+            if (Storage::disk('local')->exists($this->encryptedPath)) {
+                Storage::disk('local')->delete($this->encryptedPath);
+                Log::info("[SteganoJob] Encrypted source file purged from temp storage.");
+            }
 
         } catch (\Throwable $e) {
             Log::error("[SteganoJob] Document locking failed.", [
@@ -115,6 +149,26 @@ class ProcessSteganoJob implements ShouldQueue
     }
 
     /**
+     * Handle a job failure.
+     */
+    public function failed(\Throwable $exception): void
+    {
+        Log::error("[SteganoJob] Permanent failure for document {$this->documentId}. Cleaning up source file.");
+        
+        if (Storage::disk('local')->exists($this->encryptedPath)) {
+            Storage::disk('local')->delete($this->encryptedPath);
+        }
+
+        $document = Document::find($this->documentId);
+        if ($document) {
+            $document->update([
+                'status' => 'failed',
+                'error_message' => 'Processing failed permanently: ' . $exception->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Cleans up local files after job completion (success or failure)
      */
     private function cleanup()
@@ -125,10 +179,8 @@ class ProcessSteganoJob implements ShouldQueue
             @rmdir($this->jobTempPath);
         }
 
-        // 2. Delete the initial encrypted file
-        if (Storage::exists($this->encryptedPath)) {
-            Storage::delete($this->encryptedPath);
-        }
+        // 2. Initial encrypted file is handled in the try block on success
+        // to ensure it persists for retries if the job fails.
 
         // 3. Purge system-generated cover records from database
         // These were only needed for the duration of this job's selection/mapping logic

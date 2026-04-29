@@ -61,14 +61,14 @@ export default function DocumentCard({
 
     const getStatusDisplay = (status, docId) => {
         switch (status) {
-            case 'uploaded': return 'Initializing...';
-            case 'encrypted': return 'Encrypting file...';
-            case 'fragmented': return 'Splitting file...';
-            case 'mapped': return 'Mapping storage...';
-            case 'embedded': return 'Protecting shards...';
-            case 'stored': return 'Locked';
-            case 'retrieved': return 'Retrieving shards...';
-            case 'extracted': return 'Extracting fragments...';
+            case 'uploaded': return 'Encrypting file...';
+            case 'encrypted': return 'Segmenting file...';
+            case 'fragmented': return 'Mapping file...';
+            case 'mapped': return 'Embedding binaries...';
+            case 'embedded': return 'Storing stego files...';
+            case 'stored': return 'Fetching from cloud...';
+            case 'retrieved': return 'Extracting binaries...';
+            case 'extracted': return 'Reconstructing file...';
             case 'reconstructed': return 'Finalizing decryption...';
             case 'decrypted': return 'Ready to Download';
             case 'failed': return 'Error';

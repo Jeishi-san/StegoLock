@@ -25,6 +25,7 @@ class Cover extends Model
         'size_bytes',
         'metadata',
         'hash',
+        'in_use',
     ];
 
     protected $casts = [
