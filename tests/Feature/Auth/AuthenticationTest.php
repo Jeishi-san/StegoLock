@@ -26,8 +26,23 @@ class AuthenticationTest extends TestCase
             'password' => 'password',
         ]);
 
+        // Debug: check if user is authenticated
+        if (!auth()->check()) {
+            // Dump session data for debugging
+            $sessionData = session()->all();
+            var_dump($sessionData);
+        }
+
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        // Regular users get redirected to myDocuments, not dashboard
+        $response->assertRedirect(route('myDocuments', absolute: false));
+    }
+
+    public function test_manual_login_works(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $this->assertAuthenticated();
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void

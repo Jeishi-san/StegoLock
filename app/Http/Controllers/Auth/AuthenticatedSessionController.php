@@ -30,8 +30,10 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        // Retrieve user by email
-        $user = User::where('email', strtolower($request->email))->first();
+        $email = $request->string('email')->trim()->lower()->toString();
+
+        // Retrieve user by normalized email
+        $user = User::query()->where('email', '=', $email)->first();
 
         if (!$user) {
             return back()->withErrors(['email' => 'Invalid credentials']);
@@ -80,15 +82,15 @@ class AuthenticatedSessionController extends Controller
             session(['master_key_expires_at' => now()->addMinutes(10)]);
         }
 
+        // Regenerate session first (prevents session fixation)
+        $request->session()->regenerate();
+
         // Login user manually
         Auth::login($user);
 
-        // Regenerate session
-        $request->session()->regenerate();
-
         // Redirect based on role
         if ($user->isUserAdmin() || $user->isDbStorageAdmin() || $user->isSuperadmin()) {
-            return redirect()->intended(route('admin.dashboard', absolute: false));
+            return redirect()->intended(route('dashboard', absolute: false));
         }
 
         return redirect()->intended(route('myDocuments', absolute: false));

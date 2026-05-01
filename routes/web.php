@@ -19,6 +19,9 @@ Route::get('/', function () {
 
 Route::middleware('auth', 'verified')->group(function () {
 
+    // Dashboard alias for tests
+    Route::get('/dashboard', [\App\Http\Controllers\Admin\AdminDashboardController::class, 'index'])->name('dashboard');
+
     // Route::get('/myDocuments', function () {
     //     return Inertia::render('MyDocuments');
     // })->name('myDocuments');

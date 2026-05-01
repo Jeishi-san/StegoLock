@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
@@ -51,14 +52,29 @@ class ProfileController extends Controller
     public function destroy(Request $request): RedirectResponse
     {
         $request->validate([
-            'password' => ['required', 'current_password'],
+            'password' => ['required', 'string'],
         ]);
 
         $user = $request->user();
 
+        // Verify password using custom auth system
+        $auth_salt = base64_decode($user->auth_salt);
+        $password_derivedKey = hash_pbkdf2(
+            'sha256',
+            $request->password,
+            $auth_salt,
+            100000,
+            32,
+            true
+        );
+
+        if (!hash_equals(base64_encode($password_derivedKey), $user->password_hash)) {
+            return back()->withErrors(['password' => 'The password is incorrect.']);
+        }
+
         Auth::logout();
 
-        $user->delete();
+        User::destroy($user->getAuthIdentifier());
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

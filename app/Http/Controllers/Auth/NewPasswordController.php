@@ -46,8 +46,36 @@ class NewPasswordController extends Controller
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user) use ($request) {
+                // Generate new salts
+                $authSalt = random_bytes(16);
+                $ekSalt = random_bytes(16);
+                $masterKey = random_bytes(32);
+                $nonce = random_bytes(12);
+
+                // Derive key from new password using PBKDF2
+                $derivedKey = hash_pbkdf2('sha256', $request->password, $authSalt, 100000, 32, true);
+
+                // Hash the derived key for password verification
+                $passwordHash = base64_encode($derivedKey);
+
+                // Encrypt master key with derived key
+                $tag = '';
+                $masterKeyEnc = openssl_encrypt(
+                    $masterKey,
+                    'aes-256-gcm',
+                    $derivedKey,
+                    OPENSSL_RAW_DATA,
+                    $nonce,
+                    $tag
+                );
+
                 $user->forceFill([
-                    'password' => Hash::make($request->password),
+                    'password_hash' => $passwordHash,
+                    'auth_salt' => base64_encode($authSalt),
+                    'ek_salt' => base64_encode($ekSalt),
+                    'master_key_enc' => base64_encode($masterKeyEnc),
+                    'nonce' => base64_encode($nonce),
+                    'tag' => base64_encode($tag),
                     'remember_token' => Str::random(60),
                 ])->save();
 

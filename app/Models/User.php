@@ -56,11 +56,18 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
             'storage_used' => 'integer',
             'storage_limit' => 'integer',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Get the password for the user (required by Authenticatable).
+     */
+    public function getAuthPassword(): string
+    {
+        return $this->password_hash;
     }
 
     /**

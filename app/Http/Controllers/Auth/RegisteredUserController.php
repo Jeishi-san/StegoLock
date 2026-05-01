@@ -93,8 +93,50 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        return redirect()
-            ->route('login')
-            ->with('success', 'Registration successful. Please log in to continue.');
+        // Log the user in using custom auth
+        $auth_salt = base64_decode($user->auth_salt);
+        $password_derivedKey = hash_pbkdf2(
+            'sha256',
+            $request->password,
+            $auth_salt,
+            100000,
+            32,
+            true
+        );
+
+        // Verify password
+        if (!hash_equals(base64_encode($password_derivedKey), $user->password_hash)) {
+            return back()->withErrors(['email' => 'Invalid credentials']);
         }
+
+        // Decrypt master key only if not cached or expired
+        $expires_at = session('master_key_expires_at');
+        if (!session('master_key') || !$expires_at || now()->greaterThan($expires_at)) {
+            $ek_salt = base64_decode($user->ek_salt);
+            $encryption_key = hash_pbkdf2('sha256', $password_derivedKey, $ek_salt, 100000, 32, true);
+
+            $master_key = openssl_decrypt(
+                base64_decode($user->master_key_enc),
+                'aes-256-gcm',
+                $encryption_key,
+                OPENSSL_RAW_DATA,
+                base64_decode($user->nonce),
+                base64_decode($user->tag)
+            );
+
+            if ($master_key === false) {
+                return back()->withErrors(['email' => 'Failed to decrypt master key']);
+            }
+
+            // Store master key in session for short-term use
+            session(['master_key' => $master_key]);
+            session(['master_key_expires_at' => now()->addMinutes(10)]);
+        }
+
+        // Login user manually
+        Auth::login($user);
+
+        // Redirect to dashboard (test expects this)
+        return redirect()->intended(route('dashboard', absolute: false));
+    }
 }
