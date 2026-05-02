@@ -74,9 +74,14 @@ class SteganoTest extends TestCase
 
         // Mock the ProcessSteganoJob dispatch
         \Illuminate\Support\Facades\Bus::fake();
-        
+
+        // Store master key in TemporaryKeyStorage and set token in session
+        $masterKey = random_bytes(32);
+        $tempKeyStorage = new \App\Services\TemporaryKeyStorage();
+        $token = $tempKeyStorage->store($masterKey, $user->id);
+
         $response = $this->actingAs($user)
-            ->withSession(['master_key' => 'fake-master-key'])
+            ->withSession(['master_key_token' => $token])
             ->postJson('/documents/lock', [
                 'document_id' => $document->document_id,
                 'temp_path' => 'temp/uploads/test.pdf',
@@ -93,7 +98,7 @@ class SteganoTest extends TestCase
     public function test_user_can_unlock_document(): void
     {
         $user = User::factory()->create();
-        
+
         $document = Document::create([
             'user_id' => $user->id,
             'filename' => 'test.pdf',
@@ -105,8 +110,13 @@ class SteganoTest extends TestCase
 
         \Illuminate\Support\Facades\Bus::fake();
 
+        // Store master key in TemporaryKeyStorage and set token in session
+        $masterKey = random_bytes(32);
+        $tempKeyStorage = new \App\Services\TemporaryKeyStorage();
+        $token = $tempKeyStorage->store($masterKey, $user->id);
+
         $response = $this->actingAs($user)
-            ->withSession(['master_key' => 'fake-master-key'])
+            ->withSession(['master_key_token' => $token])
             ->postJson('/documents/unlock', [
                 'document_id' => $document->document_id,
             ]);

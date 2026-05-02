@@ -23,6 +23,9 @@ class ShareTest extends TestCase
         // Mock the CryptoService
         $this->cryptoServiceMock = $this->createMock(CryptoService::class);
         $this->app->instance(CryptoService::class, $this->cryptoServiceMock);
+        
+        // Clear rate limit cache to avoid 429 errors in tests
+        \Illuminate\Support\Facades\Cache::flush();
     }
 
     /**
@@ -51,8 +54,13 @@ class ShareTest extends TestCase
             'salt' => 'salt',
         ]);
 
+        // Store master key in TemporaryKeyStorage and set token in session
+        $masterKey = random_bytes(32);
+        $tempKeyStorage = new \App\Services\TemporaryKeyStorage();
+        $token = $tempKeyStorage->store($masterKey, $user->id);
+
         $response = $this->actingAs($user)
-            ->withSession(['master_key' => 'fake-master-key'])
+            ->withSession(['master_key_token' => $token])
             ->postJson('/documents/share', [
                 'document_id' => $document->document_id,
                 'email' => $recipient->email,
@@ -148,8 +156,13 @@ class ShareTest extends TestCase
         ]);
 
         // First share
+        // Store master key in TemporaryKeyStorage and set token in session
+        $masterKey = random_bytes(32);
+        $tempKeyStorage = new \App\Services\TemporaryKeyStorage();
+        $token = $tempKeyStorage->store($masterKey, $user->id);
+
         $response1 = $this->actingAs($user)
-            ->withSession(['master_key' => 'fake-master-key'])
+            ->withSession(['master_key_token' => $token])
             ->postJson('/documents/share', [
                 'document_id' => $document->document_id,
                 'email' => $recipient->email,
@@ -159,7 +172,7 @@ class ShareTest extends TestCase
 
         // Second share (should update existing, not create new)
         $response2 = $this->actingAs($user)
-            ->withSession(['master_key' => 'fake-master-key'])
+            ->withSession(['master_key_token' => $token])
             ->postJson('/documents/share', [
                 'document_id' => $document->document_id,
                 'email' => $recipient->email,
@@ -322,8 +335,13 @@ class ShareTest extends TestCase
             'salt' => 'salt',
         ]);
 
+        // Store master key in TemporaryKeyStorage and set token in session
+        $masterKey = random_bytes(32);
+        $tempKeyStorage = new \App\Services\TemporaryKeyStorage();
+        $token = $tempKeyStorage->store($masterKey, $user->id);
+
         $response = $this->actingAs($user)
-            ->withSession(['master_key' => 'fake-master-key'])
+            ->withSession(['master_key_token' => $token])
             ->postJson('/folders/share', [
                 'folder_id' => $folder->folder_id,
                 'email' => $recipient->email,

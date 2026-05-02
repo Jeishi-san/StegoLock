@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('filename');
             $table->string('file_type');
             $table->string('file_hash'); // SHA-256
+            $table->string('temp_path')->nullable();
             $table->unsignedBigInteger('original_size');
 
             $table->unsignedBigInteger('encrypted_size')->nullable();

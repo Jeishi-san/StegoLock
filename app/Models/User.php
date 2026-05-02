@@ -27,14 +27,22 @@ class User extends Authenticatable
         'email',
         'role',
         'is_active',
+        'storage_used',
+        'storage_limit',
+    ];
+
+    /**
+     * The attributes that are not mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $guarded = [
         'password_hash',
         'auth_salt',
         'ek_salt',
         'master_key_enc',
         'nonce',
         'tag',
-        'storage_used',
-        'storage_limit',
     ];
 
     /**

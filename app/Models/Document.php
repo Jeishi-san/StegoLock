@@ -17,6 +17,7 @@ class Document extends Model
         'filename',
         'file_type',
         'file_hash',
+        'temp_path',
         'original_size',
         'encrypted_size',
         'dk_salt',

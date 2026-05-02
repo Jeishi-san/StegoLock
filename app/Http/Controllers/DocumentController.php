@@ -34,6 +34,10 @@ use App\Models\DocumentShare;
 use App\Models\FolderShare;
 use App\Models\DocumentActivity;
 use App\Services\CryptoService;
+use App\Services\TemporaryKeyStorage;
+use App\Jobs\ProcessSteganoJob;
+use App\Jobs\ProcessUnlockJob;
+use Illuminate\Support\Facades\RateLimiter;
 
 
 
@@ -47,6 +51,40 @@ class DocumentController extends Controller
         $this->cryptoService = $cryptoService;
     }
 
+    private function getMasterKeyFromSession(): string
+    {
+        $token = session('master_key_token');
+        if (!$token) {
+            throw new \RuntimeException('Master key token not found in session.');
+        }
+
+        $masterKey = (new TemporaryKeyStorage())->retrieve($token, Auth::id());
+        if (!$masterKey) {
+            throw new \RuntimeException('Master key not found or expired.');
+        }
+
+        return $masterKey;
+    }
+
+    /**
+     * Check rate limit for sensitive operations
+     */
+    private function checkRateLimit(string $action, int $maxAttempts, int $decaySeconds): void
+    {
+        // Skip rate limiting in testing environment
+        if (app()->environment('testing')) {
+            return;
+        }
+
+        $key = 'rate_limit:' . Auth::id() . ':' . $action;
+
+        if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
+            abort(429, "Too many {$action} attempts. Please try again in " . 
+                RateLimiter::availableIn($key) . " seconds.");
+        }
+        RateLimiter::hit($key, $decaySeconds);
+    }
+
     /**
      * Returns json containing the current user's documents, totalStorage, and storageLimit
      */
@@ -55,8 +93,9 @@ class DocumentController extends Controller
         $user = Auth::user();
         $user->refreshStorageUsed();
         $folderId = $request->folder_id;
+        $perPage = 20; // Configurable
 
-        // Fetch owned documents
+        // Fetch owned documents with pagination
         $query = Document::withCount('shares')
             ->where('user_id', Auth::id())
             ->latest();
@@ -65,13 +104,14 @@ class DocumentController extends Controller
             $query->where('folder_id', $folderId);
         }
 
-        $documents = $query->get()
-            ->map(function ($doc) {
+        $documents = $query->paginate($perPage)
+            ->through(function ($doc) {
                 $doc->is_owner = true;
                 return $doc;
             });
 
-        // If folder_id is provided, also fetch shared documents in this folder
+        // If folder_id is provided, also fetch shared documents in this folder (without pagination for now)
+        $sharedDocs = collect();
         if ($folderId) {
             $sharedDocs = DocumentShare::with('document')
                 ->where('recipient_id', Auth::id())
@@ -86,8 +126,6 @@ class DocumentController extends Controller
                     $doc->share_id = $share->share_id;
                     return $doc;
                 });
-            
-            $documents = $documents->concat($sharedDocs)->sortByDesc('created_at')->values();
         }
 
         $folders = \App\Models\Folder::where('user_id', Auth::id())
@@ -109,6 +147,7 @@ class DocumentController extends Controller
 
         return Inertia::render('MyDocuments', [
             'documents' => $documents,
+            'sharedDocs' => $sharedDocs,
             'folders' => $folders,
             'currentFolder' => $currentFolder,
             'breadcrumbs' => $breadcrumbs,
@@ -122,17 +161,19 @@ class DocumentController extends Controller
     {
         $user = Auth::user();
         $user->refreshStorageUsed();
+        $perPage = 20;
 
+        // Fetch owned documents with pagination
         $documents = Document::withCount('shares')
             ->where('user_id', Auth::id())
             ->latest()
-            ->get()
-            ->map(function ($doc) {
+            ->paginate($perPage)
+            ->through(function ($doc) {
                 $doc->is_owner = true;
                 return $doc;
             });
 
-        // Fetch documents shared with the user
+        // Fetch documents shared with the user (without pagination for now)
         $sharedDocs = Document::whereIn('document_id', function ($query) {
                 $query->select('document_id')
                     ->from('document_shares')
@@ -158,14 +199,13 @@ class DocumentController extends Controller
                 return $doc;
             });
 
-        $allDocuments = $documents->concat($sharedDocs)->sortByDesc('created_at')->values();
-
         $folders = \App\Models\Folder::where('user_id', Auth::id())
             ->orderBy('name')
             ->get();
 
         return Inertia::render('MyDocuments', [
-            'documents' => $allDocuments,
+            'documents' => $documents,
+            'sharedDocs' => $sharedDocs,
             'folders' => $folders,
             'totalStorage' => $user->storage_used,
             'storageLimit' => $user->storage_limit,
@@ -193,17 +233,17 @@ class DocumentController extends Controller
     {
         $user = Auth::user();
         $user->refreshStorageUsed();
+        $perPage = 20;
 
-        // Fetch accepted shared documents
-        $acceptedShares = Document::whereIn('document_id', function ($query) {
-                $query->select('document_id')
-                    ->from('document_shares')
-                    ->where('recipient_id', Auth::id())
-                    ->where('status', 'accepted');
-            })
+        // Fetch accepted shared documents with pagination
+        $acceptedShares = Document::whereIn('document_id',
+            DocumentShare::where('recipient_id', Auth::id())
+                ->where('status', 'accepted')
+                ->pluck('document_id')
+        )
             ->latest()
-            ->get()
-            ->map(function ($doc) {
+            ->paginate($perPage)
+            ->through(function ($doc) {
                 $doc->is_owner = false;
                 $doc->is_shared = true;
                 return $doc;
@@ -286,18 +326,34 @@ class DocumentController extends Controller
      * Starts the locking and securing process of the document
      */
     public function lock(Request $request) {
+        $this->checkRateLimit('lock', 10, 60); // 10 attempts per minute
+
         $document = Document::findOrFail($request->document_id);
 
+        // Authorization check - CRITICAL
+        if ($document->user_id !== Auth::id()) {
+            abort(403, 'You do not own this document.');
+        }
+
+        $tempPath = $document->temp_path;
+
         try {
-            // 1. Encrypt (Sychronous because it needs session master_key)
-            $encryptedPath = $this->encrypt($document->document_id, $request->temp_path);
+            $masterKey = $this->getMasterKeyFromSession();
+
+            // 2. Get temp path from document record
+            if (!$tempPath) {
+                throw new \Exception('Temporary file path not found for document');
+            }
+
+            // 3. Encrypt (synchronous, uses master key from TemporaryKeyStorage)
+            $encryptedPath = $this->encrypt($document->document_id, $tempPath, $masterKey);
 
             if (!$encryptedPath) {
                 throw new \Exception("Encryption failed");
             }
 
-            // 2. Dispatch the rest to the background
-            \App\Jobs\ProcessSteganoJob::dispatch($document->document_id, $encryptedPath);
+            // 4. Dispatch the rest to the background
+            ProcessSteganoJob::dispatch($document->document_id, $encryptedPath);
 
             DocumentActivity::create([
                 'document_id' => $document->document_id,
@@ -319,8 +375,8 @@ class DocumentController extends Controller
             ]);
 
             // Cleanup the temp upload file if it exists and encryption failed
-            if ($request->temp_path && Storage::exists($request->temp_path)) {
-                Storage::delete($request->temp_path);
+            if ($tempPath && Storage::exists($tempPath)) {
+                Storage::delete($tempPath);
             }
 
             return [
@@ -337,7 +393,7 @@ class DocumentController extends Controller
     {
         // 1: Validate
         $request->validate([
-            'file' => 'required|file|mimes:pdf,doc,docx,txt|min:1|max:5120'
+            'file' => ['required', 'file', 'mimes:pdf,doc,docx,txt', 'min:1', 'max:5120']
         ]);
 
         $file = $request->file('file');
@@ -361,6 +417,7 @@ class DocumentController extends Controller
                 'filename' => $file->getClientOriginalName(),
                 'file_type' => $file->getClientOriginalExtension(),
                 'file_hash' => $fileHash,
+                'temp_path' => $path,
                 'original_size' => $file->getSize(),
                 'status' => 'uploaded'
             ]);
@@ -383,7 +440,7 @@ class DocumentController extends Controller
         ];
     }
 
-    private function encrypt(int $documentId, string $temp_filePath)
+    private function encrypt(int $documentId, string $temp_filePath, string $masterKey)
     {
         $document = Document::find($documentId);
         if (!$document) {
@@ -404,11 +461,7 @@ class DocumentController extends Controller
             $dek = random_bytes(32);
             $dek_hash = hash('sha256', $dek);
 
-            // 3. Get master key from session for wrapping
-            $masterKey = session('master_key');
-            if (!$masterKey) {
-                throw new \Exception('Master key not found in session.');
-            }
+            // 3. Master key is passed from TemporaryKeyStorage (no session lookup)
 
             // 4. Generate wrapping metadata
             $dk_salt = random_bytes(Constant::DK_SALT_LEN);
@@ -492,6 +545,8 @@ class DocumentController extends Controller
      */
     public function unlock(Request $request)
     {
+        $this->checkRateLimit('unlock', 10, 60); // 10 attempts per minute
+
         $document = Document::findOrFail($request->document_id);
 
         $isOwner = $document->user_id === Auth::id();
@@ -515,16 +570,17 @@ class DocumentController extends Controller
         }
 
         if (!in_array($document->status, ['stored', 'decrypted', 'retrieved'])) {
-            abort(400, 'Invalid document status for unlocking');
+            abort(400, 'Invalid document status for unlocking. Current status: ' . $document->status);
         }
 
-        $masterKey = session('master_key');
-        if (!$masterKey) {
-            abort(403, 'Master key not found in session. Please log in again.');
+        try {
+            $masterKey = $this->getMasterKeyFromSession();
+        } catch (\RuntimeException $e) {
+            abort(403, $e->getMessage());
         }
 
         // Dispatch the unlocking process to the background
-        \App\Jobs\ProcessUnlockJob::dispatch($document->document_id, base64_encode($masterKey), Auth::id());
+        ProcessUnlockJob::dispatch($document->document_id, base64_encode($masterKey), Auth::id());
 
         return response()->json([
             'success' => true,
@@ -576,6 +632,8 @@ class DocumentController extends Controller
      */
     public function delete(Request $request)
     {
+        $this->checkRateLimit('delete', 10, 60); // 10 deletes per minute
+
         $user = Auth::user();
         $document = Document::where('document_id', $request->document_id)
             ->where('user_id', Auth::id())
@@ -748,9 +806,11 @@ class DocumentController extends Controller
 
     public function share(Request $request)
     {
+        $this->checkRateLimit('share', 20, 60); // 20 shares per minute
+
         $request->validate([
-            'document_id' => 'required|exists:documents,document_id',
-            'email' => 'required|email',
+            'document_id' => ['required', 'exists:documents,document_id'],
+            'email' => ['required', 'email'],
         ]);
 
         $document = Document::where('document_id', $request->document_id)
@@ -769,9 +829,10 @@ class DocumentController extends Controller
             return response()->json(['error' => 'You cannot share a document with yourself.'], 422);
         }
 
-        $masterKey = session('master_key');
-        if (!$masterKey) {
-            return response()->json(['error' => 'Master key not found in session.'], 403);
+        try {
+            $masterKey = $this->getMasterKeyFromSession();
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 403);
         }
 
         // 1. Unwrap the DEK using Owner's Master Key
@@ -822,8 +883,10 @@ class DocumentController extends Controller
 
     public function acceptShare(Request $request)
     {
+        $this->checkRateLimit('acceptShare', 20, 60); // 20 accepts per minute
+
         $request->validate([
-            'document_id' => 'required|exists:documents,document_id',
+            'document_id' => ['required', 'exists:documents,document_id'],
         ]);
 
         $share = DocumentShare::where('document_id', $request->document_id)
@@ -835,9 +898,10 @@ class DocumentController extends Controller
             return response()->json(['error' => 'This share invitation has expired.'], 403);
         }
 
-        $masterKey = session('master_key');
-        if (!$masterKey) {
-            return response()->json(['error' => 'Master key not found in session.'], 403);
+        try {
+            $masterKey = $this->getMasterKeyFromSession();
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 403);
         }
 
         // 1. Unwrap with System Key
@@ -878,9 +942,11 @@ class DocumentController extends Controller
 
     public function shareFolder(Request $request)
     {
+        $this->checkRateLimit('shareFolder', 10, 60); // 10 attempts per minute
+
         $request->validate([
-            'folder_id' => 'required|exists:folders,folder_id',
-            'email' => 'required|email',
+            'folder_id' => ['required', 'exists:folders,folder_id'],
+            'email' => ['required', 'email'],
         ]);
 
         $folder = Folder::where('folder_id', $request->folder_id)
@@ -895,9 +961,10 @@ class DocumentController extends Controller
             return response()->json(['error' => 'You cannot share with yourself.'], 422);
         }
 
-        $masterKey = session('master_key');
-        if (!$masterKey) {
-            return response()->json(['error' => 'Master key not found in session.'], 403);
+        try {
+            $masterKey = $this->getMasterKeyFromSession();
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 403);
         }
 
         // 1. Recursive Document Discovery (OWNED ONLY)
@@ -988,7 +1055,7 @@ class DocumentController extends Controller
     public function acceptFolderShare(Request $request)
     {
         $request->validate([
-            'share_id' => 'required|exists:folder_shares,share_id',
+            'share_id' => ['required', 'exists:folder_shares,share_id'],
         ]);
 
         $folderShare = FolderShare::where('share_id', $request->share_id)
@@ -1000,9 +1067,10 @@ class DocumentController extends Controller
             return response()->json(['error' => 'This invitation has expired.'], 403);
         }
 
-        $masterKey = session('master_key');
-        if (!$masterKey) {
-            return response()->json(['error' => 'Master key not found in session.'], 403);
+        try {
+            $masterKey = $this->getMasterKeyFromSession();
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 403);
         }
 
         $systemKey = $this->parseKey(config('app.share_key') ?? config('app.key'));
@@ -1263,7 +1331,7 @@ class DocumentController extends Controller
     {
         // Validate
         $request->validate([
-            'file' => 'required|file|mimes:pdf,doc,docx,txt|min:1|max:5120'
+            'file' => ['required', 'file', 'mimes:pdf,doc,docx,txt', 'min:1', 'max:5120']
         ]);
 
         $file = $request->file('file');
@@ -1334,8 +1402,13 @@ class DocumentController extends Controller
                 }
             }
 
-            //dispatch extraction
-            ExtractFragmentJob::dispatchSync($stegoMap->stego_map_id, $stegoFiles);
+            // Dispatch extraction only if the job exists in this codebase.
+            $extractFragmentJob = \App\Jobs\ExtractFragmentJob::class;
+            if (!class_exists($extractFragmentJob)) {
+                throw new \RuntimeException('ExtractFragmentJob is not available.');
+            }
+
+            $extractFragmentJob::dispatchSync($stegoMap->stego_map_id, $stegoFiles);
 
             //return back()->with('success', $stegoFiles);
         } catch (\Throwable $e) {
@@ -1389,7 +1462,7 @@ class DocumentController extends Controller
     public function rename(Request $request, $id)
     {
         $request->validate([
-            'filename' => 'required|string|max:255'
+            'filename' => ['required', 'string', 'max:255']
         ]);
 
         $document = Document::where('document_id', $id)

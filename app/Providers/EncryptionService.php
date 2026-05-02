@@ -2,14 +2,19 @@
 
 namespace App\Providers;
 
-
+use App\Services\TemporaryKeyStorage;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Document;
+use Illuminate\Support\Facades\Storage;
+use App\Config\Constant;
 
 class EncryptionService
 {
     public function encrypt(int $documentId, string $temp_filePath)
     {
+        $encPath = null; // Initialize to avoid undefined variable errors
         //print or display "encryption ongoing..."
-        $document = Document::find($documentId);
+        $document = Document::where('document_id', $documentId)->first();
         if (!$document) {
             throw new \Exception("Missing document");
         }
@@ -20,10 +25,17 @@ class EncryptionService
             // 2. Generate a random document key salt (32 bytes)
             $dk_salt = random_bytes(Constant::DK_SALT_LEN);
 
-            // 3. Get master key from session
-            $masterKey = session('master_key');
+            // 3. Get master key from Redis via TemporaryKeyStorage
+            $token = session('master_key_token');
+            $userId = Auth::id();
+            if (!$token || !$userId) {
+                throw new \Exception('Master key token not found in session or user not authenticated.');
+            }
+
+            $storage = new TemporaryKeyStorage();
+            $masterKey = $storage->retrieve($token, $userId);
             if (!$masterKey) {
-                throw new \Exception('Master key not found in session.');
+                throw new \Exception('Master key not found or expired.');
             }
 
             // 4. Derive the document key using HKDF | Output length: 32 bytes (256-bit key)
@@ -40,6 +52,14 @@ class EncryptionService
                 $nonce,
                 $tag
             );
+
+            if ($ciphertext === false) {
+                $opensslError = openssl_error_string();
+                \Illuminate\Support\Facades\Log::error('EncryptionService: openssl_encrypt failed', [
+                    'openssl_error' => $opensslError,
+                ]);
+                throw new \Exception('AES-256-GCM encryption failed: ' . $opensslError);
+            }
 
             // 5. Save encrypted file (store nonce/IV + tag + ciphertext)
             $encPath = 'temp/encrypted/' . pathinfo(basename(''.$temp_filePath), PATHINFO_FILENAME) . '.stegolock';
@@ -60,7 +80,7 @@ class EncryptionService
             // Update document with failure info
             $document->update([
                 'status' => 'failed',
-                'error_message' => ['Encryption failed', $e->getMessage()]
+                'error_message' => json_encode(['Encryption failed', $e->getMessage()])
             ]);
 
             //return back()->with('error', $document->error_message);

@@ -345,61 +345,76 @@ class ProcessSteganoJob implements ShouldQueue
 
     private function splitDocument(Document $document, $covers)
     {
-        $ciphertext = file_get_contents(Storage::path($this->encryptedPath));
+        $encryptedPath = Storage::path($this->encryptedPath);
+        $totalLength = filesize($encryptedPath);
         $offset = 0;
-        $totalLength = strlen($ciphertext);
         $numCovers = $covers->count();
         
         $mappingArray = [];
         
-        foreach ($covers as $index => $cover) {
-            $remainingData = $totalLength - $offset;
-            $remainingCovers = $numCovers - $index - 1;
+        // Open file for reading
+        $handle = fopen($encryptedPath, 'rb');
+        if (!$handle) {
+            throw new \Exception("Failed to open encrypted file: {$encryptedPath}");
+        }
+        
+        try {
+            foreach ($covers as $index => $cover) {
+                $remainingData = $totalLength - $offset;
+                $remainingCovers = $numCovers - $index - 1;
 
-            if ($remainingData <= 0) break;
+                if ($remainingData <= 0) break;
 
-            if ($remainingCovers > 0) {
-                // Determine how much this cover should take
-                $capacity = (int) ($cover->metadata['capacity'] ?? 0);
+                if ($remainingCovers > 0) {
+                    // Determine how much this cover should take
+                    $capacity = (int) ($cover->metadata['capacity'] ?? 0);
+                    
+                    // Safety: Leave at least 1 byte for each remaining cover
+                    $maxPossible = $remainingData - $remainingCovers;
+                    
+                    // Right-Sized Logic: 
+                    // For large files, we want to fill the capacity.
+                    // For small files, we want to distribute fairly.
+                    $fairShare = ceil($remainingData / ($remainingCovers + 1));
+                    
+                    // Take the larger of fairShare or capacity-limited pour, 
+                    // but never more than maxPossible and never more than capacity.
+                    $chunkSize = min($capacity, $maxPossible, max($fairShare, min($capacity, $remainingData)));
+                    
+                    // If the file is small relative to capacity, we'll end up with balanced fragments.
+                    // If the file is large, the first few will fill their capacity.
+                } else {
+                    // Last cover takes everything else
+                    $chunkSize = $remainingData;
+                }
+
+                // Seek to the correct offset and read chunk
+                fseek($handle, $offset);
+                $chunk = fread($handle, $chunkSize);
+                if ($chunk === false || strlen($chunk) === 0) {
+                    break;
+                }
                 
-                // Safety: Leave at least 1 byte for each remaining cover
-                $maxPossible = $remainingData - $remainingCovers;
-                
-                // Right-Sized Logic: 
-                // For large files, we want to fill the capacity.
-                // For small files, we want to distribute fairly.
-                $fairShare = ceil($remainingData / ($remainingCovers + 1));
-                
-                // Take the larger of fairShare or capacity-limited pour, 
-                // but never more than maxPossible and never more than capacity.
-                $chunkSize = min($capacity, $maxPossible, max($fairShare, min($capacity, $remainingData)));
-                
-                // If the file is small relative to capacity, we'll end up with balanced fragments.
-                // If the file is large, the first few will fill their capacity.
-            } else {
-                // Last cover takes everything else
-                $chunkSize = $remainingData;
+                $fragment = Fragment::create([
+                    'fragment_id' => (string) Str::uuid(),
+                    'document_id' => $document->document_id,
+                    'index' => $index,
+                    'blob' => base64_encode($chunk),
+                    'size' => strlen($chunk),
+                    'hash' => hash('sha256', $chunk),
+                    'status' => 'floating',
+                ]);
+
+                $mappingArray[] = [
+                    'fragment_id' => $fragment->fragment_id,
+                    'cover_id' => $cover->cover_id,
+                    'offset' => 0 
+                ];
+
+                $offset += $chunkSize;
             }
-
-            $chunk = substr($ciphertext, $offset, $chunkSize);
-            
-            $fragment = Fragment::create([
-                'fragment_id' => (string) Str::uuid(),
-                'document_id' => $document->document_id,
-                'index' => $index,
-                'blob' => base64_encode($chunk),
-                'size' => strlen($chunk),
-                'hash' => hash('sha256', $chunk),
-                'status' => 'floating',
-            ]);
-
-            $mappingArray[] = [
-                'fragment_id' => $fragment->fragment_id,
-                'cover_id' => $cover->cover_id,
-                'offset' => 0 
-            ];
-
-            $offset += $chunkSize;
+        } finally {
+            fclose($handle);
         }
 
         FragmentMap::create([
@@ -466,21 +481,55 @@ class ProcessSteganoJob implements ShouldQueue
 
     private function generate_text_cover(int $fragmentSize)
     {
-        $maxId = DB::table('wiki_feeds')->max('id');
-        if (!$maxId) throw new \Exception('No data in wiki_feeds');
+        // Check if there's any data in wiki_feeds table
+        $count = DB::table('wiki_feeds')->count();
+        if ($count == 0) {
+            // Try to seed from the WikiFeedsSeeder if empty
+            $seeder = new \Database\Seeders\WikiFeedsSeeder();
+            $seeder->run();
+        }
+
+        // Re-check after potential seeding
+        $count = DB::table('wiki_feeds')->count();
+        if ($count == 0) {
+            throw new \Exception('No data in wiki_feeds');
+        }
 
         $targetSize = $fragmentSize / 0.02;
         $content = '';
         $capacity = 0;
 
-        while (strlen($content) < $targetSize) {
-            $randomId = rand(1, $maxId);
-            $feed = DB::table('wiki_feeds')->where('id', $randomId)->first();
-            if (!$feed) continue;
+        // Batch fetch wiki feeds for better performance
+        $batchSize = 100;
+        $usedIds = [];
 
-            $block = "pageid: {$feed->pageid}\ntitle: {$feed->title}\ncontent: {$feed->feed}\n\n";
-            $content .= $block;
-            $capacity = floor(strlen($content) * 0.02);
+        while (strlen($content) < $targetSize) {
+            // Fetch a batch of random feeds
+            $feeds = DB::table('wiki_feeds')
+                ->whereNotIn('id', $usedIds)
+                ->inRandomOrder()
+                ->limit($batchSize)
+                ->get();
+
+            if ($feeds->isEmpty()) {
+                // Reset used IDs if we've exhausted all feeds
+                $usedIds = [];
+                $feeds = DB::table('wiki_feeds')
+                    ->inRandomOrder()
+                    ->limit($batchSize)
+                    ->get();
+            }
+
+            foreach ($feeds as $feed) {
+                $block = "pageid: {$feed->pageid}\ntitle: {$feed->title}\ncontent: {$feed->feed}\n\n";
+                $content .= $block;
+                $usedIds[] = $feed->id;
+                $capacity = floor(strlen($content) * 0.02);
+
+                if (strlen($content) >= $targetSize) {
+                    break;
+                }
+            }
         }
 
         $fileName = bin2hex(random_bytes(16)) . "_cover_" . time() . ".txt";

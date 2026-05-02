@@ -52,7 +52,7 @@ class DocumentTest extends TestCase
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
             ->component('MyDocuments')
-            ->has('documents', 2)
+            ->has('documents.data', 2)
         );
     }
 
@@ -488,16 +488,24 @@ class DocumentTest extends TestCase
             'fragment_count' => 0,
         ]);
 
-        // Create a fake encrypted file
+        // Create a fake encrypted file and set temp_path in document
         Storage::fake('local');
         $encryptedPath = 'temp/encrypted/' . \Illuminate\Support\Str::uuid() . '.stegolock';
         Storage::put($encryptedPath, 'encrypted content');
 
-        // Mock the encrypt method or use a real file
-        $response = $this->actingAs($user)->postJson('/documents/lock', [
-            'document_id' => $document->document_id,
-            'temp_path' => $encryptedPath,
-        ]);
+        // Update document with temp_path
+        $document->update(['temp_path' => $encryptedPath]);
+
+        // Store master key in TemporaryKeyStorage and set token in session
+        $masterKey = random_bytes(32);
+        $tempKeyStorage = new \App\Services\TemporaryKeyStorage();
+        $token = $tempKeyStorage->store($masterKey, $user->id);
+
+        $response = $this->actingAs($user)
+            ->withSession(['master_key_token' => $token])
+            ->postJson('/documents/lock', [
+                'document_id' => $document->document_id,
+            ]);
 
         // The response should indicate locking started
         if ($response->status() === 200) {
@@ -512,9 +520,10 @@ class DocumentTest extends TestCase
     {
         $user = User::factory()->create();
 
-        // Simulate login with master key in session
+        // Store master key in TemporaryKeyStorage and set token in session
         $masterKey = random_bytes(32);
-        $this->withSession(['master_key' => $masterKey]);
+        $tempKeyStorage = new \App\Services\TemporaryKeyStorage();
+        $token = $tempKeyStorage->store($masterKey, $user->id);
 
         $document = Document::create([
             'user_id' => $user->id,
@@ -526,9 +535,11 @@ class DocumentTest extends TestCase
             'fragment_count' => 0,
         ]);
 
-        $response = $this->actingAs($user)->postJson('/documents/unlock', [
-            'document_id' => $document->document_id,
-        ]);
+        $response = $this->actingAs($user)
+            ->withSession(['master_key_token' => $token])
+            ->postJson('/documents/unlock', [
+                'document_id' => $document->document_id,
+            ]);
 
         // The response should indicate unlocking started
         if ($response->status() === 200) {
