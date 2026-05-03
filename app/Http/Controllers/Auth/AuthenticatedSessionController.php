@@ -90,7 +90,7 @@ class AuthenticatedSessionController extends Controller
 
         // Redirect based on role
         if ($user->isUserAdmin() || $user->isDbStorageAdmin() || $user->isSuperadmin()) {
-            return redirect()->intended(route('dashboard', absolute: false));
+            return redirect()->intended(route('admin.dashboard', absolute: false));
         }
 
         return redirect()->intended(route('myDocuments', absolute: false));

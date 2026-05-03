@@ -20,6 +20,7 @@ import { useState } from 'react';
 
 export default function CloudPage({ stats, users }) {
     const [searchQuery, setSearchQuery] = useState('');
+    const { router } = usePage().props;
 
     const formatBytes = (bytes, decimals = 2) => {
         if (!+bytes) return '0 Bytes';
@@ -28,6 +29,22 @@ export default function CloudPage({ stats, users }) {
         const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    };
+
+    const handleUpdateQuota = (user) => {
+        const currentGb = user.storage_limit / (1024 * 1024 * 1024);
+        const newLimitGb = prompt(`Update storage quota for ${user.name} (in GB):`, currentGb.toFixed(2));
+        
+        if (newLimitGb && !isNaN(newLimitGb) && parseFloat(newLimitGb) > 0) {
+            const bytes = parseFloat(newLimitGb) * 1024 * 1024 * 1024;
+            router.patch(route('admin.users.update-quota', user.id), {
+                storage_limit: Math.floor(bytes)
+            }, {
+                onSuccess: () => {
+                    // Optional: show success notification
+                }
+            });
+        }
     };
 
     const filteredUsers = users.filter(user => 
@@ -149,8 +166,11 @@ export default function CloudPage({ stats, users }) {
                                 </div>
                             </div>
 
-                            <button className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                                Open B2 Console <ArrowUpRight className="size-3 inline-block ml-1" />
+                            <button 
+                                onClick={() => window.open('https://secure.backblaze.com/b2_bucket_mgmt.htm?bucketId=' + stats.b2_bucket, '_blank')}
+                                className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                            >
+                                Open B2 Console <ArrowUpRight className="size-3" />
                             </button>
                         </div>
                     </div>
@@ -224,7 +244,11 @@ export default function CloudPage({ stats, users }) {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button className="p-2 rounded-lg bg-slate-100 dark:bg-cyber-void border border-slate-200 dark:border-cyber-border/50 text-slate-500 hover:text-cyan-500 hover:border-cyan-500/50 transition-all">
+                                                <button 
+                                                    onClick={() => handleUpdateQuota(user)}
+                                                    className="p-2 rounded-lg bg-slate-100 dark:bg-cyber-void border border-slate-200 dark:border-cyber-border/50 text-slate-500 hover:text-cyan-500 hover:border-cyan-500/50 transition-all"
+                                                    title="Update storage quota"
+                                                >
                                                     <Settings className="size-4" />
                                                 </button>
                                             </td>

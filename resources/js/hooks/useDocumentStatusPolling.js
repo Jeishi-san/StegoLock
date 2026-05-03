@@ -3,8 +3,20 @@ import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
+const normalizeDocuments = (documents) => {
+    if (Array.isArray(documents)) {
+        return documents;
+    }
+
+    if (Array.isArray(documents?.data)) {
+        return documents.data;
+    }
+
+    return [];
+};
+
 export function useDocumentStatusPolling(initialDocuments, onDownloadTriggered) {
-    const [localDocs, setLocalDocs] = useState(initialDocuments);
+    const [localDocs, setLocalDocs] = useState(() => normalizeDocuments(initialDocuments));
     const [unlockingProgress, setUnlockingProgress] = useState(() => {
         const saved = localStorage.getItem('stegolock_unlocking_progress');
         return saved ? JSON.parse(saved) : {};
@@ -21,7 +33,7 @@ export function useDocumentStatusPolling(initialDocuments, onDownloadTriggered) 
 
     // Update localDocs when initialDocuments change
     useEffect(() => {
-        setLocalDocs(initialDocuments);
+        setLocalDocs(normalizeDocuments(initialDocuments));
     }, [initialDocuments]);
 
     // Polling logic

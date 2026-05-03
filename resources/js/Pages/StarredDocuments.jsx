@@ -114,7 +114,7 @@ export default function StarredDocuments({ documents, totalStorage, storageLimit
     });
 
     const filteredDocs = useMemo(() => {
-        let result = [...localDocs];
+        let result = Array.isArray(localDocs) ? [...localDocs] : [];
 
         // Search filter
         if (searchQuery) {

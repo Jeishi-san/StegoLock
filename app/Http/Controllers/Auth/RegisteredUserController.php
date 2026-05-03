@@ -77,19 +77,17 @@ class RegisteredUserController extends Controller
             $tag
         );
 
-        //Create user in DB
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password_hash' => base64_encode($password_derivedKey),
-            'auth_salt' => base64_encode($auth_salt),
-            'ek_salt' => base64_encode($ek_salt),
-            'master_key_enc' => base64_encode($master_key_enc),
-            'nonce' => base64_encode($nonce),
-            'tag' => base64_encode($tag),
-            //user storage limit
-            //user storate current size
-        ]);
+        //Create user in DB (use direct assignment to bypass $guarded)
+        $user = new User();
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->password_hash = base64_encode($password_derivedKey);
+        $user->auth_salt = base64_encode($auth_salt);
+        $user->ek_salt = base64_encode($ek_salt);
+        $user->master_key_enc = base64_encode($master_key_enc);
+        $user->nonce = base64_encode($nonce);
+        $user->tag = base64_encode($tag);
+        $user->save();
 
         event(new Registered($user));
 
@@ -137,7 +135,11 @@ class RegisteredUserController extends Controller
         // Login user manually
         Auth::login($user);
 
-        // Redirect to dashboard (test expects this)
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Redirect based on role (match login logic)
+        if ($user->isUserAdmin() || $user->isDbStorageAdmin() || $user->isSuperadmin()) {
+            return redirect()->intended(route('admin.dashboard', absolute: false));
+        }
+
+        return redirect()->intended(route('myDocuments', absolute: false));
     }
 }

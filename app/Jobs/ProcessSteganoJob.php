@@ -433,6 +433,7 @@ class ProcessSteganoJob implements ShouldQueue
     private function embedDocument(Document $document)
     {
         $document->update(['status' => 'mapped']);
+        event(new DocumentStatusUpdated($document));
         $map = FragmentMap::where('document_id', $document->document_id)->firstOrFail();
         $user = $document->user;
         $b2 = new B2Service();

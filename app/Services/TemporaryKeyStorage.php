@@ -46,9 +46,9 @@ class TemporaryKeyStorage
             Log::warning('Configured temporary-key-storage store not found in cache stores', [
                 'configured' => $desiredStore,
                 'available' => $availableStores,
-                'fallback' => 'array'
+                'fallback' => 'database'
             ]);
-            $desiredStore = 'array';
+            $desiredStore = 'database';
         }
 
         // Test the connection (only for Redis or other network-based stores)
@@ -58,10 +58,11 @@ class TemporaryKeyStorage
                 $repository->get('health-check');
                 $this->store = 'redis';
             } catch (\Exception $e) {
-                Log::warning('Redis unavailable, falling back to array cache', [
+                Log::warning('Redis unavailable, falling back to database cache', [
                     'error' => $e->getMessage()
                 ]);
-                $this->store = 'array';
+                // Use database cache as persistent fallback
+                $this->store = 'database';
             }
         } else {
             $this->store = $desiredStore;

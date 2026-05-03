@@ -455,8 +455,34 @@ export default function Users({ users = [] }) {
                         setEditingUser(null);
                     }}
                     onSubmit={(data) => {
-                        // We'll implement the actual Inertia request here next
-                        console.log('Action:', data);
+                        if (editingUser) {
+                            // Update existing user
+                            router.patch(route('admin.users.update-role', editingUser.id), {
+                                role: data.role
+                            }, {
+                                onSuccess: () => {
+                                    setShowCreateModal(false);
+                                    setEditingUser(null);
+                                }
+                            });
+                        } else {
+                            // Create new user
+                            router.post(route('admin.users.store'), {
+                                name: data.name,
+                                email: data.email,
+                                password: data.password,
+                                role: data.role,
+                                status: data.status
+                            }, {
+                                onSuccess: () => {
+                                    setShowCreateModal(false);
+                                },
+                                onError: (errors) => {
+                                    console.error('Failed to create user:', errors);
+                                    // Keep modal open to show errors
+                                }
+                            });
+                        }
                     }}
                     editUser={editingUser}
                 />

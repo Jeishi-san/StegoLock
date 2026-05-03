@@ -10,17 +10,17 @@ return [
     | Uses Laravel's Cache facade, so any supported driver can be used.
     |
     | Supported drivers:
-    |   - 'redis'      : Redis key-value store (production default)
+    |   - 'database'   : Database cache (default, uses cache table)
+    |   - 'redis'      : Redis key-value store (production high-performance)
     |   - 'array'      : In-memory array (best for testing, no persistence)
     |   - 'file'       : File-based cache (no extra software needed)
-    |   - 'database'   : Database cache (uses cache table)
     |   - 'memcached'  : Memcached store (if Memcached is installed)
     |
     | The store must be configured in config/cache.php under 'stores'.
     |
     */
 
-    'store' => env('TEMPORARY_KEY_STORAGE_STORE', 'redis'),
+    'store' => env('TEMPORARY_KEY_STORAGE_STORE', 'database'),
 
     /*
     |--------------------------------------------------------------------------

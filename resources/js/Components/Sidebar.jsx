@@ -73,21 +73,10 @@ export function Sidebar({
     const [showNewMenu, setShowNewMenu] = useState(false);
 
     const [isUploading, setIsUploading] = useState(false);
-    const globalHasProcessingDocs = usePage().props.hasProcessingDocs || false;
 
     // Any ongoing process (either local or background)
     // Only block if a LOCAL upload request is active
     const isProcessOngoing = isUploading;
-
-    useEffect(() => {
-        const handleTriggerUpload = () => {
-            if (!isProcessOngoing) {
-                setShowUploadModal(true);
-            }
-        };
-        window.addEventListener('trigger-upload-modal', handleTriggerUpload);
-        return () => window.removeEventListener('trigger-upload-modal', handleTriggerUpload);
-    }, [isProcessOngoing]);
 
     const storagePercentage = effectiveStorageLimit > 0 
         ? (effectiveTotalStorage / effectiveStorageLimit) * 100 

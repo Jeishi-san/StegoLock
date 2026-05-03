@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5235fed890ab5e44d5663b9b1ca53270",
+    "content-hash": "00744043fba4565ec8c3161decb35919",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -8107,6 +8107,53 @@
                 }
             ],
             "time": "2026-01-27T05:59:18+00:00"
+        },
+        {
+            "name": "reusserdesign/laravel-playwright",
+            "version": "1.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/reusserdesign/laravel-playwright.git",
+                "reference": "a9f72fb87dc408d564f0573a2fd682197fba2910"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/reusserdesign/laravel-playwright/zipball/a9f72fb87dc408d564f0573a2fd682197fba2910",
+                "reference": "a9f72fb87dc408d564f0573a2fd682197fba2910",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/support": "^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0",
+                "php": "^8.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "WebId\\LaravelPlaywright\\PlaywrightServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "WebId\\LaravelPlaywright\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Laravel Playwright Boilerplate",
+            "homepage": "https://github.com/reusserdesign/laravel-playwright",
+            "keywords": [
+                "end-to-end",
+                "laravel",
+                "playwtight"
+            ],
+            "support": {
+                "source": "https://github.com/reusserdesign/laravel-playwright/tree/1.0.1"
+            },
+            "time": "2026-03-21T20:42:33+00:00"
         },
         {
             "name": "sebastian/cli-parser",

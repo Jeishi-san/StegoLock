@@ -36,7 +36,14 @@ export default function SharedDocuments({ documents, pendingShares, pendingFolde
     });
 
     const menuRef = useRef(null);
-    const [localDocs, setLocalDocs] = useState(documents);
+    const normalizeDocuments = (docs) => {
+        if (Array.isArray(docs)) return docs;
+        if (Array.isArray(docs?.data)) return docs.data;
+        return [];
+    };
+
+    const documentList = normalizeDocuments(documents);
+    const [localDocs, setLocalDocs] = useState(documentList);
     const [openMenuId, setOpenMenuId] = useState(null);
     const [openRecipientsId, setOpenRecipientsId] = useState(null);
     const [openRowMenuId, setOpenRowMenuId] = useState(null);
@@ -86,7 +93,7 @@ export default function SharedDocuments({ documents, pendingShares, pendingFolde
     };
 
     useEffect(() => {
-        setLocalDocs(documents);
+        setLocalDocs(normalizeDocuments(documents));
     }, [documents]);
 
     // Polling logic
@@ -137,7 +144,7 @@ export default function SharedDocuments({ documents, pendingShares, pendingFolde
     }, [viewMode]);
 
     const filteredDocs = useMemo(() => {
-        let result = [...localDocs];
+        let result = Array.isArray(localDocs) ? [...localDocs] : [];
 
         // Search Filter
         if (searchQuery) {
